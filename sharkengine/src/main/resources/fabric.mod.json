@@ -1,0 +1,25 @@
+{
+    "schemaVersion": 1,
+    "id": "sharkengine",
+    "version": "${version}",
+    "name": "Shark Engine",
+    "description": "MVP moving ship contraption prototype",
+    "authors": [
+        "dyai"
+    ],
+    "license": "MIT",
+    "environment": "*",
+    "entrypoints": {
+        "main": [
+            "dev.sharkengine.SharkEngineModEntrypoint"
+        ],
+        "client": [
+            "dev.sharkengine.client.SharkEngineClient"
+        ]
+    },
+    "depends": {
+        "minecraft": ">=1.21.1",
+        "fabricloader": ">=0.16.5",
+        "fabric-api": "*"
+    }
+}

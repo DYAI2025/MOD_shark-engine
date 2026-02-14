@@ -1,0 +1,6 @@
+{
+    "model": {
+        "type": "minecraft:model",
+        "model": "sharkengine:block/steering_wheel"
+    }
+}
