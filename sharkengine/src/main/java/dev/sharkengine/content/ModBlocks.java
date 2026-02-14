@@ -5,9 +5,7 @@ import dev.sharkengine.content.block.SteeringWheelBlock;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -40,18 +38,13 @@ public final class ModBlocks {
             BlockBehaviour.Properties props,
             boolean registerItem
     ) {
-        Identifier id = Identifier.fromNamespaceAndPath(SharkEngineMod.MOD_ID, name);
-        ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, id);
-
-        props.setId(blockKey);
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(SharkEngineMod.MOD_ID, name);
         Block block = factory.apply(props);
 
-        Registry.register(BuiltInRegistries.BLOCK, blockKey, block);
+        Registry.register(BuiltInRegistries.BLOCK, id, block);
 
         if (registerItem) {
-            ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, id);
-            Item.Properties itemProps = new Item.Properties().useBlockDescriptionPrefix().setId(itemKey);
-            Registry.register(BuiltInRegistries.ITEM, itemKey, new BlockItem(block, itemProps));
+            Registry.register(BuiltInRegistries.ITEM, id, new BlockItem(block, new Item.Properties()));
         }
 
         return block;

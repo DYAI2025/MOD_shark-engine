@@ -1,6 +1,7 @@
 {
     "replace": false,
     "values": [
+        "sharkengine:steering_wheel",
         "#minecraft:planks",
         "#minecraft:logs",
         "#minecraft:wooden_slabs",

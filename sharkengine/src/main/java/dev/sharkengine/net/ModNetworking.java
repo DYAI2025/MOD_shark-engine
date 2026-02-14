@@ -9,6 +9,7 @@ public final class ModNetworking {
     private ModNetworking() {}
 
     public static void init() {
+        // C2S: Helm input
         PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
@@ -19,5 +20,8 @@ public final class ModNetworking {
                 ship.setInputs(payload.throttle(), payload.turn());
             });
         });
+
+        // S2C: Blueprint sync
+        PayloadTypeRegistry.playS2C().register(ShipBlueprintS2CPayload.TYPE, ShipBlueprintS2CPayload.CODEC);
     }
 }

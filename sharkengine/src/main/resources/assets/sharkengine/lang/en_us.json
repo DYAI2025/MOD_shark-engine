@@ -1,8 +1,12 @@
 {
     "block.sharkengine.steering_wheel": "Steering Wheel",
+    "entity.sharkengine.ship": "Ship",
     "message.sharkengine.assembly_ok": "Ship assembled (%s blocks).",
     "message.sharkengine.assembly_fail_contact": "Assembly blocked: world contact at %s points.",
     "message.sharkengine.assembly_fail_empty": "Nothing to assemble (check eligible tag).",
     "message.sharkengine.anchor_on": "Anchor: ON",
-    "message.sharkengine.anchor_off": "Anchor: OFF"
+    "message.sharkengine.anchor_off": "Anchor: OFF",
+    "message.sharkengine.disassembly_ok": "Ship disassembled (%s blocks placed).",
+    "message.sharkengine.disassembly_partial": "Ship disassembled partially (%s blocks placed, some obstructed).",
+    "message.sharkengine.disassembly_fail_no_blueprint": "Cannot disassemble: no blueprint data."
 }

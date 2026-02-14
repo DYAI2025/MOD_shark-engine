@@ -1,0 +1,7 @@
+.gradle/
+build/
+run/
+*.class
+*.log
+# Keep gradle-wrapper.jar tracked
+!gradle/wrapper/gradle-wrapper.jar
