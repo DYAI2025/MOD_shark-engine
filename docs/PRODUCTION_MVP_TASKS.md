@@ -33,7 +33,7 @@
 
 Ziel laut Produktvision:
 1. Steuerrad präzise in **allen drei Dimensionen** steuerbar.
-2. **Keine Eigenbewegung (Drift)**, keine Stocker; **flüssig/ruckelfrei**.
+2. **Keine Eigenbewegung (Drift)**, keine Ruckler; **flüssig/ruckelfrei**.
 3. MVP-Design: **altes Schiffssteuerrad** + **Plasma-/Feuer-Block**.
 4. Nur Strukturen mit **Gesamtmasse <= X** und **ohne direkten Bodenkontakt** sind bewegbar.
 5. Spieler wählt **Wasser / Rad / Luft**, Eigenschaft als **permanenter, nicht entfernbarer Buff** auf Steuerrad.
