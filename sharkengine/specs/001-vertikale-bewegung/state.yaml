@@ -1,0 +1,109 @@
+# Spec-Flow Feature State Tracker
+# Wird automatisch von Spec-Flow Scripts aktualisiert
+
+feature:
+  id: "001"
+  name: "Vertikale Schiffsbewegung"
+  slug: "vertikale-bewegung"
+  status: "spec_complete"
+  created: "2026-02-25T02:45:00Z"
+  updated: "2026-02-25T02:45:00Z"
+
+workflow:
+  current_phase: "spec"
+  deployment_model: "local-only"
+  
+phases:
+  spec:
+    status: "complete"
+    started: "2026-02-25T02:45:00Z"
+    completed: "2026-02-25T02:45:00Z"
+    artifacts:
+      - "specs/001-vertikale-bewegung/spec.md"
+    notes: "Initiale Spezifikation erstellt"
+    
+  clarify:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+    
+  plan:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+    
+  tasks:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+    
+  implement:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+    
+  optimize:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+    
+  ship:
+    status: "pending"
+    started: null
+    completed: null
+    artifacts: []
+    notes: null
+
+metrics:
+  total_tasks: 0
+  completed_tasks: 0
+  failed_tests: 0
+  coverage_percent: 0
+  duration_hours: 0
+
+open_questions:
+  - id: "Q-001"
+    question: "Soll es eine automatische Kollisionsvermeidung geben?"
+    priority: "niedrig"
+    status: "offen"
+    
+  - id: "Q-002"
+    question: "Soll die maximale Steiggeschwindigkeit konfigurierbar sein?"
+    priority: "mittel"
+    status: "offen"
+    
+  - id: "Q-003"
+    question: "Soll es visuelle Effekte beim Steigen geben?"
+    priority: "niedrig"
+    status: "offen"
+
+assumptions:
+  - id: "A-001"
+    assumption: "Minecraft Weltkoordinaten verwenden Y-Achse für Höhe"
+    risk: "niedrig"
+    validated: false
+    
+  - id: "A-002"
+    assumption: "Existierende ShipEntity kann um Y-Bewegung erweitert werden"
+    risk: "mittel"
+    validated: false
+    
+  - id: "A-003"
+    assumption: "Client-Input kann ohne große Latenz zum Server übertragen werden"
+    risk: "niedrig"
+    validated: false
+
+git:
+  worktree_created: false
+  worktree_path: null
+  branch: "main"

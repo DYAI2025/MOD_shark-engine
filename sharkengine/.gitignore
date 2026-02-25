@@ -1,0 +1,26 @@
+# Spec-Flow
+.spec-flow/memory/interaction-state.yaml
+.spec-flow/memory/state.yaml
+epics/
+
+# Build
+build/
+.gradle/
+logs/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+run/
+test-result.txt
+# Spec-Flow Feature specs (nicht ignorieren)
