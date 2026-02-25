@@ -3,11 +3,12 @@
 
 feature:
   id: "001"
-  name: "Vertikale Schiffsbewegung"
+  name: "Vertikale Schiffsbewegung - Luftfahrzeug MVP"
   slug: "vertikale-bewegung"
-  status: "spec_complete"
+  status: "clarify_complete"
+  vehicle_class: "B (AIR)"
   created: "2026-02-25T02:45:00Z"
-  updated: "2026-02-25T02:45:00Z"
+  updated: "2026-02-25T03:30:00Z"
 
 workflow:
   current_phase: "clarify"
