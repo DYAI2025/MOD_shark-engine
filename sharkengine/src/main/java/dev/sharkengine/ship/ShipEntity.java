@@ -20,6 +20,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
 
 import java.util.UUID;
 
@@ -169,6 +170,45 @@ public final class ShipEntity extends Entity {
         this.inputVertical = clamp(inputVertical, -1.0f, 1.0f);
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // FUEL REFILL (Task 3.5)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Adds fuel to the ship's fuel tank.
+     * 
+     * @param woodCount Number of wood blocks to convert to fuel
+     * @return Actual fuel added (may be capped at maximum)
+     */
+    public int addFuel(int woodCount) {
+        int energyToAdd = FuelSystem.woodToEnergy(woodCount);
+        int oldFuel = fuelLevel;
+        
+        // Add fuel, capped at MAX_FUEL (100)
+        fuelLevel = Math.min(FuelSystem.MAX_FUEL, fuelLevel + energyToAdd);
+        
+        // Reset engine out flag if fuel added
+        if (fuelLevel > 0) {
+            engineOut = false;
+        }
+        
+        int added = fuelLevel - oldFuel;
+        
+        // Send feedback to nearby players
+        if (!level().isClientSide && added > 0) {
+            for (ServerPlayer sp : ((ServerLevel) level()).players()) {
+                if (sp.distanceTo(this) < 32) {
+                    sp.sendSystemMessage(Component.translatable(
+                        "message.sharkengine.fuel_added", 
+                        FuelSystem.formatFuelDisplay(fuelLevel, FuelSystem.MAX_FUEL)
+                    ));
+                }
+            }
+        }
+        
+        return added;
+    }
+
     /**
      * Sets the input values for ship control
      * 
@@ -216,11 +256,16 @@ public final class ShipEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag compound) {
+        // EXISTING: Blueprint, Anchored, Pilot
         if (compound.contains("Blueprint")) {
             this.blueprint = ShipBlueprint.fromNbt(
                     compound.getCompound("Blueprint"),
                     level().registryAccess()
             );
+            // Update blockCount from blueprint
+            this.blockCount = this.blueprint.blockCount();
+            this.weightCategory = WeightCategory.fromBlockCount(blockCount);
+            this.maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
         }
         if (compound.contains("Anchored")) {
             this.entityData.set(ANCHORED, compound.getBoolean("Anchored"));
@@ -228,10 +273,28 @@ public final class ShipEntity extends Entity {
         if (compound.hasUUID("Pilot")) {
             this.pilot = compound.getUUID("Pilot");
         }
+        
+        // NEW (Task 3.3): Luftfahrzeug-MVP Felder
+        if (compound.contains("FuelLevel")) {
+            this.fuelLevel = compound.getInt("FuelLevel");
+        }
+        if (compound.contains("AccelerationTicks")) {
+            this.accelerationTicks = compound.getInt("AccelerationTicks");
+        }
+        if (compound.contains("CurrentSpeed")) {
+            this.currentSpeed = compound.getFloat("CurrentSpeed");
+        }
+        if (compound.contains("EngineOut")) {
+            this.engineOut = compound.getBoolean("EngineOut");
+        }
+        if (compound.contains("BlockCount")) {
+            this.blockCount = compound.getInt("BlockCount");
+        }
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag compound) {
+        // EXISTING: Blueprint, Anchored, Pilot
         if (blueprint != null) {
             compound.put("Blueprint", blueprint.toNbt());
         }
@@ -239,6 +302,13 @@ public final class ShipEntity extends Entity {
         if (pilot != null) {
             compound.putUUID("Pilot", pilot);
         }
+        
+        // NEW (Task 3.3): Luftfahrzeug-MVP Felder
+        compound.putInt("FuelLevel", fuelLevel);
+        compound.putInt("AccelerationTicks", accelerationTicks);
+        compound.putFloat("CurrentSpeed", currentSpeed);
+        compound.putBoolean("EngineOut", engineOut);
+        compound.putInt("BlockCount", blockCount);
     }
 
     // --- S2C Sync (Step 3) ---
@@ -292,6 +362,60 @@ public final class ShipEntity extends Entity {
         this.discard();
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PHYSICS UPDATE (Task 3.1)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Updates ship physics: acceleration, weight, height penalty, fuel consumption.
+     * Called every tick from tick() method.
+     */
+    private void updatePhysics() {
+        if (level().isClientSide) return;
+        
+        // ━━━ Beschleunigung ━━━
+        if (inputForward > 0 && !engineOut) {
+            accelerationTicks++;
+        } else if (inputForward <= 0) {
+            // Reset acceleration when not pressing forward
+            accelerationTicks = 0;
+            currentSpeed = 0.0f;
+        }
+        
+        phase = ShipPhysics.calculatePhase(accelerationTicks);
+        
+        // ━━━ Gewicht (Block-Anzahl) ━━━
+        maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
+        weightCategory = WeightCategory.fromBlockCount(blockCount);
+        
+        // ━━━ Höhen-Penalty ━━━
+        heightPenalty = ShipPhysics.calculateHeightPenalty(this.getY());
+        
+        // ━━━ Aktuelle Geschwindigkeit berechnen ━━━
+        // Interpolate smoothly towards target speed
+        float targetSpeed = maxSpeed * heightPenalty * (phase.getSpeed() / 30.0f);
+        currentSpeed = Mth.lerp(0.1f, currentSpeed, targetSpeed);
+        
+        // ━━━ Treibstoff verbrauchen ━━━
+        if (!engineOut && inputForward > 0) {
+            int consumption = ShipPhysics.calculateFuelConsumption(phase);
+            fuelLevel -= consumption;
+            
+            if (fuelLevel <= 0) {
+                engineOut = true;
+                fuelLevel = 0;
+                if (!level().isClientSide) {
+                    sendSystemMessage(Component.translatable("message.sharkengine.no_fuel"));
+                }
+            }
+        }
+        
+        // ━━━ Gewicht-Warnungen ━━━
+        if (weightCategory == WeightCategory.OVERLOADED && !level().isClientSide) {
+            sendSystemMessage(Component.translatable("message.sharkengine.too_heavy"));
+        }
+    }
+
     // --- Tick ---
 
     @Override
@@ -300,28 +424,51 @@ public final class ShipEntity extends Entity {
 
         if (level().isClientSide) return;
 
+        // ━━━ Anchor-Check ━━━
         if (isAnchored()) {
             setDeltaMovement(Vec3.ZERO);
             return;
         }
 
-        // Turn
+        // ━━━ Physik-Update (Task 3.1) ━━━
+        updatePhysics();
+
+        // ━━━ Engine-Out Check ━━━
+        if (engineOut) {
+            // Schiff fällt langsam (wie Sand)
+            Vec3 fallVelocity = new Vec3(0, -0.5, 0);
+            setDeltaMovement(fallVelocity);
+            this.move(MoverType.SELF, getDeltaMovement());
+            return;
+        }
+
+        // ━━━ Turn (Rotation) ━━━
         float yaw = this.getYRot() + (inputTurn * 4.0f); // deg/tick
         this.setYRot(yaw);
 
-        // Forward accel
+        // ━━━ Forward Movement ━━━
         double rad = Math.toRadians(yaw);
         double fx = -Math.sin(rad);
         double fz =  Math.cos(rad);
 
-        Vec3 accel = new Vec3(fx, 0, fz).scale(inputThrottle * 0.05);
-        Vec3 vel = this.getDeltaMovement().add(accel);
+        // Bewegung mit currentSpeed anwenden
+        Vec3 moveVec = new Vec3(fx, 0, fz).scale(currentSpeed * 0.05);
+        
+        // ━━━ Vertical Movement (Leertaste/Shift) ━━━
+        double verticalMotion = inputVertical * 0.5; // Aufsteigen/Absteigen
+        
+        Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
 
-        // Drag
+        // ━━━ Drag (Luftwiderstand) ━━━
         vel = new Vec3(vel.x * 0.90, vel.y * 0.98, vel.z * 0.90);
         this.setDeltaMovement(vel);
 
-        // Move (vanilla collision against world, with our entity AABB)
+        // ━━━ Kollision prüfen (Task 3.2) ━━━
+        if (ShipPhysics.checkCollision(level(), blockPosition())) {
+            setDeltaMovement(Vec3.ZERO);
+        }
+
+        // ━━━ Bewegung anwenden ━━━
         this.move(MoverType.SELF, this.getDeltaMovement());
     }
 
