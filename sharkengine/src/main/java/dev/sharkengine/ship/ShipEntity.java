@@ -1,5 +1,6 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.content.ModBlocks;
 import dev.sharkengine.net.ShipBlueprintS2CPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
@@ -39,7 +40,7 @@ public final class ShipEntity extends Entity {
     // EXISTING FIELDS
     // ═══════════════════════════════════════════════════════════════════
     
-    private float inputThrottle; // -1..+1 (vertical)
+    private float inputThrottle; // -1..+1 (legacy throttle alias)
     private float inputTurn;     // -1..+1 (rotation)
     private ShipBlueprint blueprint;
     private UUID pilot;
@@ -71,6 +72,9 @@ public final class ShipEntity extends Entity {
     
     /** Current weight category */
     private WeightCategory weightCategory = WeightCategory.LIGHT;
+
+    /** Whether the blueprint contains thruster blocks */
+    private boolean hasThrusters = false;
     
     /** Fuel level in energy units (0-100) */
     private int fuelLevel = 100;
@@ -90,12 +94,7 @@ public final class ShipEntity extends Entity {
 
     public void setBlueprint(ShipBlueprint blueprint) {
         this.blueprint = blueprint;
-        // Update block count from blueprint
-        if (blueprint != null) {
-            this.blockCount = blueprint.blocks().size();
-            this.weightCategory = WeightCategory.fromBlockCount(blockCount);
-            this.maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
-        }
+        applyBlueprintStats();
     }
 
     public ShipBlueprint getBlueprint() {
@@ -152,6 +151,10 @@ public final class ShipEntity extends Entity {
 
     public boolean isEngineOut() {
         return engineOut;
+    }
+
+    public boolean hasThrusters() {
+        return hasThrusters;
     }
 
     public float getInputForward() {
@@ -217,14 +220,18 @@ public final class ShipEntity extends Entity {
      * @param forward Forward acceleration (0..1)
      */
     public void setInputs(float throttle, float turn, float forward) {
-        this.inputThrottle = clamp(throttle, -1.0f, 1.0f);
+        float clampedThrottle = clamp(throttle, -1.0f, 1.0f);
+        this.inputThrottle = clampedThrottle;
+        setInputVertical(clampedThrottle);
         this.inputTurn = clamp(turn, -1.0f, 1.0f);
         this.inputForward = clamp(forward, 0.0f, 1.0f);
     }
 
     public void setInputs(float throttle, float turn) {
-        this.inputThrottle = clamp(throttle, -1f, 1f);
-        this.inputTurn = clamp(turn, -1f, 1f);
+        float clampedThrottle = clamp(throttle, -1.0f, 1.0f);
+        this.inputThrottle = clampedThrottle;
+        setInputVertical(clampedThrottle);
+        this.inputTurn = clamp(turn, -1.0f, 1.0f);
     }
 
     public void setYawDeg(float yaw) {
@@ -262,10 +269,7 @@ public final class ShipEntity extends Entity {
                     compound.getCompound("Blueprint"),
                     level().registryAccess()
             );
-            // Update blockCount from blueprint
-            this.blockCount = this.blueprint.blockCount();
-            this.weightCategory = WeightCategory.fromBlockCount(blockCount);
-            this.maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
+            applyBlueprintStats();
         }
         if (compound.contains("Anchored")) {
             this.entityData.set(ANCHORED, compound.getBoolean("Anchored"));
@@ -464,7 +468,7 @@ public final class ShipEntity extends Entity {
         this.setDeltaMovement(vel);
 
         // ━━━ Kollision prüfen (Task 3.2) ━━━
-        if (ShipPhysics.checkCollision(level(), blockPosition())) {
+        if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint)) {
             setDeltaMovement(Vec3.ZERO);
         }
 
@@ -498,5 +502,19 @@ public final class ShipEntity extends Entity {
 
     private static float clamp(float v, float a, float b) {
         return Math.max(a, Math.min(b, v));
+    }
+
+    private void applyBlueprintStats() {
+        if (blueprint == null) {
+            blockCount = 0;
+            weightCategory = WeightCategory.LIGHT;
+            maxSpeed = ShipPhysics.calculateMaxSpeed(0);
+            hasThrusters = false;
+            return;
+        }
+        blockCount = blueprint.blockCount();
+        weightCategory = WeightCategory.fromBlockCount(blockCount);
+        maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
+        hasThrusters = blueprint.blocks().stream().anyMatch(block -> block.state().is(ModBlocks.THRUSTER));
     }
 }

@@ -3,6 +3,11 @@ package dev.sharkengine.ship;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Predicate;
+
 /**
  * Utility class for ship physics calculations.
  * Provides static methods for calculating speed, height penalties, and collision detection.
@@ -123,10 +128,54 @@ public final class ShipPhysics {
      * @return true if collision detected, false otherwise
      */
     public static boolean checkCollision(Level level, BlockPos pos) {
+        return checkCollision(level, pos, null);
+    }
+
+    /**
+     * Checks collisions for the full blueprint footprint.
+     * Falls back to a single-block probe when the blueprint is null.
+     */
+    public static boolean checkCollision(Level level, BlockPos pos, ShipBlueprint blueprint) {
         if (level == null || pos == null) {
             return false;
         }
-        return !level.getBlockState(pos).isAir();
+
+        List<BlockVector> offsets = collectOffsets(blueprint);
+        return hasCollision(
+                BlockVector.from(pos),
+                offsets,
+                vector -> !level.getBlockState(vector.toBlockPos()).isAir()
+        );
+    }
+
+    static boolean hasCollision(BlockVector origin, List<BlockVector> offsets,
+                                Predicate<BlockVector> isSolid) {
+        if (origin == null || isSolid == null) {
+            return false;
+        }
+
+        if (offsets == null || offsets.isEmpty()) {
+            return isSolid.test(origin);
+        }
+
+        for (BlockVector offset : offsets) {
+            if (isSolid.test(origin.add(offset))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private static List<BlockVector> collectOffsets(ShipBlueprint blueprint) {
+        if (blueprint == null || blueprint.blocks().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<BlockVector> offsets = new ArrayList<>(blueprint.blocks().size());
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            offsets.add(new BlockVector(block.dx(), block.dy(), block.dz()));
+        }
+        return offsets;
     }
     
     /**
@@ -139,5 +188,39 @@ public final class ShipPhysics {
      */
     public static float calculateEffectiveSpeed(float baseSpeed, float heightPenalty, float weightPenalty) {
         return baseSpeed * heightPenalty * weightPenalty;
+    }
+
+    /**
+     * Lightweight integer vector for collision math to keep tests free of Minecraft classes.
+     */
+    static final class BlockVector {
+        private final int x;
+        private final int y;
+        private final int z;
+
+        BlockVector(int x, int y, int z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        static BlockVector from(BlockPos pos) {
+            return new BlockVector(pos.getX(), pos.getY(), pos.getZ());
+        }
+
+        BlockPos toBlockPos() {
+            return new BlockPos(x, y, z);
+        }
+
+        BlockVector add(BlockVector other) {
+            if (other == null) {
+                return this;
+            }
+            return new BlockVector(x + other.x, y + other.y, z + other.z);
+        }
+
+        int x() { return x; }
+        int y() { return y; }
+        int z() { return z; }
     }
 }

@@ -1,12 +1,25 @@
 {
     "block.sharkengine.steering_wheel": "Steering Wheel",
+    "block.sharkengine.thruster": "Thruster",
     "entity.sharkengine.ship": "Ship",
     "message.sharkengine.assembly_ok": "Ship assembled (%s blocks).",
     "message.sharkengine.assembly_fail_contact": "Assembly blocked: world contact at %s points.",
+    "message.sharkengine.assembly_fail_invalid": "Remove highlighted blocks (%s invalid parts).",
     "message.sharkengine.assembly_fail_empty": "Nothing to assemble (check eligible tag).",
     "message.sharkengine.anchor_on": "Anchor: ON",
     "message.sharkengine.anchor_off": "Anchor: OFF",
     "message.sharkengine.disassembly_ok": "Ship disassembled (%s blocks placed).",
     "message.sharkengine.disassembly_partial": "Ship disassembled partially (%s blocks placed, some obstructed).",
-    "message.sharkengine.disassembly_fail_no_blueprint": "Cannot disassemble: no blueprint data."
+    "message.sharkengine.disassembly_fail_no_blueprint": "Cannot disassemble: no blueprint data.",
+    "message.sharkengine.builder_open": "Builder mode ready. Review highlighted blocks before launch.",
+    "message.sharkengine.builder_invalid": "Builder blocked by %s invalid attachments.",
+    "message.sharkengine.builder_contacts": "Builder blocked by %s world contacts.",
+    "screen.sharkengine.builder.title": "Airship Builder",
+    "screen.sharkengine.builder.blocks": "%s connected blocks",
+    "screen.sharkengine.builder.invalid": "%s invalid attachments",
+    "screen.sharkengine.builder.contacts": "%s terrain contacts",
+    "screen.sharkengine.builder.instructions": "Place eligible blocks and thrusters. Red highlights must be removed before launch.",
+    "screen.sharkengine.builder.action": "Assemble & Launch",
+    "screen.sharkengine.builder.action_disabled": "Resolve highlights to enable launch",
+    "item.sharkengine.thruster": "Thruster"
 }

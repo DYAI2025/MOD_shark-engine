@@ -1,8 +1,11 @@
 package dev.sharkengine.net;
 
+import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.ShipEntity;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -30,6 +33,7 @@ public final class ModNetworking {
         // C2S: Helm Input (Client → Server)
         // ═══════════════════════════════════════════════════════════════════
         PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(BuilderAssembleC2SPayload.TYPE, BuilderAssembleC2SPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
@@ -42,9 +46,33 @@ public final class ModNetworking {
             });
         });
 
+        ServerPlayNetworking.registerGlobalReceiver(BuilderAssembleC2SPayload.TYPE, (payload, ctx) -> {
+            ServerPlayer sp = ctx.player();
+            ctx.server().execute(() -> {
+                if (!(sp.level() instanceof ServerLevel serverLevel)) {
+                    return;
+                }
+                ShipAssemblyService.AssembleResult result = ShipAssemblyService.tryAssemble(serverLevel, payload.wheelPos(), sp);
+                sp.sendSystemMessage(Component.translatable(result.translationKey(), result.arg()));
+
+                boolean success = "message.sharkengine.assembly_ok".equals(result.translationKey());
+                if (success) {
+                    ServerPlayNetworking.send(sp, BuilderPreviewS2CPayload.close());
+                } else {
+                    ShipAssemblyService.openBuilderPreview(serverLevel, payload.wheelPos(), sp);
+                    if ("message.sharkengine.assembly_fail_invalid".equals(result.translationKey())) {
+                        sp.sendSystemMessage(Component.translatable("message.sharkengine.builder_invalid", result.arg()));
+                    } else if ("message.sharkengine.assembly_fail_contact".equals(result.translationKey())) {
+                        sp.sendSystemMessage(Component.translatable("message.sharkengine.builder_contacts", result.arg()));
+                    }
+                }
+            });
+        });
+
         // ═══════════════════════════════════════════════════════════════════
         // S2C: Blueprint Sync (Server → Client)
         // ═══════════════════════════════════════════════════════════════════
         PayloadTypeRegistry.playS2C().register(ShipBlueprintS2CPayload.TYPE, ShipBlueprintS2CPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(BuilderPreviewS2CPayload.TYPE, BuilderPreviewS2CPayload.CODEC);
     }
 }

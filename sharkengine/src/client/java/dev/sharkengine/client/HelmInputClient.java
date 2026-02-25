@@ -4,7 +4,6 @@ import dev.sharkengine.net.HelmInputC2SPayload;
 import dev.sharkengine.ship.ShipEntity;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
 /**
@@ -25,10 +24,9 @@ import net.minecraft.client.player.LocalPlayer;
  * @version 2.0 (Luftfahrzeug-MVP)
  */
 public final class HelmInputClient {
-    private static float lastT = 0;      // Last throttle value
-    private static float lastR = 0;      // Last turn value
-    private static float lastF = 0;      // Last forward value (NEW)
-    private static float lastV = 0;      // Last vertical value (NEW)
+    private static float lastThrottle = 0.0f;
+    private static float lastTurn = 0.0f;
+    private static float lastForward = 0.0f;
     private static int cooldown = 0;
 
     private HelmInputClient() {}
@@ -72,14 +70,14 @@ public final class HelmInputClient {
             }
 
             // Send only if changed or every few ticks (network optimization)
-            boolean inputChanged = (vertical != lastT) || (turn != lastR) || 
-                                   (forward != lastF) || (vertical != lastV);
+            boolean inputChanged = (vertical != lastThrottle)
+                    || (turn != lastTurn)
+                    || (forward != lastForward);
             
             if (cooldown == 0 && inputChanged) {
-                lastT = vertical;  // throttle = vertical input
-                lastR = turn;
-                lastF = forward;
-                lastV = vertical;
+                lastThrottle = vertical;
+                lastTurn = turn;
+                lastForward = forward;
                 cooldown = 2; // ~10Hz at 20tps
                 
                 // Send payload with all 3 parameters

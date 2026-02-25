@@ -1,7 +1,11 @@
 package dev.sharkengine.ship;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -128,12 +132,43 @@ class ShipPhysicsTest {
     }
     
     @Test
-    @DisplayName("checkCollision: Returns true for solid blocks")
+    @DisplayName("checkCollision: Single block probe detects solids")
     void testCheckCollision_Solid() {
-        // Note: This test requires a mock Level, so we skip for now
-        // In a real test, you'd use Mockito to create a mock Level
-        // For now, we trust the implementation
-        assertTrue(true); // Placeholder
+        boolean result = ShipPhysics.hasCollision(
+                new ShipPhysics.BlockVector(0, 0, 0),
+                Collections.emptyList(),
+                vector -> vector.x() == 0 && vector.y() == 0 && vector.z() == 0
+        );
+
+        assertTrue(result);
+    }
+
+    @Test
+    @DisplayName("checkCollision: Blueprint footprint stops on collisions")
+    void testCheckCollision_BlueprintHitsSolid() {
+        List<ShipPhysics.BlockVector> offsets = List.of(new ShipPhysics.BlockVector(0, 0, 0));
+
+        boolean result = ShipPhysics.hasCollision(
+                new ShipPhysics.BlockVector(5, 5, 5),
+                offsets,
+                vector -> vector.x() == 5 && vector.y() == 5 && vector.z() == 5
+        );
+
+        assertTrue(result);
+    }
+
+    @Test
+    @DisplayName("checkCollision: Blueprint moves freely through air")
+    void testCheckCollision_BlueprintNoSolid() {
+        List<ShipPhysics.BlockVector> offsets = List.of(new ShipPhysics.BlockVector(1, 0, 0));
+
+        boolean result = ShipPhysics.hasCollision(
+                new ShipPhysics.BlockVector(0, 0, 0),
+                offsets,
+                vector -> false
+        );
+
+        assertFalse(result);
     }
     
     @Test

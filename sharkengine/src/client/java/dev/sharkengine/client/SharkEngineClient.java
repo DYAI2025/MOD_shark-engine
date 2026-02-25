@@ -1,8 +1,9 @@
 package dev.sharkengine.client;
 
-import dev.sharkengine.content.ModEntities;
+import dev.sharkengine.client.builder.BuilderModeClient;
 import dev.sharkengine.client.render.FuelHudOverlay;
 import dev.sharkengine.client.render.ShipEntityRenderer;
+import dev.sharkengine.content.ModEntities;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -29,6 +30,10 @@ public final class SharkEngineClient implements ClientModInitializer {
         
         // Initialize blueprint handler
         ShipBlueprintHandler.init();
+
+        // Builder overlay & automatic camera controls
+        BuilderModeClient.init();
+        FlightCameraHandler.init();
         
         // Register ship entity renderer
         EntityRendererRegistry.register(ModEntities.SHIP, ShipEntityRenderer::new);

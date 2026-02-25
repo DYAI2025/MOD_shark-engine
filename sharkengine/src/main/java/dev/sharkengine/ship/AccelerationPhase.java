@@ -1,7 +1,6 @@
 package dev.sharkengine.ship;
 
 import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 
 /**
  * Enum representing the 5 acceleration phases for air vehicles.
@@ -24,32 +23,32 @@ public enum AccelerationPhase {
      * Phase 1: Initial acceleration (0-2 seconds)
      * Speed: 5 blocks/sec, Particle Intensity: 20%
      */
-    PHASE_1(0, 40, 5.0f, 0.2f, ParticleTypes.CAMPFIRE_COSY_SMOKE),
+    PHASE_1(0, 40, 5.0f, 0.2f, "campfire"),
     
     /**
      * Phase 2: Building speed (2-4 seconds)
      * Speed: 15 blocks/sec, Particle Intensity: 40%
      */
-    PHASE_2(40, 80, 15.0f, 0.4f, ParticleTypes.CAMPFIRE_COSY_SMOKE),
+    PHASE_2(40, 80, 15.0f, 0.4f, "campfire"),
     
     /**
      * Phase 3: Moderate speed (4-5 seconds)
      * Speed: 20 blocks/sec, Particle Intensity: 60%
      * Switches to flame particles
      */
-    PHASE_3(80, 100, 20.0f, 0.6f, ParticleTypes.FLAME),
+    PHASE_3(80, 100, 20.0f, 0.6f, "flame"),
     
     /**
      * Phase 4: High speed (5-6 seconds)
      * Speed: 25 blocks/sec, Particle Intensity: 80%
      */
-    PHASE_4(100, 120, 25.0f, 0.8f, ParticleTypes.FLAME),
+    PHASE_4(100, 120, 25.0f, 0.8f, "flame"),
     
     /**
      * Phase 5: Maximum speed (6+ seconds)
      * Speed: 30 blocks/sec, Particle Intensity: 100%
      */
-    PHASE_5(120, -1, 30.0f, 1.0f, ParticleTypes.FLAME);
+    PHASE_5(120, -1, 30.0f, 1.0f, "flame");
     
     /**
      * Starting tick for this phase (20 ticks = 1 second)
@@ -72,9 +71,11 @@ public enum AccelerationPhase {
     private final float particleIntensity;
     
     /**
-     * Type of particle to spawn
+     * Particle identifier; resolved lazily to avoid client-only class loading during tests.
      */
-    private final ParticleOptions particleType;
+    private final String particleKey;
+
+    private ParticleOptions cachedParticle;
     
     /**
      * Constructor for AccelerationPhase
@@ -85,12 +86,12 @@ public enum AccelerationPhase {
      * @param particleIntensity Particle intensity (0.0 - 1.0)
      * @param particleType Type of particle to spawn
      */
-    AccelerationPhase(int startTick, int endTick, float speed, float particleIntensity, ParticleOptions particleType) {
+    AccelerationPhase(int startTick, int endTick, float speed, float particleIntensity, String particleKey) {
         this.startTick = startTick;
         this.endTick = endTick;
         this.speed = speed;
         this.particleIntensity = particleIntensity;
-        this.particleType = particleType;
+        this.particleKey = particleKey;
     }
     
     /**
@@ -135,7 +136,10 @@ public enum AccelerationPhase {
      * @return ParticleOptions for rendering
      */
     public ParticleOptions getParticleType() {
-        return particleType;
+        if (cachedParticle == null) {
+            cachedParticle = ShipParticles.resolve(particleKey);
+        }
+        return cachedParticle;
     }
     
     /**

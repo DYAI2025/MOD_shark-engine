@@ -84,6 +84,9 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
      * @param entity The ship entity to spawn particles for
      */
     private void spawnThrusterParticles(ShipEntity entity) {
+        if (!entity.hasThrusters()) {
+            return;
+        }
         AccelerationPhase phase = entity.getPhase();
         ParticleOptions particleType = phase.getParticleType();
         float intensity = phase.getParticleIntensity();

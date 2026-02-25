@@ -111,8 +111,8 @@ class FuelSystemTest {
     @Test
     @DisplayName("formatRemainingTime: Shows minutes for long times")
     void testFormatRemainingTime_Minutes() {
-        assertEquals("1m", FuelSystem.formatRemainingTime(120, AccelerationPhase.PHASE_1));
-        assertEquals("2m", FuelSystem.formatRemainingTime(240, AccelerationPhase.PHASE_1));
+        assertEquals("1m", FuelSystem.formatRemainingTime(60, AccelerationPhase.PHASE_1));
+        assertEquals("2m", FuelSystem.formatRemainingTime(120, AccelerationPhase.PHASE_1));
     }
     
     @Test

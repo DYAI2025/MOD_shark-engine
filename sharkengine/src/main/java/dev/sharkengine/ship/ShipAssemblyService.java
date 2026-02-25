@@ -2,6 +2,7 @@ package dev.sharkengine.ship;
 
 import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.ModTags;
+import dev.sharkengine.net.BuilderPreviewS2CPayload;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
@@ -11,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -25,77 +27,121 @@ public final class ShipAssemblyService {
 
     public record AssembleResult(String translationKey, Object arg) {}
 
-    public static AssembleResult tryAssemble(ServerLevel level, BlockPos wheelPos, ServerPlayer pilot) {
-        // 1) BFS collect
-        LongSet ship = new LongOpenHashSet();
-        ArrayDeque<BlockPos> q = new ArrayDeque<>();
-        q.add(wheelPos);
-
-        while (!q.isEmpty() && ship.size() < MAX_BLOCKS) {
-            BlockPos p = q.poll();
-            if (p.distManhattan(wheelPos) > MAX_RADIUS) continue;
-
-            long key = p.asLong();
-            if (ship.contains(key)) continue;
-
-            BlockState st = level.getBlockState(p);
-            if (st.isAir()) continue;
-
-            // eligibility gate
-            if (!st.is(ModTags.SHIP_ELIGIBLE)) continue;
-
-            ship.add(key);
-
-            for (Direction d : Direction.values()) {
-                q.add(p.relative(d));
-            }
+    public record StructureScan(BlockPos origin,
+                                List<ShipBlueprint.ShipBlock> blocks,
+                                List<BlockPos> invalidAttachments,
+                                int contactPoints) {
+        public boolean isEmpty() {
+            return blocks.isEmpty();
         }
 
-        if (ship.isEmpty()) {
+        public int blockCount() {
+            return blocks.size();
+        }
+
+        public boolean canAssemble() {
+            return !isEmpty() && invalidAttachments.isEmpty() && contactPoints == 0;
+        }
+
+        public ShipBlueprint toBlueprint() {
+            return new ShipBlueprint(origin, blocks, blockCount());
+        }
+    }
+
+    public static AssembleResult tryAssemble(ServerLevel level, BlockPos wheelPos, ServerPlayer pilot) {
+        StructureScan scan = scanStructure(level, wheelPos);
+
+        if (scan.isEmpty()) {
             return new AssembleResult("message.sharkengine.assembly_fail_empty", "");
         }
 
-        // 2) World-contact gate (pragmatic MVP)
-        int contactPoints = countWorldContacts(level, ship);
-        if (contactPoints > 0) {
-            return new AssembleResult("message.sharkengine.assembly_fail_contact", contactPoints);
+        if (!scan.invalidAttachments().isEmpty()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_invalid", scan.invalidAttachments().size());
         }
 
-        // 3) Snapshot blueprint + remove blocks
-        List<ShipBlueprint.ShipBlock> blocks = new ArrayList<>(ship.size());
-        for (var it = ship.iterator(); it.hasNext(); ) {
-            long key = it.nextLong();
-            BlockPos p = BlockPos.of(key);
-            BlockState st = level.getBlockState(p);
-            blocks.add(new ShipBlueprint.ShipBlock(
-                    p.getX() - wheelPos.getX(),
-                    p.getY() - wheelPos.getY(),
-                    p.getZ() - wheelPos.getZ(),
-                    st
-            ));
+        if (scan.contactPoints() > 0) {
+            return new AssembleResult("message.sharkengine.assembly_fail_contact", scan.contactPoints());
         }
 
-        // Remove (NOTE: no block-entity/NBT yet in this MVP base)
-        for (var it = ship.iterator(); it.hasNext(); ) {
-            BlockPos p = BlockPos.of(it.nextLong());
-            level.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
+        ShipBlueprint blueprint = scan.toBlueprint();
+
+        // Remove scanned blocks
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            BlockPos target = wheelPos.offset(block.dx(), block.dy(), block.dz());
+            level.setBlock(target, Blocks.AIR.defaultBlockState(), 3);
         }
 
         // 4) Spawn ship entity
         ShipEntity shipEntity = new ShipEntity(ModEntities.SHIP, level);
         shipEntity.setPos(wheelPos.getX() + 0.5, wheelPos.getY() + 0.5, wheelPos.getZ() + 0.5);
         shipEntity.setYawDeg(pilot.getYRot());
-        
-        // NEW: Pass blockCount explicitly to ShipBlueprint constructor
-        int blockCount = blocks.size();
-        shipEntity.setBlueprint(new ShipBlueprint(wheelPos, blocks, blockCount));
-        
+
+        shipEntity.setBlueprint(blueprint);
         shipEntity.setPilot(pilot);
         level.addFreshEntity(shipEntity);
 
         pilot.startRiding(shipEntity, true);
 
-        return new AssembleResult("message.sharkengine.assembly_ok", blockCount);
+        return new AssembleResult("message.sharkengine.assembly_ok", blueprint.blockCount());
+    }
+
+    public static void openBuilderPreview(ServerLevel level, BlockPos wheelPos, ServerPlayer player) {
+        StructureScan scan = scanStructure(level, wheelPos);
+        ShipBlueprint blueprint = new ShipBlueprint(wheelPos, scan.blocks(), scan.blockCount());
+
+        BuilderPreviewS2CPayload payload = BuilderPreviewS2CPayload.open(
+                wheelPos,
+                blueprint.toNbt(),
+                scan.invalidAttachments(),
+                scan.contactPoints(),
+                scan.canAssemble()
+        );
+        ServerPlayNetworking.send(player, payload);
+    }
+
+    public static StructureScan scanStructure(ServerLevel level, BlockPos wheelPos) {
+        LongSet visited = new LongOpenHashSet();
+        LongSet ship = new LongOpenHashSet();
+        LongSet invalid = new LongOpenHashSet();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        queue.add(wheelPos);
+
+        List<ShipBlueprint.ShipBlock> blocks = new ArrayList<>();
+        List<BlockPos> invalidAttachments = new ArrayList<>();
+
+        while (!queue.isEmpty() && ship.size() < MAX_BLOCKS) {
+            BlockPos current = queue.poll();
+            if (current.distManhattan(wheelPos) > MAX_RADIUS) continue;
+
+            long key = current.asLong();
+            if (visited.contains(key)) continue;
+            visited.add(key);
+
+            BlockState state = level.getBlockState(current);
+            if (state.isAir()) continue;
+
+            if (!state.is(ModTags.SHIP_ELIGIBLE)) {
+                if (invalid.add(key)) {
+                    invalidAttachments.add(current.immutable());
+                }
+                continue;
+            }
+
+            ship.add(key);
+            blocks.add(new ShipBlueprint.ShipBlock(
+                    current.getX() - wheelPos.getX(),
+                    current.getY() - wheelPos.getY(),
+                    current.getZ() - wheelPos.getZ(),
+                    state
+            ));
+
+            for (Direction d : Direction.values()) {
+                queue.add(current.relative(d));
+            }
+        }
+
+        int contactPoints = countWorldContacts(level, ship);
+        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints);
     }
 
     private static int countWorldContacts(ServerLevel level, LongSet ship) {

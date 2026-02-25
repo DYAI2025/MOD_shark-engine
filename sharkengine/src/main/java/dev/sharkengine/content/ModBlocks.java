@@ -23,12 +23,23 @@ public final class ModBlocks {
             true
     );
 
+    public static final Block THRUSTER = registerBlock(
+            "thruster",
+            Block::new,
+            BlockBehaviour.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.COPPER)
+                    .requiresCorrectToolForDrops(),
+            true
+    );
+
     private ModBlocks() {}
 
     public static void init() {
         // creative tab
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(entries -> {
             entries.accept(STEERING_WHEEL.asItem());
+            entries.accept(THRUSTER.asItem());
         });
     }
 
