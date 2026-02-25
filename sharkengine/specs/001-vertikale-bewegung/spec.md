@@ -138,13 +138,16 @@ Feature: Höhenanzeige
 
 ---
 
-## 6. Offene Fragen
+## 6. Offene Fragen (Geklärt in /clarify Phase)
 
-| ID | Frage | Priorität | Status |
-|----|-------|-----------|--------|
-| Q-001 | Soll es eine automatische Kollisionsvermeidung geben? | Niedrig | Offen |
-| Q-002 | Soll die maximale Steiggeschwindigkeit konfigurierbar sein? | Mittel | Offen |
-| Q-003 | Soll es visuelle Effekte beim Steigen geben? | Niedrig | Offen |
+| ID | Frage | Priorität | Entscheidung | Begründung |
+|----|-------|-----------|--------------|------------|
+| Q-001 | Soll es eine automatische Kollisionsvermeidung geben? | Niedrig | ❌ Nein | Komplexität gering halten für MVP |
+| Q-002 | Soll die maximale Steiggeschwindigkeit konfigurierbar sein? | Mittel | ❌ Nein | 10 Blöcke/sec ist guter Mittelwert |
+| Q-003 | Soll es visuelle Effekte beim Steigen geben? | Niedrig | ❌ Nein | "Nice-to-have", kann später kommen |
+| Q-004 | Wie wird vertikale mit horizontaler Bewegung kombiniert? | Hoch | ✅ Kombinierbar | Besseres Spielerlebnis, 3D-Bewegung |
+| Q-005 | Was passiert bei aktiviertem Anchor? | Mittel | ⚠️ Anchor blockiert | Konsistentes Verhalten |
+| Q-006 | Soll Steigen Energie/Treibstoff verbrauchen? | Mittel | ❌ Nein | Kein Treibstoff-System im MVP |
 
 ---
 
