@@ -389,7 +389,7 @@ public final class ShipEntity extends Entity {
         weightCategory = WeightCategory.fromBlockCount(blockCount);
         
         // ━━━ Höhen-Penalty ━━━
-        heightPenalty = ShipPhysics.calculateHeightPenalty(this.getY());
+        heightPenalty = ShipPhysics.calculateHeightPenalty((float) this.getY());
         
         // ━━━ Aktuelle Geschwindigkeit berechnen ━━━
         // Interpolate smoothly towards target speed

@@ -63,7 +63,7 @@ public final class FuelHudOverlay {
         int fuel = ship.getFuelLevel();
         int blocks = ship.getBlockCount();
         float speed = ship.getCurrentSpeed();
-        float height = player.getY();
+        double height = player.getY();
         WeightCategory weight = ship.getWeightCategory();
         
         // Render HUD background (semi-transparent black)
@@ -140,7 +140,7 @@ public final class FuelHudOverlay {
      * @param speed Current speed
      * @param height Current height (Y position)
      */
-    private static void renderStats(GuiGraphics g, Minecraft mc, int x, int y, int blocks, float speed, float height) {
+    private static void renderStats(GuiGraphics g, Minecraft mc, int x, int y, int blocks, float speed, double height) {
         // Height
         String heightText = String.format("Höhe: Y=%.0f", height);
         g.drawString(mc.font, heightText, x, y, TEXT_COLOR);

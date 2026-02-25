@@ -127,12 +127,13 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
             float volume = 0.3f * intensity;  // Louder at higher phases
             float pitch = 0.8f + (random.nextFloat() * 0.4f);  // 0.8-1.2
             
-            level.playSound(
+            level.playLocalSound(
                 entity.getX(), entity.getY(), entity.getZ(),
-                dev.sharkengine.content.ModSounds.THRUSTER_ACTIVE.value(),
+                dev.sharkengine.content.ModSounds.THRUSTER_ACTIVE,
                 net.minecraft.sounds.SoundSource.BLOCKS,
                 volume,
-                pitch
+                pitch,
+                false
             );
         }
     }
