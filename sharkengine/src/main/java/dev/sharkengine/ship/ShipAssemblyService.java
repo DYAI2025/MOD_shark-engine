@@ -85,13 +85,17 @@ public final class ShipAssemblyService {
         ShipEntity shipEntity = new ShipEntity(ModEntities.SHIP, level);
         shipEntity.setPos(wheelPos.getX() + 0.5, wheelPos.getY() + 0.5, wheelPos.getZ() + 0.5);
         shipEntity.setYawDeg(pilot.getYRot());
-        shipEntity.setBlueprint(new ShipBlueprint(wheelPos, blocks));
+        
+        // NEW: Pass blockCount explicitly to ShipBlueprint constructor
+        int blockCount = blocks.size();
+        shipEntity.setBlueprint(new ShipBlueprint(wheelPos, blocks, blockCount));
+        
         shipEntity.setPilot(pilot);
         level.addFreshEntity(shipEntity);
 
         pilot.startRiding(shipEntity, true);
 
-        return new AssembleResult("message.sharkengine.assembly_ok", blocks.size());
+        return new AssembleResult("message.sharkengine.assembly_ok", blockCount);
     }
 
     private static int countWorldContacts(ServerLevel level, LongSet ship) {
