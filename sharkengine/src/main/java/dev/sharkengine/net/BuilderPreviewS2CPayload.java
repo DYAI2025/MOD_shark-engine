@@ -17,6 +17,7 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                                        List<BlockPos> invalidBlocks,
                                        int contactPoints,
                                        boolean canAssemble,
+                                       int thrusterCount,
                                        boolean active) implements CustomPacketPayload {
 
     public static final Type<BuilderPreviewS2CPayload> TYPE =
@@ -29,12 +30,13 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                                                 CompoundTag blueprintNbt,
                                                 List<BlockPos> invalidBlocks,
                                                 int contactPoints,
-                                                boolean canAssemble) {
-        return new BuilderPreviewS2CPayload(wheelPos, blueprintNbt, List.copyOf(invalidBlocks), contactPoints, canAssemble, true);
+                                                boolean canAssemble,
+                                                int thrusterCount) {
+        return new BuilderPreviewS2CPayload(wheelPos, blueprintNbt, List.copyOf(invalidBlocks), contactPoints, canAssemble, thrusterCount, true);
     }
 
     public static BuilderPreviewS2CPayload close() {
-        return new BuilderPreviewS2CPayload(BlockPos.ZERO, null, List.of(), 0, false, false);
+        return new BuilderPreviewS2CPayload(BlockPos.ZERO, null, List.of(), 0, false, 0, false);
     }
 
     private static void write(RegistryFriendlyByteBuf buf, BuilderPreviewS2CPayload payload) {
@@ -48,6 +50,7 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                 .encode(buf, new ArrayList<>(payload.invalidBlocks()));
         buf.writeInt(payload.contactPoints());
         buf.writeBoolean(payload.canAssemble());
+        buf.writeInt(payload.thrusterCount());
         buf.writeBoolean(payload.active());
     }
 
@@ -61,8 +64,9 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
         List<BlockPos> invalidBlocks = ByteBufCodecs.collection(ArrayList::new, BlockPos.STREAM_CODEC).decode(buf);
         int contacts = buf.readInt();
         boolean canAssemble = buf.readBoolean();
+        int thrusterCount = buf.readInt();
         boolean active = buf.readBoolean();
-        return new BuilderPreviewS2CPayload(wheelPos, blueprint, invalidBlocks, contacts, canAssemble, active);
+        return new BuilderPreviewS2CPayload(wheelPos, blueprint, invalidBlocks, contacts, canAssemble, thrusterCount, active);
     }
 
     @Override

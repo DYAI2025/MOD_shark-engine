@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
@@ -30,7 +31,9 @@ public final class ShipAssemblyService {
     public record StructureScan(BlockPos origin,
                                 List<ShipBlueprint.ShipBlock> blocks,
                                 List<BlockPos> invalidAttachments,
-                                int contactPoints) {
+                                int contactPoints,
+                                boolean hasThruster,
+                                int thrusterCount) {
         public boolean isEmpty() {
             return blocks.isEmpty();
         }
@@ -40,7 +43,7 @@ public final class ShipAssemblyService {
         }
 
         public boolean canAssemble() {
-            return !isEmpty() && invalidAttachments.isEmpty() && contactPoints == 0;
+            return !isEmpty() && invalidAttachments.isEmpty() && contactPoints == 0 && hasThruster;
         }
 
         public ShipBlueprint toBlueprint() {
@@ -61,6 +64,10 @@ public final class ShipAssemblyService {
 
         if (scan.contactPoints() > 0) {
             return new AssembleResult("message.sharkengine.assembly_fail_contact", scan.contactPoints());
+        }
+
+        if (!scan.hasThruster()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_thruster", scan.thrusterCount());
         }
 
         ShipBlueprint blueprint = scan.toBlueprint();
@@ -94,7 +101,8 @@ public final class ShipAssemblyService {
                 blueprint.toNbt(),
                 scan.invalidAttachments(),
                 scan.contactPoints(),
-                scan.canAssemble()
+                scan.canAssemble(),
+                scan.thrusterCount()
         );
         ServerPlayNetworking.send(player, payload);
     }
@@ -108,6 +116,7 @@ public final class ShipAssemblyService {
 
         List<ShipBlueprint.ShipBlock> blocks = new ArrayList<>();
         List<BlockPos> invalidAttachments = new ArrayList<>();
+        List<String> blockIds = new ArrayList<>();
 
         while (!queue.isEmpty() && ship.size() < MAX_BLOCKS) {
             BlockPos current = queue.poll();
@@ -134,6 +143,7 @@ public final class ShipAssemblyService {
                     current.getZ() - wheelPos.getZ(),
                     state
             ));
+            blockIds.add(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
 
             for (Direction d : Direction.values()) {
                 queue.add(current.relative(d));
@@ -141,7 +151,8 @@ public final class ShipAssemblyService {
         }
 
         int contactPoints = countWorldContacts(level, ship);
-        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints);
+        int thrusterCount = ThrusterRequirements.countThrusters(blockIds);
+        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints, thrusterCount > 0, thrusterCount);
     }
 
     private static int countWorldContacts(ServerLevel level, LongSet ship) {

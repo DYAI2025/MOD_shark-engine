@@ -11,5 +11,6 @@ record PreviewState(BlockPos wheelPos,
                     List<BlockPos> validBlocks,
                     List<BlockPos> invalidBlocks,
                     boolean canAssemble,
-                    int contactPoints) {
+                    int contactPoints,
+                    int thrusterCount) {
 }
