@@ -2,6 +2,7 @@ package dev.sharkengine.content;
 
 import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.content.block.SteeringWheelBlock;
+import dev.sharkengine.content.block.SteeringWheelItem;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,7 +21,7 @@ public final class ModBlocks {
             "steering_wheel",
             SteeringWheelBlock::new,
             BlockBehaviour.Properties.of().strength(1.0F).sound(SoundType.WOOD),
-            true
+            block -> new SteeringWheelItem(block, new Item.Properties())
     );
 
     public static final Block THRUSTER = registerBlock(
@@ -30,7 +31,7 @@ public final class ModBlocks {
                     .strength(3.0F, 6.0F)
                     .sound(SoundType.COPPER)
                     .requiresCorrectToolForDrops(),
-            true
+            block -> new BlockItem(block, new Item.Properties())
     );
 
     private ModBlocks() {}
@@ -47,15 +48,15 @@ public final class ModBlocks {
             String name,
             Function<BlockBehaviour.Properties, Block> factory,
             BlockBehaviour.Properties props,
-            boolean registerItem
+            Function<Block, BlockItem> itemFactory
     ) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(SharkEngineMod.MOD_ID, name);
         Block block = factory.apply(props);
 
         Registry.register(BuiltInRegistries.BLOCK, id, block);
 
-        if (registerItem) {
-            Registry.register(BuiltInRegistries.ITEM, id, new BlockItem(block, new Item.Properties()));
+        if (itemFactory != null) {
+            Registry.register(BuiltInRegistries.ITEM, id, itemFactory.apply(block));
         }
 
         return block;

@@ -13,6 +13,7 @@
     "message.sharkengine.disassembly_partial": "Ship disassembled partially (%s blocks placed, some obstructed).",
     "message.sharkengine.disassembly_fail_no_blueprint": "Cannot disassemble: no blueprint data.",
     "message.sharkengine.builder_open": "Builder mode ready. Review highlighted blocks before launch.",
+    "message.sharkengine.mode_locked": "%s mode will be available soon.",
     "message.sharkengine.builder_invalid": "Builder blocked by %s invalid attachments.",
     "message.sharkengine.builder_contacts": "Builder blocked by %s world contacts.",
     "screen.sharkengine.builder.title": "Airship Builder",
@@ -23,5 +24,15 @@
     "screen.sharkengine.builder.instructions": "Place eligible blocks and thrusters. Red highlights must be removed before launch.",
     "screen.sharkengine.builder.action": "Assemble & Launch",
     "screen.sharkengine.builder.action_disabled": "Resolve highlights to enable launch",
+    "screen.sharkengine.tutorial.welcome.title": "Welcome to Shark Engine",
+    "screen.sharkengine.tutorial.welcome.body": "Use this steering wheel to build powerful vehicles.",
+    "screen.sharkengine.tutorial.mode_selection.title": "Choose your vehicle type",
+    "screen.sharkengine.tutorial.mode_selection.body": "Pick how you'd like to travel. More modes arrive soon.",
+    "screen.sharkengine.tutorial.button.continue": "Continue",
+    "screen.sharkengine.tutorial.button.confirm": "Confirm",
+    "screen.sharkengine.tutorial.mode.air": "Fly",
+    "screen.sharkengine.tutorial.mode.water": "Swim",
+    "screen.sharkengine.tutorial.mode.land": "Drive",
+    "screen.sharkengine.tutorial.mode.disabled_note": "Other modes unlock in future updates.",
     "item.sharkengine.thruster": "Thruster"
 }

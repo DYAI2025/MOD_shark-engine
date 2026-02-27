@@ -1,9 +1,8 @@
 package dev.sharkengine.content.block;
 
 import dev.sharkengine.content.ModBlocks;
-import dev.sharkengine.ship.ShipAssemblyService;
+import dev.sharkengine.tutorial.TutorialService;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -46,8 +45,7 @@ public final class SteeringWheelBlock extends Block {
             return InteractionResult.PASS;
         }
 
-        ShipAssemblyService.openBuilderPreview(serverLevel, pos, sp);
-        sp.sendSystemMessage(Component.translatable("message.sharkengine.builder_open"));
+        TutorialService.startModeSelection(sp, pos);
         return InteractionResult.CONSUME;
     }
 }

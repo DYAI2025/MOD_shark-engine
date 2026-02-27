@@ -2,6 +2,7 @@ package dev.sharkengine.net;
 
 import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.ShipEntity;
+import dev.sharkengine.tutorial.TutorialService;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
@@ -34,6 +35,7 @@ public final class ModNetworking {
         // ═══════════════════════════════════════════════════════════════════
         PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BuilderAssembleC2SPayload.TYPE, BuilderAssembleC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(TutorialModeSelectionC2SPayload.TYPE, TutorialModeSelectionC2SPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
@@ -69,10 +71,16 @@ public final class ModNetworking {
             });
         });
 
+        ServerPlayNetworking.registerGlobalReceiver(TutorialModeSelectionC2SPayload.TYPE, (payload, ctx) -> {
+            ServerPlayer sp = ctx.player();
+            ctx.server().execute(() -> TutorialService.handleModeSelection(sp, payload.vehicleClass()));
+        });
+
         // ═══════════════════════════════════════════════════════════════════
         // S2C: Blueprint Sync (Server → Client)
         // ═══════════════════════════════════════════════════════════════════
         PayloadTypeRegistry.playS2C().register(ShipBlueprintS2CPayload.TYPE, ShipBlueprintS2CPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BuilderPreviewS2CPayload.TYPE, BuilderPreviewS2CPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(TutorialPopupS2CPayload.TYPE, TutorialPopupS2CPayload.CODEC);
     }
 }
