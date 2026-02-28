@@ -33,7 +33,8 @@ public final class ShipAssemblyService {
                                 List<BlockPos> invalidAttachments,
                                 int contactPoints,
                                 boolean hasThruster,
-                                int thrusterCount) {
+                                int thrusterCount,
+                                int coreNeighbors) {
         public boolean isEmpty() {
             return blocks.isEmpty();
         }
@@ -43,7 +44,11 @@ public final class ShipAssemblyService {
         }
 
         public boolean canAssemble() {
-            return !isEmpty() && invalidAttachments.isEmpty() && contactPoints == 0 && hasThruster;
+            return !isEmpty()
+                    && invalidAttachments.isEmpty()
+                    && contactPoints == 0
+                    && hasThruster
+                    && coreNeighbors >= 4;
         }
 
         public ShipBlueprint toBlueprint() {
@@ -68,6 +73,10 @@ public final class ShipAssemblyService {
 
         if (!scan.hasThruster()) {
             return new AssembleResult("message.sharkengine.assembly_fail_thruster", scan.thrusterCount());
+        }
+
+        if (scan.coreNeighbors() < 4) {
+            return new AssembleResult("message.sharkengine.assembly_fail_core", scan.coreNeighbors());
         }
 
         ShipBlueprint blueprint = scan.toBlueprint();
@@ -102,7 +111,8 @@ public final class ShipAssemblyService {
                 scan.invalidAttachments(),
                 scan.contactPoints(),
                 scan.canAssemble(),
-                scan.thrusterCount()
+                scan.thrusterCount(),
+                scan.coreNeighbors()
         );
         ServerPlayNetworking.send(player, payload);
     }
@@ -152,7 +162,8 @@ public final class ShipAssemblyService {
 
         int contactPoints = countWorldContacts(level, ship);
         int thrusterCount = ThrusterRequirements.countThrusters(blockIds);
-        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints, thrusterCount > 0, thrusterCount);
+        int coreNeighbors = countCoreNeighbors(wheelPos, ship);
+        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints, thrusterCount > 0, thrusterCount, coreNeighbors);
     }
 
     private static int countWorldContacts(ServerLevel level, LongSet ship) {
@@ -176,5 +187,16 @@ public final class ShipAssemblyService {
             }
         }
         return contacts;
+    }
+
+    private static int countCoreNeighbors(BlockPos wheelPos, LongSet ship) {
+        int neighbors = 0;
+        for (Direction direction : List.of(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST)) {
+            BlockPos adjacent = wheelPos.relative(direction);
+            if (ship.contains(adjacent.asLong())) {
+                neighbors++;
+            }
+        }
+        return neighbors;
     }
 }

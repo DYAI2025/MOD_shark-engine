@@ -1,5 +1,6 @@
 package dev.sharkengine.client.tutorial;
 
+import dev.sharkengine.net.TutorialAdvanceC2SPayload;
 import dev.sharkengine.net.TutorialModeSelectionC2SPayload;
 import dev.sharkengine.ship.VehicleClass;
 import dev.sharkengine.tutorial.TutorialPopupStage;
@@ -26,6 +27,7 @@ public final class TutorialPopupScreen extends Screen {
         switch (stage) {
             case WELCOME -> initWelcome();
             case MODE_SELECTION -> initModeSelection();
+            case BUILD_GUIDE -> initBuildGuide();
         }
     }
 
@@ -56,6 +58,14 @@ public final class TutorialPopupScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.confirm"), button -> confirmModeSelection())
                 .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
                 .build());
+    }
+
+    private void initBuildGuide() {
+        int buttonWidth = 160;
+        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> {
+            ClientPlayNetworking.send(new TutorialAdvanceC2SPayload(TutorialPopupStage.BUILD_GUIDE));
+            onClose();
+        }).bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20).build());
     }
 
     private void confirmModeSelection() {

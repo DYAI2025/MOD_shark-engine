@@ -2,7 +2,8 @@ package dev.sharkengine.tutorial;
 
 public enum TutorialPopupStage {
     WELCOME("welcome"),
-    MODE_SELECTION("mode_selection");
+    MODE_SELECTION("mode_selection"),
+    BUILD_GUIDE("build_guide");
 
     private final String id;
 

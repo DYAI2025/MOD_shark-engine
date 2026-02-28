@@ -36,6 +36,7 @@ public final class ModNetworking {
         PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BuilderAssembleC2SPayload.TYPE, BuilderAssembleC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TutorialModeSelectionC2SPayload.TYPE, TutorialModeSelectionC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(TutorialAdvanceC2SPayload.TYPE, TutorialAdvanceC2SPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
@@ -74,6 +75,11 @@ public final class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(TutorialModeSelectionC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
             ctx.server().execute(() -> TutorialService.handleModeSelection(sp, payload.vehicleClass()));
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(TutorialAdvanceC2SPayload.TYPE, (payload, ctx) -> {
+            ServerPlayer sp = ctx.player();
+            ctx.server().execute(() -> TutorialService.handleAdvanceStage(sp, payload.stage()));
         });
 
         // ═══════════════════════════════════════════════════════════════════

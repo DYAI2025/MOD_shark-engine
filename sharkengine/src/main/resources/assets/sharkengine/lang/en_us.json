@@ -6,6 +6,7 @@
     "message.sharkengine.assembly_fail_contact": "Assembly blocked: world contact at %s points.",
     "message.sharkengine.assembly_fail_invalid": "Remove highlighted blocks (%s invalid parts).",
     "message.sharkengine.assembly_fail_thruster": "No thrusters detected – add at least one to launch.",
+    "message.sharkengine.assembly_fail_core": "Connect four blocks around the wheel (%s/4).",
     "message.sharkengine.assembly_fail_empty": "Nothing to assemble (check eligible tag).",
     "message.sharkengine.anchor_on": "Anchor: ON",
     "message.sharkengine.anchor_off": "Anchor: OFF",
@@ -21,6 +22,7 @@
     "screen.sharkengine.builder.invalid": "%s invalid attachments",
     "screen.sharkengine.builder.contacts": "%s terrain contacts",
     "screen.sharkengine.builder.thrusters": "%s thrusters installed",
+    "screen.sharkengine.builder.edges": "%s of 4 core blocks attached",
     "screen.sharkengine.builder.instructions": "Place eligible blocks and thrusters. Red highlights must be removed before launch.",
     "screen.sharkengine.builder.action": "Assemble & Launch",
     "screen.sharkengine.builder.action_disabled": "Resolve highlights to enable launch",
@@ -34,5 +36,7 @@
     "screen.sharkengine.tutorial.mode.water": "Swim",
     "screen.sharkengine.tutorial.mode.land": "Drive",
     "screen.sharkengine.tutorial.mode.disabled_note": "Other modes unlock in future updates.",
+    "screen.sharkengine.tutorial.build_guide.title": "Build Mode",
+    "screen.sharkengine.tutorial.build_guide.body": "Attach blocks to each side of the wheel and add a thruster to continue.",
     "item.sharkengine.thruster": "Thruster"
 }

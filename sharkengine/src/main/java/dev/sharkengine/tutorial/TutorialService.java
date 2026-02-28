@@ -1,14 +1,13 @@
 package dev.sharkengine.tutorial;
 
-import dev.sharkengine.net.TutorialModeSelectionC2SPayload;
 import dev.sharkengine.net.TutorialPopupS2CPayload;
 import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.VehicleClass;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.Component;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,14 +38,25 @@ public final class TutorialService {
             ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.MODE_SELECTION));
             return;
         }
-
-        if (player.level() instanceof ServerLevel serverLevel) {
-            ShipAssemblyService.openBuilderPreview(serverLevel, wheelPos, player);
-            player.sendSystemMessage(Component.translatable("message.sharkengine.builder_open"));
-        }
+        pendingBuilder.put(player.getUUID(), wheelPos);
+        ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.BUILD_GUIDE));
     }
 
     private static void sendModeLockedMessage(ServerPlayer player, VehicleClass mode) {
         player.sendSystemMessage(Component.translatable("message.sharkengine.mode_locked", mode.getDisplayName()));
+    }
+
+    public static void handleAdvanceStage(ServerPlayer player, TutorialPopupStage stage) {
+        if (stage != TutorialPopupStage.BUILD_GUIDE) {
+            return;
+        }
+        BlockPos wheelPos = pendingBuilder.remove(player.getUUID());
+        if (wheelPos == null) {
+            return;
+        }
+        if (player.level() instanceof ServerLevel serverLevel) {
+            ShipAssemblyService.openBuilderPreview(serverLevel, wheelPos, player);
+            player.sendSystemMessage(Component.translatable("message.sharkengine.builder_open"));
+        }
     }
 }

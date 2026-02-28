@@ -28,7 +28,11 @@ public final class BuilderScreen extends Screen {
             ClientPlayNetworking.send(new BuilderAssembleC2SPayload(state.wheelPos()));
         }).bounds(buttonX, buttonY, buttonWidth, buttonHeight).build();
 
-        boolean canLaunch = state.canAssemble() && state.invalidBlocks().isEmpty() && state.contactPoints() == 0 && state.thrusterCount() > 0;
+        boolean canLaunch = state.canAssemble()
+                && state.invalidBlocks().isEmpty()
+                && state.contactPoints() == 0
+                && state.thrusterCount() > 0
+                && state.coreNeighbors() >= 4;
         assembleButton.active = canLaunch;
         if (!canLaunch) {
             assembleButton.setMessage(Component.translatable("screen.sharkengine.builder.action_disabled"));
@@ -80,6 +84,13 @@ public final class BuilderScreen extends Screen {
                 centerX,
                 y,
                 state.thrusterCount() > 0 ? 0x55FF55 : 0xFF5555);
+        y += 15;
+
+        graphics.drawCenteredString(font,
+                Component.translatable("screen.sharkengine.builder.edges", state.coreNeighbors()),
+                centerX,
+                y,
+                state.coreNeighbors() >= 4 ? 0x55FF55 : 0xFF5555);
     }
 
     @Override
