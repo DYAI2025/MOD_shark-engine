@@ -28,6 +28,8 @@ public final class TutorialPopupScreen extends Screen {
             case WELCOME -> initWelcome();
             case MODE_SELECTION -> initModeSelection();
             case BUILD_GUIDE -> initBuildGuide();
+            case READY_TO_LAUNCH -> initReadyPopup();
+            case FLIGHT_TIPS -> initFlightTips();
         }
     }
 
@@ -66,6 +68,20 @@ public final class TutorialPopupScreen extends Screen {
             ClientPlayNetworking.send(new TutorialAdvanceC2SPayload(TutorialPopupStage.BUILD_GUIDE));
             onClose();
         }).bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20).build());
+    }
+
+    private void initReadyPopup() {
+        int buttonWidth = 160;
+        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.launch"), button -> onClose())
+                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
+                .build());
+    }
+
+    private void initFlightTips() {
+        int buttonWidth = 160;
+        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
+                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
+                .build());
     }
 
     private void confirmModeSelection() {

@@ -31,6 +31,7 @@
     "screen.sharkengine.tutorial.mode_selection.title": "Choose your vehicle type",
     "screen.sharkengine.tutorial.mode_selection.body": "Pick how you'd like to travel. More modes arrive soon.",
     "screen.sharkengine.tutorial.button.continue": "Continue",
+    "screen.sharkengine.tutorial.button.launch": "Launch",
     "screen.sharkengine.tutorial.button.confirm": "Confirm",
     "screen.sharkengine.tutorial.mode.air": "Fly",
     "screen.sharkengine.tutorial.mode.water": "Swim",
@@ -38,5 +39,9 @@
     "screen.sharkengine.tutorial.mode.disabled_note": "Other modes unlock in future updates.",
     "screen.sharkengine.tutorial.build_guide.title": "Build Mode",
     "screen.sharkengine.tutorial.build_guide.body": "Attach blocks to each side of the wheel and add a thruster to continue.",
+    "screen.sharkengine.tutorial.ready.title": "Vehicle Ready",
+    "screen.sharkengine.tutorial.ready.body": "All requirements met. Press Launch to take off!",
+    "screen.sharkengine.tutorial.flight_tips.title": "Flight Controls",
+    "screen.sharkengine.tutorial.flight_tips.body": "WASD to steer, Space to rise, Shift to descend. Monitor fuel and weight warnings.",
     "item.sharkengine.thruster": "Thruster"
 }

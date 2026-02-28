@@ -3,6 +3,7 @@ package dev.sharkengine.ship;
 import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.ModTags;
 import dev.sharkengine.net.BuilderPreviewS2CPayload;
+import dev.sharkengine.tutorial.TutorialService;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
@@ -97,6 +98,7 @@ public final class ShipAssemblyService {
         level.addFreshEntity(shipEntity);
 
         pilot.startRiding(shipEntity, true);
+        TutorialService.notifyFlightTips(pilot);
 
         return new AssembleResult("message.sharkengine.assembly_ok", blueprint.blockCount());
     }
@@ -115,6 +117,10 @@ public final class ShipAssemblyService {
                 scan.coreNeighbors()
         );
         ServerPlayNetworking.send(player, payload);
+
+        if (scan.canAssemble()) {
+            TutorialService.notifyReady(player);
+        }
     }
 
     public static StructureScan scanStructure(ServerLevel level, BlockPos wheelPos) {
