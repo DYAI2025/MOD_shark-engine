@@ -14,12 +14,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 
@@ -34,6 +37,14 @@ import java.util.UUID;
  */
 public final class ShipEntity extends Entity {
     private static final EntityDataAccessor<Boolean> ANCHORED =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> SYNC_FUEL =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> SYNC_SPEED =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> SYNC_BLOCK_COUNT =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> SYNC_ENGINE_OUT =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
 
     // ═══════════════════════════════════════════════════════════════════
@@ -126,7 +137,7 @@ public final class ShipEntity extends Entity {
     }
 
     public float getCurrentSpeed() {
-        return currentSpeed;
+        return level().isClientSide ? this.entityData.get(SYNC_SPEED) : currentSpeed;
     }
 
     public float getMaxSpeed() {
@@ -138,19 +149,19 @@ public final class ShipEntity extends Entity {
     }
 
     public int getBlockCount() {
-        return blockCount;
+        return level().isClientSide ? this.entityData.get(SYNC_BLOCK_COUNT) : blockCount;
     }
 
     public WeightCategory getWeightCategory() {
-        return weightCategory;
+        return WeightCategory.fromBlockCount(getBlockCount());
     }
 
     public int getFuelLevel() {
-        return fuelLevel;
+        return level().isClientSide ? this.entityData.get(SYNC_FUEL) : fuelLevel;
     }
 
     public boolean isEngineOut() {
-        return engineOut;
+        return level().isClientSide ? this.entityData.get(SYNC_ENGINE_OUT) : engineOut;
     }
 
     public boolean hasThrusters() {
@@ -259,6 +270,10 @@ public final class ShipEntity extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(ANCHORED, false);
+        builder.define(SYNC_FUEL, 100);
+        builder.define(SYNC_SPEED, 0.0f);
+        builder.define(SYNC_BLOCK_COUNT, 0);
+        builder.define(SYNC_ENGINE_OUT, false);
     }
 
     @Override
@@ -376,48 +391,54 @@ public final class ShipEntity extends Entity {
      */
     private void updatePhysics() {
         if (level().isClientSide) return;
-        
+
         // ━━━ Beschleunigung ━━━
         if (inputForward > 0 && !engineOut) {
             accelerationTicks++;
         } else if (inputForward <= 0) {
-            // Reset acceleration when not pressing forward
-            accelerationTicks = 0;
-            currentSpeed = 0.0f;
+            // Graceful deceleration instead of instant stop
+            accelerationTicks = Math.max(0, accelerationTicks - 4);
+            currentSpeed = Mth.lerp(0.15f, currentSpeed, 0.0f);
+            if (currentSpeed < 0.01f) currentSpeed = 0.0f;
         }
-        
+
         phase = ShipPhysics.calculatePhase(accelerationTicks);
-        
+
         // ━━━ Gewicht (Block-Anzahl) ━━━
         maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
         weightCategory = WeightCategory.fromBlockCount(blockCount);
-        
+
         // ━━━ Höhen-Penalty ━━━
         heightPenalty = ShipPhysics.calculateHeightPenalty((float) this.getY());
-        
+
         // ━━━ Aktuelle Geschwindigkeit berechnen ━━━
-        // Interpolate smoothly towards target speed
-        float targetSpeed = maxSpeed * heightPenalty * (phase.getSpeed() / 30.0f);
-        currentSpeed = Mth.lerp(0.1f, currentSpeed, targetSpeed);
-        
+        if (inputForward > 0 && !engineOut) {
+            float targetSpeed = maxSpeed * heightPenalty * (phase.getSpeed() / 30.0f);
+            currentSpeed = Mth.lerp(0.1f, currentSpeed, targetSpeed);
+        }
+
         // ━━━ Treibstoff verbrauchen ━━━
         if (!engineOut && inputForward > 0) {
             int consumption = ShipPhysics.calculateFuelConsumption(phase);
             fuelLevel -= consumption;
-            
+
             if (fuelLevel <= 0) {
                 engineOut = true;
                 fuelLevel = 0;
-                if (!level().isClientSide) {
-                    sendSystemMessage(Component.translatable("message.sharkengine.no_fuel"));
-                }
+                sendSystemMessage(Component.translatable("message.sharkengine.no_fuel"));
             }
         }
-        
-        // ━━━ Gewicht-Warnungen ━━━
-        if (weightCategory == WeightCategory.OVERLOADED && !level().isClientSide) {
+
+        // ━━━ Gewicht-Warnungen (nur alle 100 Ticks, nicht jeden Tick) ━━━
+        if (weightCategory == WeightCategory.OVERLOADED && tickCount % 100 == 0) {
             sendSystemMessage(Component.translatable("message.sharkengine.too_heavy"));
         }
+
+        // ━━━ Sync to client for HUD ━━━
+        this.entityData.set(SYNC_FUEL, fuelLevel);
+        this.entityData.set(SYNC_SPEED, currentSpeed);
+        this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
+        this.entityData.set(SYNC_ENGINE_OUT, engineOut);
     }
 
     // --- Tick ---
@@ -439,9 +460,16 @@ public final class ShipEntity extends Entity {
 
         // ━━━ Engine-Out Check ━━━
         if (engineOut) {
-            // Schiff fällt langsam (wie Sand)
-            Vec3 fallVelocity = new Vec3(0, -0.5, 0);
-            setDeltaMovement(fallVelocity);
+            // Check if ship is in water — apply buoyancy
+            FluidState fluid = level().getFluidState(blockPosition());
+            if (!fluid.isEmpty()) {
+                // Float on water surface: gentle bob, no sinking
+                double bobVelocity = (this.getY() % 1.0 > 0.5) ? -0.02 : 0.02;
+                setDeltaMovement(new Vec3(0, bobVelocity, 0));
+            } else {
+                // Fall gently through air (reduced from 0.5 to 0.15)
+                setDeltaMovement(new Vec3(0, -0.15, 0));
+            }
             this.move(MoverType.SELF, getDeltaMovement());
             return;
         }
@@ -474,6 +502,15 @@ public final class ShipEntity extends Entity {
 
         // ━━━ Bewegung anwenden ━━━
         this.move(MoverType.SELF, this.getDeltaMovement());
+    }
+
+    @Override
+    public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+        // Always allow dismount by returning position next to the ship
+        double rad = Math.toRadians(this.getYRot() + 90);
+        double offsetX = Math.cos(rad) * 1.5;
+        double offsetZ = Math.sin(rad) * 1.5;
+        return new Vec3(this.getX() + offsetX, this.getY(), this.getZ() + offsetZ);
     }
 
     @Override
@@ -516,5 +553,9 @@ public final class ShipEntity extends Entity {
         weightCategory = WeightCategory.fromBlockCount(blockCount);
         maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
         hasThrusters = blueprint.blocks().stream().anyMatch(block -> block.state().is(ModBlocks.THRUSTER));
+        // Sync blockCount to client immediately
+        if (!level().isClientSide) {
+            this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
+        }
     }
 }
