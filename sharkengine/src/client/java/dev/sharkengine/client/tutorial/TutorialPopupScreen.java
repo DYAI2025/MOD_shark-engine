@@ -92,6 +92,14 @@ public final class TutorialPopupScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         renderBackground(graphics, mouseX, mouseY, delta);
+
+        // Dark panel behind text for readability
+        int panelW = Math.min(width - 40, 340);
+        int panelX = (width - panelW) / 2;
+        int panelY = height / 2 - 95;
+        int panelH = (stage == TutorialPopupStage.MODE_SELECTION) ? 150 : 60;
+        graphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xCC000000);
+
         graphics.drawCenteredString(font, getStageTitle(), width / 2, height / 2 - 80, 0xFFFFFF);
         graphics.drawCenteredString(font, getBody(), width / 2, height / 2 - 60, 0xCCCCCC);
         if (stage == TutorialPopupStage.MODE_SELECTION) {
