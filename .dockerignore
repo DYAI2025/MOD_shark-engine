@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+.spec-flow
+docs
+specs
+epics
+*.md
+!server/server.properties
+sharkengine/.gradle
+sharkengine/build
+sharkengine/.idea
+sharkengine/*.iml

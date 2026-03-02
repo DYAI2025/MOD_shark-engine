@@ -91,8 +91,8 @@ public final class TutorialPopupScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        renderBackground(graphics);
-        graphics.drawCenteredString(font, getTitle(), width / 2, height / 2 - 80, 0xFFFFFF);
+        renderBackground(graphics, mouseX, mouseY, delta);
+        graphics.drawCenteredString(font, getStageTitle(), width / 2, height / 2 - 80, 0xFFFFFF);
         graphics.drawCenteredString(font, getBody(), width / 2, height / 2 - 60, 0xCCCCCC);
         if (stage == TutorialPopupStage.MODE_SELECTION) {
             graphics.drawCenteredString(font,
@@ -104,7 +104,7 @@ public final class TutorialPopupScreen extends Screen {
         super.render(graphics, mouseX, mouseY, delta);
     }
 
-    private Component getTitle() {
+    private Component getStageTitle() {
         return Component.translatable("screen.sharkengine.tutorial." + stage.id() + ".title");
     }
 
