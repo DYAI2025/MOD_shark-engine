@@ -126,7 +126,58 @@ class FuelSystemTest {
     void testIsCritical() {
         assertTrue(FuelSystem.isCritical(10, 100));  // 10%
         assertTrue(FuelSystem.isCritical(19, 100));  // 19%
-        assertFalse(FuelSystem.isCritical(20, 100)); // 20%
+        assertFalse(FuelSystem.isCritical(20, 100)); // 20% – exactly at boundary, NOT critical
         assertFalse(FuelSystem.isCritical(50, 100)); // 50%
+    }
+
+    // ─── Edge cases ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("woodToEnergy: negative input returns 0 (cannot subtract fuel)")
+    void testWoodToEnergy_Negative() {
+        assertEquals(0, FuelSystem.woodToEnergy(-1));
+        assertEquals(0, FuelSystem.woodToEnergy(-100));
+    }
+
+    @Test
+    @DisplayName("woodToEnergy: 0 wood = 0 energy")
+    void testWoodToEnergy_Zero() {
+        assertEquals(0, FuelSystem.woodToEnergy(0));
+    }
+
+    @Test
+    @DisplayName("formatFuelDisplay: handles maxFuel = 0 without crash")
+    void testFormatFuelDisplay_ZeroMax() {
+        // Must not throw ArithmeticException (division by zero)
+        String result = FuelSystem.formatFuelDisplay(0, 0);
+        assertNotNull(result);
+        assertTrue(result.contains("ERROR"),
+                "formatFuelDisplay with maxFuel=0 should return error string");
+    }
+
+    @Test
+    @DisplayName("formatFuelDisplay: fuel > maxFuel clamps to 100%")
+    void testFormatFuelDisplay_OverMax() {
+        String result = FuelSystem.formatFuelDisplay(150, 100);
+        assertTrue(result.contains("100%"), "Overflow fuel should display as 100%");
+    }
+
+    @Test
+    @DisplayName("isCritical: maxFuel = 0 returns false without crash")
+    void testIsCritical_ZeroMax() {
+        assertFalse(FuelSystem.isCritical(0, 0));
+    }
+
+    @Test
+    @DisplayName("calculateRemainingFlightTime: 0 fuel returns 0 seconds")
+    void testRemainingTime_NoFuel() {
+        assertEquals(0, FuelSystem.calculateRemainingFlightTime(0, AccelerationPhase.PHASE_1));
+    }
+
+    @Test
+    @DisplayName("energyToWood: negative energy returns negative (informational only)")
+    void testEnergyToWood_Negative() {
+        // energyToWood is used for display; we do not clamp it (caller must validate)
+        assertEquals(-1.0f, FuelSystem.energyToWood(-100));
     }
 }

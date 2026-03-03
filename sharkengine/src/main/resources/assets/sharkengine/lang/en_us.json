@@ -43,5 +43,8 @@
     "screen.sharkengine.tutorial.ready.body": "All requirements met. Press Launch to take off!",
     "screen.sharkengine.tutorial.flight_tips.title": "Flight Controls",
     "screen.sharkengine.tutorial.flight_tips.body": "WASD to steer, Space to rise, Shift to descend. Monitor fuel and weight warnings.",
-    "item.sharkengine.thruster": "Thruster"
+    "item.sharkengine.thruster": "Thruster",
+    "message.sharkengine.no_fuel": "⚠ Engine out! Ship is falling – land or refuel.",
+    "message.sharkengine.too_heavy": "⚠ Ship too heavy to fly (61+ blocks)!",
+    "message.sharkengine.fuel_added": "Fuel refilled: %s"
 }

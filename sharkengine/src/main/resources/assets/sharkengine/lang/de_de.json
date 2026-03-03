@@ -43,5 +43,8 @@
     "screen.sharkengine.tutorial.ready.body": "Alle Anforderungen erfüllt. Drücke Starten zum Abheben!",
     "screen.sharkengine.tutorial.flight_tips.title": "Flugsteuerung",
     "screen.sharkengine.tutorial.flight_tips.body": "WASD zum Lenken, Leertaste zum Steigen, Shift zum Sinken. Achte auf Treibstoff- und Gewichtswarnungen.",
-    "item.sharkengine.thruster": "Triebwerk"
+    "item.sharkengine.thruster": "Triebwerk",
+    "message.sharkengine.no_fuel": "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.",
+    "message.sharkengine.too_heavy": "⚠ Schiff zu schwer zum Fliegen (61+ Blöcke)!",
+    "message.sharkengine.fuel_added": "Treibstoff aufgefüllt: %s"
 }

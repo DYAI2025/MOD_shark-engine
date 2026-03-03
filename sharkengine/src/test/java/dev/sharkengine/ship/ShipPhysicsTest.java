@@ -186,4 +186,80 @@ class ShipPhysicsTest {
         float speed3 = ShipPhysics.calculateEffectiveSpeed(30.0f, 0.4f, 0.33f);
         assertEquals(3.96f, speed3, 0.01f);
     }
+
+    // ─── Edge cases ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("calculateMaxSpeed: 0 blocks = 0 speed (no ship)")
+    void testCalculateMaxSpeed_ZeroBlocks() {
+        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(0),
+                "A ship with 0 blocks cannot fly");
+    }
+
+    @Test
+    @DisplayName("calculateMaxSpeed: Negative blockCount = 0 speed")
+    void testCalculateMaxSpeed_Negative() {
+        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(-1));
+    }
+
+    @Test
+    @DisplayName("calculateHeightPenalty: Negative Y (underground) = no penalty")
+    void testCalculateHeightPenalty_Underground() {
+        assertEquals(1.0f, ShipPhysics.calculateHeightPenalty(-64.0f),
+                "Underground / bedrock level should have no height penalty");
+    }
+
+    @Test
+    @DisplayName("calculateHeightPenalty: Exact boundary Y=100 applies 80% penalty")
+    void testCalculateHeightPenalty_ExactBoundary100() {
+        assertEquals(0.8f, ShipPhysics.calculateHeightPenalty(100.0f));
+    }
+
+    @Test
+    @DisplayName("calculateHeightPenalty: Exact boundary Y=150 applies 60% penalty")
+    void testCalculateHeightPenalty_ExactBoundary150() {
+        assertEquals(0.6f, ShipPhysics.calculateHeightPenalty(150.0f));
+    }
+
+    @Test
+    @DisplayName("calculateHeightPenalty: Exact boundary Y=200 applies 40% penalty")
+    void testCalculateHeightPenalty_ExactBoundary200() {
+        assertEquals(0.4f, ShipPhysics.calculateHeightPenalty(200.0f));
+    }
+
+    @Test
+    @DisplayName("calculateFuelConsumption: Fuel increases from Phase1 to Phase5")
+    void testFuelConsumption_IsMonotonicallyNonDecreasing() {
+        int prev = ShipPhysics.calculateFuelConsumption(AccelerationPhase.PHASE_1);
+        for (AccelerationPhase phase : AccelerationPhase.values()) {
+            int cur = ShipPhysics.calculateFuelConsumption(phase);
+            assertTrue(cur >= prev,
+                    "Fuel consumption should not decrease from phase to phase; failed at " + phase);
+            prev = cur;
+        }
+    }
+
+    @Test
+    @DisplayName("calculateEffectiveSpeed: Zero baseSpeed always yields 0")
+    void testCalculateEffectiveSpeed_ZeroBase() {
+        assertEquals(0.0f, ShipPhysics.calculateEffectiveSpeed(0.0f, 1.0f, 1.0f));
+        assertEquals(0.0f, ShipPhysics.calculateEffectiveSpeed(0.0f, 0.4f, 0.5f));
+    }
+
+    @Test
+    @DisplayName("checkCollision: Null level returns false without crash")
+    void testCheckCollision_NullLevel() {
+        // The public API overload delegates to hasCollision; test internal helper directly
+        boolean result = ShipPhysics.hasCollision(null, null, v -> false);
+        assertFalse(result, "Null inputs must not throw and must return false");
+    }
+
+    @Test
+    @DisplayName("checkCollision: Null origin with non-null offsets returns false")
+    void testCheckCollision_NullOrigin() {
+        boolean result = ShipPhysics.hasCollision(null,
+                java.util.List.of(new ShipPhysics.BlockVector(0, 0, 0)),
+                v -> true);
+        assertFalse(result);
+    }
 }

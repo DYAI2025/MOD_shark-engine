@@ -99,6 +99,12 @@ public final class ShipEntity extends Entity {
     /** Vertical input (-1..+1, Leertaste/Shift) */
     private float inputVertical = 0.0f;
 
+    /**
+     * Tick counter for per-second fuel consumption (20 ticks = 1 second).
+     * FuelSystem consumption values are energy/sec; we only charge once per second.
+     */
+    private int fuelConsumptionTick = 0;
+
     public ShipEntity(EntityType<? extends ShipEntity> type, Level level) {
         super(type, level);
     }
@@ -386,17 +392,35 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
     
     /**
+     * Sends a message to the pilot player (server-side only).
+     * ShipEntity is not a Player, so we must look up the pilot via UUID.
+     *
+     * @param message The message component to deliver
+     */
+    private void notifyPilot(Component message) {
+        if (level().isClientSide || pilot == null) return;
+        if (!(level() instanceof ServerLevel serverLevel)) return;
+        ServerPlayer pilotPlayer = serverLevel.getServer().getPlayerList().getPlayer(pilot);
+        if (pilotPlayer != null) {
+            pilotPlayer.sendSystemMessage(message);
+        }
+    }
+
+    /**
      * Updates ship physics: acceleration, weight, height penalty, fuel consumption.
      * Called every tick from tick() method.
+     *
+     * <p>Fuel is consumed at the documented energy/sec rate (once every 20 ticks),
+     * not once per tick. The overload warning is rate-limited to avoid chat spam.</p>
      */
     private void updatePhysics() {
         if (level().isClientSide) return;
 
-        // ━━━ Beschleunigung ━━━
+        // ━━━ Beschleunigung / Deceleration ━━━
         if (inputForward > 0 && !engineOut) {
             accelerationTicks++;
-        } else if (inputForward <= 0) {
-            // Graceful deceleration instead of instant stop
+        } else {
+            // Decelerate faster than we accelerated (responsive feel)
             accelerationTicks = Math.max(0, accelerationTicks - 4);
             currentSpeed = Mth.lerp(0.15f, currentSpeed, 0.0f);
             if (currentSpeed < 0.01f) currentSpeed = 0.0f;
@@ -417,21 +441,28 @@ public final class ShipEntity extends Entity {
             currentSpeed = Mth.lerp(0.1f, currentSpeed, targetSpeed);
         }
 
-        // ━━━ Treibstoff verbrauchen ━━━
+        // ━━━ Treibstoff verbrauchen (1x pro Sekunde = alle 20 Ticks) ━━━
+        // FuelSystem values are documented as energy/sec; do NOT charge every tick.
         if (!engineOut && inputForward > 0) {
-            int consumption = ShipPhysics.calculateFuelConsumption(phase);
-            fuelLevel -= consumption;
+            fuelConsumptionTick++;
+            if (fuelConsumptionTick >= 20) {
+                fuelConsumptionTick = 0;
+                int consumption = ShipPhysics.calculateFuelConsumption(phase);
+                fuelLevel -= consumption;
 
-            if (fuelLevel <= 0) {
-                engineOut = true;
-                fuelLevel = 0;
-                sendSystemMessage(Component.translatable("message.sharkengine.no_fuel"));
+                if (fuelLevel <= 0) {
+                    engineOut = true;
+                    fuelLevel = 0;
+                    notifyPilot(Component.translatable("message.sharkengine.no_fuel"));
+                }
             }
+        } else {
+            fuelConsumptionTick = 0;
         }
 
-        // ━━━ Gewicht-Warnungen (nur alle 100 Ticks, nicht jeden Tick) ━━━
+        // ━━━ Gewicht-Warnungen (alle 100 Ticks = 5 Sekunden, via tickCount) ━━━
         if (weightCategory == WeightCategory.OVERLOADED && tickCount % 100 == 0) {
-            sendSystemMessage(Component.translatable("message.sharkengine.too_heavy"));
+            notifyPilot(Component.translatable("message.sharkengine.too_heavy"));
         }
 
         // ━━━ Sync to client for HUD ━━━

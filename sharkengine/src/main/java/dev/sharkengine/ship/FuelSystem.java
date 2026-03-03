@@ -37,12 +37,13 @@ public final class FuelSystem {
     
     /**
      * Converts wood blocks to energy units.
-     * 
-     * @param woodCount Number of wood blocks
-     * @return Energy units (woodCount * 100)
+     * Negative wood counts are treated as zero (cannot remove fuel via conversion).
+     *
+     * @param woodCount Number of wood blocks (clamped to &ge;0)
+     * @return Energy units (max(0, woodCount) * 100)
      */
     public static int woodToEnergy(int woodCount) {
-        return woodCount * ENERGY_PER_WOOD;
+        return Math.max(0, woodCount) * ENERGY_PER_WOOD;
     }
     
     /**

@@ -50,7 +50,9 @@ public final class ShipPhysics {
      * @return Maximum speed in blocks/sec, or 0 if too heavy
      */
     public static float calculateMaxSpeed(int blockCount) {
-        if (blockCount <= 20) {
+        if (blockCount <= 0) {
+            return 0.0f; // No blocks = no ship
+        } else if (blockCount <= 20) {
             return 30.0f;
         } else if (blockCount <= 40) {
             return 20.0f;

@@ -69,18 +69,14 @@ public final class HelmInputClient {
                 vertical = -1.0f;  // Shift = absteigen
             }
 
-            // Send only if changed or every few ticks (network optimization)
-            boolean inputChanged = (vertical != lastThrottle)
-                    || (turn != lastTurn)
-                    || (forward != lastForward);
-            
-            if (cooldown == 0 && inputChanged) {
+            // Always send at ~10 Hz (every 2 ticks) regardless of change.
+            // Sending only on change caused a bug: if the first packet is lost the
+            // server never receives the command again, leaving the ship stuck.
+            if (cooldown == 0) {
                 lastThrottle = vertical;
                 lastTurn = turn;
                 lastForward = forward;
-                cooldown = 2; // ~10Hz at 20tps
-                
-                // Send payload with all 3 parameters
+                cooldown = 2; // ~10 Hz at 20 TPS
                 ClientPlayNetworking.send(new HelmInputC2SPayload(vertical, turn, forward));
             }
         });
