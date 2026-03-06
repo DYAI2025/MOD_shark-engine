@@ -30,12 +30,14 @@ import java.util.UUID;
 
 /**
  * Ship entity for controllable flying vehicles (air ships).
- * Supports vertical movement, acceleration phases, fuel system, and weight-based speed limits.
+ * Supports vertical movement, acceleration phases, fuel system, and
+ * weight-based speed limits.
  * 
  * @author Shark Engine Team
  * @version 2.0 (Luftfahrzeug-MVP)
  */
 public final class ShipEntity extends Entity {
+<<<<<<< HEAD
     private static final EntityDataAccessor<Boolean> ANCHORED =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> SYNC_FUEL =
@@ -50,7 +52,7 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
     // EXISTING FIELDS
     // ═══════════════════════════════════════════════════════════════════
-    
+
     private float inputThrottle; // -1..+1 (legacy throttle alias)
     private float inputTurn;     // -1..+1 (rotation)
     private ShipBlueprint blueprint;
@@ -59,43 +61,43 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
     // NEW FIELDS FOR LUFTFAHRZEUG-MVP (Task 1.8)
     // ═══════════════════════════════════════════════════════════════════
-    
+
     /** Vehicle class (AIR for MVP) */
     private VehicleClass vehicleClass = VehicleClass.AIR;
-    
+
     /** Current acceleration phase (1-5) */
     private AccelerationPhase phase = AccelerationPhase.PHASE_1;
-    
+
     /** Ticks since acceleration started (20 ticks = 1 second) */
     private int accelerationTicks = 0;
-    
+
     /** Current speed in blocks/sec */
     private float currentSpeed = 0.0f;
-    
+
     /** Maximum possible speed (based on weight) */
     private float maxSpeed = 30.0f;
-    
+
     /** Height penalty multiplier (0.4-1.0) */
     private float heightPenalty = 1.0f;
-    
+
     /** Number of blocks in the ship */
     private int blockCount = 0;
-    
+
     /** Current weight category */
     private WeightCategory weightCategory = WeightCategory.LIGHT;
 
     /** Whether the blueprint contains thruster blocks */
     private boolean hasThrusters = false;
-    
+
     /** Fuel level in energy units (0-100) */
     private int fuelLevel = 100;
-    
+
     /** Engine out flag (when fuel depleted) */
     private boolean engineOut = false;
-    
+
     /** Forward input (0..1, W-key for acceleration) */
     private float inputForward = 0.0f;
-    
+
     /** Vertical input (-1..+1, Leertaste/Shift) */
     private float inputVertical = 0.0f;
 
@@ -193,7 +195,7 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
     // FUEL REFILL (Task 3.5)
     // ═══════════════════════════════════════════════════════════════════
-    
+
     /**
      * Adds fuel to the ship's fuel tank.
      * 
@@ -203,29 +205,28 @@ public final class ShipEntity extends Entity {
     public int addFuel(int woodCount) {
         int energyToAdd = FuelSystem.woodToEnergy(woodCount);
         int oldFuel = fuelLevel;
-        
+
         // Add fuel, capped at MAX_FUEL (100)
         fuelLevel = Math.min(FuelSystem.MAX_FUEL, fuelLevel + energyToAdd);
-        
+
         // Reset engine out flag if fuel added
         if (fuelLevel > 0) {
             engineOut = false;
         }
-        
+
         int added = fuelLevel - oldFuel;
-        
+
         // Send feedback to nearby players
         if (!level().isClientSide && added > 0) {
             for (ServerPlayer sp : ((ServerLevel) level()).players()) {
                 if (sp.distanceTo(this) < 32) {
                     sp.sendSystemMessage(Component.translatable(
-                        "message.sharkengine.fuel_added", 
-                        FuelSystem.formatFuelDisplay(fuelLevel, FuelSystem.MAX_FUEL)
-                    ));
+                            "message.sharkengine.fuel_added",
+                            FuelSystem.formatFuelDisplay(fuelLevel, FuelSystem.MAX_FUEL)));
                 }
             }
         }
-        
+
         return added;
     }
 
@@ -233,8 +234,8 @@ public final class ShipEntity extends Entity {
      * Sets the input values for ship control
      * 
      * @param throttle Vertical throttle (-1..+1)
-     * @param turn Rotation (-1..+1)
-     * @param forward Forward acceleration (0..1)
+     * @param turn     Rotation (-1..+1)
+     * @param forward  Forward acceleration (0..1)
      */
     public void setInputs(float throttle, float turn, float forward) {
         float clampedThrottle = clamp(throttle, -1.0f, 1.0f);
@@ -264,7 +265,8 @@ public final class ShipEntity extends Entity {
         boolean next = !isAnchored();
         this.entityData.set(ANCHORED, next);
         if (!level().isClientSide) {
-            p.sendSystemMessage(Component.translatable(next ? "message.sharkengine.anchor_on" : "message.sharkengine.anchor_off"));
+            p.sendSystemMessage(
+                    Component.translatable(next ? "message.sharkengine.anchor_on" : "message.sharkengine.anchor_off"));
         }
         if (next) {
             setDeltaMovement(Vec3.ZERO);
@@ -298,7 +300,7 @@ public final class ShipEntity extends Entity {
         if (compound.hasUUID("Pilot")) {
             this.pilot = compound.getUUID("Pilot");
         }
-        
+
         // NEW (Task 3.3): Luftfahrzeug-MVP Felder
         if (compound.contains("FuelLevel")) {
             this.fuelLevel = compound.getInt("FuelLevel");
@@ -327,7 +329,7 @@ public final class ShipEntity extends Entity {
         if (pilot != null) {
             compound.putUUID("Pilot", pilot);
         }
-        
+
         // NEW (Task 3.3): Luftfahrzeug-MVP Felder
         compound.putInt("FuelLevel", fuelLevel);
         compound.putInt("AccelerationTicks", accelerationTicks);
@@ -349,7 +351,8 @@ public final class ShipEntity extends Entity {
     // --- Disassembly (Step 5) ---
 
     public void disassemble() {
-        if (blueprint == null || level().isClientSide) return;
+        if (blueprint == null || level().isClientSide)
+            return;
 
         BlockPos base = blockPosition();
         int placed = 0;
@@ -390,7 +393,7 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
     // PHYSICS UPDATE (Task 3.1)
     // ═══════════════════════════════════════════════════════════════════
-    
+
     /**
      * Sends a message to the pilot player (server-side only).
      * ShipEntity is not a Player, so we must look up the pilot via UUID.
@@ -478,7 +481,8 @@ public final class ShipEntity extends Entity {
     public void tick() {
         super.tick();
 
-        if (level().isClientSide) return;
+        if (level().isClientSide)
+            return;
 
         // ━━━ Anchor-Check ━━━
         if (isAnchored()) {
@@ -512,14 +516,14 @@ public final class ShipEntity extends Entity {
         // ━━━ Forward Movement ━━━
         double rad = Math.toRadians(yaw);
         double fx = -Math.sin(rad);
-        double fz =  Math.cos(rad);
+        double fz = Math.cos(rad);
 
         // Bewegung mit currentSpeed anwenden
         Vec3 moveVec = new Vec3(fx, 0, fz).scale(currentSpeed * 0.05);
-        
+
         // ━━━ Vertical Movement (Leertaste/Shift) ━━━
         double verticalMotion = inputVertical * 0.5; // Aufsteigen/Absteigen
-        
+
         Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
 
         // ━━━ Drag (Luftwiderstand) ━━━
@@ -551,7 +555,8 @@ public final class ShipEntity extends Entity {
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
-        if (level().isClientSide) return InteractionResult.SUCCESS;
+        if (level().isClientSide)
+            return InteractionResult.SUCCESS;
 
         // Shift-rightclick: if anchored, disassemble; otherwise toggle anchor
         if (player.isShiftKeyDown()) {
