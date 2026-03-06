@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "modrinth": {
+      "command": "node",
+      "args": ["/home/dyai/Dokumente/Pers.Tests-Page/social-role/DYAI_home/DEV/SharkEngine/MOD_shark-engine/tools/modrinth-mcp-server/dist/index.js"],
+      "env": {
+        "MODRINTH_TOKEN": ""
+      }
+    }
+  }
+}

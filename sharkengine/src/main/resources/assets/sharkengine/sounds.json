@@ -1,0 +1,14 @@
+{
+  "entity.ship.thruster_idle": {
+    "sounds": [
+      "sharkengine:entity/ship/thruster_idle"
+    ],
+    "subtitle": "sharkengine.subtitle.thruster_idle"
+  },
+  "entity.ship.thruster_active": {
+    "sounds": [
+      "sharkengine:entity/ship/thruster_active"
+    ],
+    "subtitle": "sharkengine.subtitle.thruster_active"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "sharkengine:block/bug", "y": 0 },
+    "facing=east":  { "model": "sharkengine:block/bug", "y": 90 },
+    "facing=south": { "model": "sharkengine:block/bug", "y": 180 },
+    "facing=west":  { "model": "sharkengine:block/bug", "y": 270 }
+  }
+}

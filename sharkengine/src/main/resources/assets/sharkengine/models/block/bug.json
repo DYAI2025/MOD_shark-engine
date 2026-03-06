@@ -1,0 +1,36 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "side": "minecraft:block/gold_block",
+    "front": "minecraft:block/target_top",
+    "back": "minecraft:block/stripped_oak_log"
+  },
+  "elements": [
+    {
+      "comment": "Main wedge body",
+      "from": [2, 0, 0],
+      "to": [14, 10, 16],
+      "faces": {
+        "north": { "uv": [0, 0, 12, 10], "texture": "#front" },
+        "south": { "uv": [0, 0, 12, 10], "texture": "#back" },
+        "east":  { "uv": [0, 0, 16, 10], "texture": "#side" },
+        "west":  { "uv": [0, 0, 16, 10], "texture": "#side" },
+        "up":    { "uv": [0, 0, 12, 16], "texture": "#side" },
+        "down":  { "uv": [0, 0, 12, 16], "texture": "#side" }
+      }
+    },
+    {
+      "comment": "Pointed tip (arrow shape pointing north = forward)",
+      "from": [5, 2, -3],
+      "to": [11, 8, 0],
+      "faces": {
+        "north": { "uv": [4, 4, 10, 10], "texture": "#front" },
+        "south": { "uv": [4, 4, 10, 10], "texture": "#front" },
+        "east":  { "uv": [0, 4, 3, 10], "texture": "#side" },
+        "west":  { "uv": [0, 4, 3, 10], "texture": "#side" },
+        "up":    { "uv": [4, 0, 10, 3], "texture": "#side" },
+        "down":  { "uv": [4, 0, 10, 3], "texture": "#side" }
+      }
+    }
+  ]
+}

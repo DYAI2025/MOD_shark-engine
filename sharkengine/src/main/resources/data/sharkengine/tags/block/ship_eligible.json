@@ -1,0 +1,14 @@
+{
+    "replace": false,
+    "values": [
+        "sharkengine:steering_wheel",
+        "#minecraft:planks",
+        "#minecraft:logs",
+        "#minecraft:wooden_slabs",
+        "#minecraft:wooden_stairs",
+        "#minecraft:wool",
+        "minecraft:glass",
+        "sharkengine:thruster",
+        "sharkengine:bug"
+    ]
+}
