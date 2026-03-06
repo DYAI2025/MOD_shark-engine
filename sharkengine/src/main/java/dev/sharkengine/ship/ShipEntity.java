@@ -37,7 +37,6 @@ import java.util.UUID;
  * @version 2.0 (Luftfahrzeug-MVP)
  */
 public final class ShipEntity extends Entity {
-<<<<<<< HEAD
     private static final EntityDataAccessor<Boolean> ANCHORED =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> SYNC_FUEL =
