@@ -13,5 +13,6 @@ record PreviewState(BlockPos wheelPos,
                     boolean canAssemble,
                     int contactPoints,
                     int thrusterCount,
-                    int coreNeighbors) {
+                    int coreNeighbors,
+                    int bugCount) {
 }

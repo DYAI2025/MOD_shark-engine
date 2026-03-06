@@ -8,6 +8,7 @@
         "#minecraft:wooden_stairs",
         "#minecraft:wool",
         "minecraft:glass",
-        "sharkengine:thruster"
+        "sharkengine:thruster",
+        "sharkengine:bug"
     ]
 }

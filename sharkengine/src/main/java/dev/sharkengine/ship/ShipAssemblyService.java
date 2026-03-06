@@ -1,7 +1,9 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.content.ModBlocks;
 import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.ModTags;
+import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.net.BuilderPreviewS2CPayload;
 import dev.sharkengine.tutorial.TutorialService;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -20,10 +22,20 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Service for scanning ship structures, validating BUG placement,
+ * and assembling ship entities.
+ *
+ * <p>Architecture: The BUG block is the sole source of the vehicle's
+ * forward direction. Its FACING property defines "forward". Thrusters
+ * provide thrust power but have no directional authority.</p>
+ *
+ * @author Shark Engine Team
+ * @version 3.0 (BUG-Frontsystem)
+ */
 public final class ShipAssemblyService {
-    // MVP defaults
     public static final int MAX_BLOCKS = 512;
-    public static final int MAX_RADIUS = 32; // Manhattan / BFS depth-ish via distManhattan
+    public static final int MAX_RADIUS = 32;
 
     private ShipAssemblyService() {}
 
@@ -35,7 +47,10 @@ public final class ShipAssemblyService {
                                 int contactPoints,
                                 boolean hasThruster,
                                 int thrusterCount,
-                                int coreNeighbors) {
+                                int coreNeighbors,
+                                int bugCount,
+                                boolean bugOnEdge,
+                                float bugYawDeg) {
         public boolean isEmpty() {
             return blocks.isEmpty();
         }
@@ -44,12 +59,18 @@ public final class ShipAssemblyService {
             return blocks.size();
         }
 
+        public boolean hasBug() {
+            return bugCount == 1;
+        }
+
         public boolean canAssemble() {
             return !isEmpty()
                     && invalidAttachments.isEmpty()
                     && contactPoints == 0
                     && hasThruster
-                    && coreNeighbors >= 4;
+                    && coreNeighbors >= 4
+                    && bugCount == 1
+                    && bugOnEdge;
         }
 
         public ShipBlueprint toBlueprint() {
@@ -80,6 +101,19 @@ public final class ShipAssemblyService {
             return new AssembleResult("message.sharkengine.assembly_fail_core", scan.coreNeighbors());
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // BUG VALIDATION
+        // ═══════════════════════════════════════════════════════════════════
+        if (scan.bugCount() == 0) {
+            return new AssembleResult("message.sharkengine.assembly_fail_no_bug", "");
+        }
+        if (scan.bugCount() > 1) {
+            return new AssembleResult("message.sharkengine.assembly_fail_multi_bug", scan.bugCount());
+        }
+        if (!scan.bugOnEdge()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_bug_inside", "");
+        }
+
         ShipBlueprint blueprint = scan.toBlueprint();
 
         // Remove scanned blocks
@@ -88,13 +122,21 @@ public final class ShipAssemblyService {
             level.setBlock(target, Blocks.AIR.defaultBlockState(), 3);
         }
 
-        // 4) Spawn ship entity
+        // Spawn ship entity
         ShipEntity shipEntity = new ShipEntity(ModEntities.SHIP, level);
         shipEntity.setPos(wheelPos.getX() + 0.5, wheelPos.getY() + 0.5, wheelPos.getZ() + 0.5);
-        shipEntity.setYawDeg(pilot.getYRot());
 
+        // Set blueprint (calculates block stats, thruster count, etc.)
         shipEntity.setBlueprint(blueprint);
         shipEntity.setPilot(pilot);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BUG DIRECTION: The BUG block's FACING determines forward yaw.
+        // This is absolute: player look direction is NOT used.
+        // ═══════════════════════════════════════════════════════════════════
+        shipEntity.setBugYawDeg(scan.bugYawDeg());
+        shipEntity.setYawDeg(scan.bugYawDeg());
+
         level.addFreshEntity(shipEntity);
 
         pilot.startRiding(shipEntity, true);
@@ -114,7 +156,8 @@ public final class ShipAssemblyService {
                 scan.contactPoints(),
                 scan.canAssemble(),
                 scan.thrusterCount(),
-                scan.coreNeighbors()
+                scan.coreNeighbors(),
+                scan.bugCount()
         );
         ServerPlayNetworking.send(player, payload);
 
@@ -133,6 +176,11 @@ public final class ShipAssemblyService {
         List<ShipBlueprint.ShipBlock> blocks = new ArrayList<>();
         List<BlockPos> invalidAttachments = new ArrayList<>();
         List<String> blockIds = new ArrayList<>();
+
+        // BUG tracking
+        int bugCount = 0;
+        int bugDx = 0, bugDy = 0, bugDz = 0;
+        Direction bugFacing = Direction.NORTH;
 
         while (!queue.isEmpty() && ship.size() < MAX_BLOCKS) {
             BlockPos current = queue.poll();
@@ -153,13 +201,22 @@ public final class ShipAssemblyService {
             }
 
             ship.add(key);
-            blocks.add(new ShipBlueprint.ShipBlock(
-                    current.getX() - wheelPos.getX(),
-                    current.getY() - wheelPos.getY(),
-                    current.getZ() - wheelPos.getZ(),
-                    state
-            ));
+            int dx = current.getX() - wheelPos.getX();
+            int dy = current.getY() - wheelPos.getY();
+            int dz = current.getZ() - wheelPos.getZ();
+            blocks.add(new ShipBlueprint.ShipBlock(dx, dy, dz, state));
             blockIds.add(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+
+            // Track BUG blocks
+            if (state.is(ModBlocks.BUG)) {
+                bugCount++;
+                bugDx = dx;
+                bugDy = dy;
+                bugDz = dz;
+                if (state.hasProperty(BugBlock.FACING)) {
+                    bugFacing = state.getValue(BugBlock.FACING);
+                }
+            }
 
             for (Direction d : Direction.values()) {
                 queue.add(current.relative(d));
@@ -169,7 +226,55 @@ public final class ShipAssemblyService {
         int contactPoints = countWorldContacts(level, ship);
         int thrusterCount = ThrusterRequirements.countThrusters(blockIds);
         int coreNeighbors = countCoreNeighbors(wheelPos, ship);
-        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints, thrusterCount > 0, thrusterCount, coreNeighbors);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BUG EDGE VALIDATION
+        // A BUG is on the outer edge if at least one of its 6 neighbor
+        // positions is NOT part of the ship structure.
+        // ═══════════════════════════════════════════════════════════════════
+        boolean bugOnEdge = false;
+        if (bugCount == 1) {
+            BlockPos bugWorldPos = wheelPos.offset(bugDx, bugDy, bugDz);
+            bugOnEdge = isOnEdge(bugWorldPos, ship);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BUG YAW CALCULATION
+        // The BUG's FACING direction maps directly to yaw:
+        //   NORTH = 180°, SOUTH = 0°, WEST = 90°, EAST = -90° (Minecraft convention)
+        // ═══════════════════════════════════════════════════════════════════
+        float bugYawDeg = directionToYaw(bugFacing);
+
+        return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints,
+                thrusterCount > 0, thrusterCount, coreNeighbors,
+                bugCount, bugOnEdge, bugYawDeg);
+    }
+
+    /**
+     * Checks whether the given position is on the outer edge of the structure.
+     * A block is on the edge if at least one adjacent position is NOT part of the ship.
+     */
+    private static boolean isOnEdge(BlockPos pos, LongSet ship) {
+        for (Direction d : Direction.values()) {
+            if (!ship.contains(pos.relative(d).asLong())) {
+                return true; // At least one neighbor is outside → edge
+            }
+        }
+        return false; // All 6 neighbors are ship blocks → inside
+    }
+
+    /**
+     * Converts a Minecraft Direction to entity yaw in degrees.
+     * Minecraft yaw: SOUTH=0, WEST=90, NORTH=180, EAST=-90/270
+     */
+    private static float directionToYaw(Direction direction) {
+        return switch (direction) {
+            case SOUTH -> 0.0f;
+            case WEST -> 90.0f;
+            case NORTH -> 180.0f;
+            case EAST -> -90.0f;
+            default -> 0.0f; // UP/DOWN shouldn't happen
+        };
     }
 
     private static int countWorldContacts(ServerLevel level, LongSet ship) {
@@ -186,7 +291,6 @@ public final class ShipAssemblyService {
                 BlockState ns = level.getBlockState(n);
                 if (ns.isAir()) continue;
 
-                // solid-ish world contact
                 if (!ns.getCollisionShape(level, n, ctx).isEmpty()) {
                     contacts++;
                 }

@@ -28,6 +28,8 @@ public final class TutorialService {
 
     public static void startModeSelection(ServerPlayer player, BlockPos wheelPos) {
         pendingBuilder.put(player.getUUID(), wheelPos.immutable());
+        // Feature 6: Reset stages so build mode can be re-entered after disassembly
+        resetStages(player);
         ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.MODE_SELECTION));
     }
 

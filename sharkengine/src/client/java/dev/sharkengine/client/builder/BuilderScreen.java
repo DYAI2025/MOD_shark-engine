@@ -32,7 +32,8 @@ public final class BuilderScreen extends Screen {
                 && state.invalidBlocks().isEmpty()
                 && state.contactPoints() == 0
                 && state.thrusterCount() > 0
-                && state.coreNeighbors() >= 4;
+                && state.coreNeighbors() >= 4
+                && state.bugCount() == 1;
         assembleButton.active = canLaunch;
         if (!canLaunch) {
             assembleButton.setMessage(Component.translatable("screen.sharkengine.builder.action_disabled"));
@@ -91,6 +92,22 @@ public final class BuilderScreen extends Screen {
                 centerX,
                 y,
                 state.coreNeighbors() >= 4 ? 0x55FF55 : 0xFF5555);
+        y += 15;
+
+        // BUG status
+        int bugColor;
+        if (state.bugCount() == 1) {
+            bugColor = 0x55FF55; // Green: exactly 1 = perfect
+        } else if (state.bugCount() == 0) {
+            bugColor = 0xFF5555; // Red: missing
+        } else {
+            bugColor = 0xFFAA00; // Orange: too many
+        }
+        graphics.drawCenteredString(font,
+                Component.translatable("screen.sharkengine.builder.bugs", state.bugCount()),
+                centerX,
+                y,
+                bugColor);
     }
 
     @Override

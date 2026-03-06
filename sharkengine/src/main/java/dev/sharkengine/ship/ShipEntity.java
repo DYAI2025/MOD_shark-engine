@@ -11,14 +11,17 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,11 +33,15 @@ import java.util.UUID;
 
 /**
  * Ship entity for controllable flying vehicles (air ships).
- * Supports vertical movement, acceleration phases, fuel system, and
- * weight-based speed limits.
- * 
+ * Supports vertical movement, acceleration phases, fuel system,
+ * weight-based speed limits, BUG-based direction, and health.
+ *
+ * <p>Direction rule: The BUG block's FACING property defines the
+ * vehicle's forward direction. Player look direction has no effect
+ * on movement direction. Thrusters provide thrust only, not direction.</p>
+ *
  * @author Shark Engine Team
- * @version 2.0 (Luftfahrzeug-MVP)
+ * @version 3.0 (Bug-Fix + Health + BuildMode)
  */
 public final class ShipEntity extends Entity {
     private static final EntityDataAccessor<Boolean> ANCHORED =
@@ -47,19 +54,17 @@ public final class ShipEntity extends Entity {
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> SYNC_ENGINE_OUT =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> SYNC_HEALTH =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
 
     // ═══════════════════════════════════════════════════════════════════
-    // EXISTING FIELDS
+    // FIELDS
     // ═══════════════════════════════════════════════════════════════════
 
-    private float inputThrottle; // -1..+1 (legacy throttle alias)
+    private float inputThrottle; // -1..+1 (vertical)
     private float inputTurn;     // -1..+1 (rotation)
     private ShipBlueprint blueprint;
     private UUID pilot;
-
-    // ═══════════════════════════════════════════════════════════════════
-    // NEW FIELDS FOR LUFTFAHRZEUG-MVP (Task 1.8)
-    // ═══════════════════════════════════════════════════════════════════
 
     /** Vehicle class (AIR for MVP) */
     private VehicleClass vehicleClass = VehicleClass.AIR;
@@ -97,18 +102,51 @@ public final class ShipEntity extends Entity {
     /** Forward input (0..1, W-key for acceleration) */
     private float inputForward = 0.0f;
 
-    /** Vertical input (-1..+1, Leertaste/Shift) */
+    /** Vertical input (-1..+1, Space/Shift) */
     private float inputVertical = 0.0f;
 
-    /**
-     * Tick counter for per-second fuel consumption (20 ticks = 1 second).
-     * FuelSystem consumption values are energy/sec; we only charge once per second.
-     */
+    /** Tick counter for per-second fuel consumption */
     private int fuelConsumptionTick = 0;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BUG-BASED DIRECTION (replaces thruster direction)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * The forward direction angle in degrees (world-space yaw).
+     * Determined exclusively by the BUG block's FACING property at assembly.
+     * This is the single source of truth for vehicle orientation.
+     */
+    private float bugYawDeg = 0.0f;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BUG FIX 4: SMOOTH INTERPOLATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Previous tick position for client-side interpolation */
+    private double prevPosX, prevPosY, prevPosZ;
+    private float prevYaw;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FEATURE 5: VEHICLE HEALTH
+    // ═══════════════════════════════════════════════════════════════════
+
+    public static final int MAX_HEALTH = 100;
+    private static final float COLLISION_SPEED_THRESHOLD = 5.0f; // blocks/sec
+    private static final float COLLISION_DAMAGE_MULTIPLIER = 2.0f;
+    private static final float EXPLOSION_DAMAGE = 40.0f;
+    private static final float ATTACK_DAMAGE_DEFAULT = 5.0f;
+
+    private int health = MAX_HEALTH;
+    private int damageCooldownTicks = 0;
 
     public ShipEntity(EntityType<? extends ShipEntity> type, Level level) {
         super(type, level);
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BLUEPRINT & PILOT
+    // ═══════════════════════════════════════════════════════════════════
 
     public void setBlueprint(ShipBlueprint blueprint) {
         this.blueprint = blueprint;
@@ -128,32 +166,19 @@ public final class ShipEntity extends Entity {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // NEW GETTER/SETTER FOR LUFTFAHRZEUG-MVP (Task 1.8)
+    // GETTERS
     // ═══════════════════════════════════════════════════════════════════
 
-    public VehicleClass getVehicleClass() {
-        return vehicleClass;
-    }
-
-    public AccelerationPhase getPhase() {
-        return phase;
-    }
-
-    public int getAccelerationTicks() {
-        return accelerationTicks;
-    }
+    public VehicleClass getVehicleClass() { return vehicleClass; }
+    public AccelerationPhase getPhase() { return phase; }
+    public int getAccelerationTicks() { return accelerationTicks; }
 
     public float getCurrentSpeed() {
         return level().isClientSide ? this.entityData.get(SYNC_SPEED) : currentSpeed;
     }
 
-    public float getMaxSpeed() {
-        return maxSpeed;
-    }
-
-    public float getHeightPenalty() {
-        return heightPenalty;
-    }
+    public float getMaxSpeed() { return maxSpeed; }
+    public float getHeightPenalty() { return heightPenalty; }
 
     public int getBlockCount() {
         return level().isClientSide ? this.entityData.get(SYNC_BLOCK_COUNT) : blockCount;
@@ -171,33 +196,41 @@ public final class ShipEntity extends Entity {
         return level().isClientSide ? this.entityData.get(SYNC_ENGINE_OUT) : engineOut;
     }
 
-    public boolean hasThrusters() {
-        return hasThrusters;
-    }
+    public boolean hasThrusters() { return hasThrusters; }
+    public float getInputForward() { return inputForward; }
+    public float getBugYawDeg() { return bugYawDeg; }
 
-    public float getInputForward() {
-        return inputForward;
-    }
+    public void setBugYawDeg(float yaw) { this.bugYawDeg = yaw; }
 
     public void setInputForward(float inputForward) {
         this.inputForward = clamp(inputForward, 0.0f, 1.0f);
     }
 
-    public float getInputVertical() {
-        return inputVertical;
-    }
+    public float getInputVertical() { return inputVertical; }
 
     public void setInputVertical(float inputVertical) {
         this.inputVertical = clamp(inputVertical, -1.0f, 1.0f);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // FUEL REFILL (Task 3.5)
+    // HEALTH GETTERS (Feature 5)
+    // ═══════════════════════════════════════════════════════════════════
+
+    public int getHealth() {
+        return level().isClientSide ? this.entityData.get(SYNC_HEALTH) : health;
+    }
+
+    public int getMaxHealth() { return MAX_HEALTH; }
+
+    public boolean isDestroyed() { return getHealth() <= 0; }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FUEL REFILL (Bug 3 Fix)
     // ═══════════════════════════════════════════════════════════════════
 
     /**
      * Adds fuel to the ship's fuel tank.
-     * 
+     *
      * @param woodCount Number of wood blocks to convert to fuel
      * @return Actual fuel added (may be capped at maximum)
      */
@@ -205,18 +238,19 @@ public final class ShipEntity extends Entity {
         int energyToAdd = FuelSystem.woodToEnergy(woodCount);
         int oldFuel = fuelLevel;
 
-        // Add fuel, capped at MAX_FUEL (100)
         fuelLevel = Math.min(FuelSystem.MAX_FUEL, fuelLevel + energyToAdd);
 
-        // Reset engine out flag if fuel added
         if (fuelLevel > 0) {
             engineOut = false;
         }
 
         int added = fuelLevel - oldFuel;
 
-        // Send feedback to nearby players
-        if (!level().isClientSide && added > 0) {
+        // Sync immediately
+        if (!level().isClientSide) {
+            this.entityData.set(SYNC_FUEL, fuelLevel);
+            this.entityData.set(SYNC_ENGINE_OUT, engineOut);
+
             for (ServerPlayer sp : ((ServerLevel) level()).players()) {
                 if (sp.distanceTo(this) < 32) {
                     sp.sendSystemMessage(Component.translatable(
@@ -231,10 +265,6 @@ public final class ShipEntity extends Entity {
 
     /**
      * Sets the input values for ship control
-     * 
-     * @param throttle Vertical throttle (-1..+1)
-     * @param turn     Rotation (-1..+1)
-     * @param forward  Forward acceleration (0..1)
      */
     public void setInputs(float throttle, float turn, float forward) {
         float clampedThrottle = clamp(throttle, -1.0f, 1.0f);
@@ -272,7 +302,9 @@ public final class ShipEntity extends Entity {
         }
     }
 
-    // --- NBT Persistence (Step 2) ---
+    // ═══════════════════════════════════════════════════════════════════
+    // SYNCHED DATA
+    // ═══════════════════════════════════════════════════════════════════
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
@@ -281,11 +313,15 @@ public final class ShipEntity extends Entity {
         builder.define(SYNC_SPEED, 0.0f);
         builder.define(SYNC_BLOCK_COUNT, 0);
         builder.define(SYNC_ENGINE_OUT, false);
+        builder.define(SYNC_HEALTH, MAX_HEALTH);
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NBT PERSISTENCE
+    // ═══════════════════════════════════════════════════════════════════
 
     @Override
     protected void readAdditionalSaveData(CompoundTag compound) {
-        // EXISTING: Blueprint, Anchored, Pilot
         if (compound.contains("Blueprint")) {
             this.blueprint = ShipBlueprint.fromNbt(
                     compound.getCompound("Blueprint"),
@@ -299,8 +335,6 @@ public final class ShipEntity extends Entity {
         if (compound.hasUUID("Pilot")) {
             this.pilot = compound.getUUID("Pilot");
         }
-
-        // NEW (Task 3.3): Luftfahrzeug-MVP Felder
         if (compound.contains("FuelLevel")) {
             this.fuelLevel = compound.getInt("FuelLevel");
         }
@@ -316,11 +350,19 @@ public final class ShipEntity extends Entity {
         if (compound.contains("BlockCount")) {
             this.blockCount = compound.getInt("BlockCount");
         }
+        if (compound.contains("BugYaw")) {
+            this.bugYawDeg = compound.getFloat("BugYaw");
+        } else if (compound.contains("ThrustYaw")) {
+            // Migration: alte Fahrzeuge ohne BugYaw
+            this.bugYawDeg = compound.getFloat("ThrustYaw");
+        }
+        if (compound.contains("Health")) {
+            this.health = compound.getInt("Health");
+        }
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag compound) {
-        // EXISTING: Blueprint, Anchored, Pilot
         if (blueprint != null) {
             compound.put("Blueprint", blueprint.toNbt());
         }
@@ -328,16 +370,18 @@ public final class ShipEntity extends Entity {
         if (pilot != null) {
             compound.putUUID("Pilot", pilot);
         }
-
-        // NEW (Task 3.3): Luftfahrzeug-MVP Felder
         compound.putInt("FuelLevel", fuelLevel);
         compound.putInt("AccelerationTicks", accelerationTicks);
         compound.putFloat("CurrentSpeed", currentSpeed);
         compound.putBoolean("EngineOut", engineOut);
         compound.putInt("BlockCount", blockCount);
+        compound.putFloat("BugYaw", bugYawDeg);
+        compound.putInt("Health", health);
     }
 
-    // --- S2C Sync (Step 3) ---
+    // ═══════════════════════════════════════════════════════════════════
+    // S2C SYNC
+    // ═══════════════════════════════════════════════════════════════════
 
     @Override
     public void startSeenByPlayer(ServerPlayer player) {
@@ -347,7 +391,59 @@ public final class ShipEntity extends Entity {
         }
     }
 
-    // --- Disassembly (Step 5) ---
+    // ═══════════════════════════════════════════════════════════════════
+    // INTERACT (Bug 3 Fix: Fuel Refill via Right-Click with Wood)
+    // ═══════════════════════════════════════════════════════════════════
+
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        if (level().isClientSide)
+            return InteractionResult.SUCCESS;
+
+        // Shift-rightclick: if anchored, disassemble; otherwise toggle anchor
+        if (player.isShiftKeyDown()) {
+            if (isAnchored()) {
+                disassemble();
+            } else {
+                toggleAnchor(player);
+            }
+            return InteractionResult.CONSUME;
+        }
+
+        // Check if player is holding wood/logs → refuel
+        ItemStack heldItem = player.getItemInHand(hand);
+        if (!heldItem.isEmpty() && (heldItem.is(ItemTags.LOGS) || heldItem.is(ItemTags.PLANKS))) {
+            if (fuelLevel < FuelSystem.MAX_FUEL) {
+                int fuelBefore = fuelLevel;
+                // Each item = 1 wood unit
+                int toConsume = Math.min(heldItem.getCount(), 
+                    (FuelSystem.MAX_FUEL - fuelLevel + FuelSystem.ENERGY_PER_WOOD - 1) / FuelSystem.ENERGY_PER_WOOD);
+                toConsume = Math.max(1, toConsume);
+                
+                addFuel(toConsume);
+                
+                if (fuelLevel > fuelBefore) {
+                    if (!player.getAbilities().instabuild) {
+                        heldItem.shrink(toConsume);
+                    }
+                }
+                return InteractionResult.CONSUME;
+            } else {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.literal("§eTreibstofftank ist voll!"));
+                }
+                return InteractionResult.CONSUME;
+            }
+        }
+
+        // Normal rightclick: mount
+        player.startRiding(this, true);
+        return InteractionResult.CONSUME;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // DISASSEMBLY
+    // ═══════════════════════════════════════════════════════════════════
 
     public void disassemble() {
         if (blueprint == null || level().isClientSide)
@@ -368,7 +464,6 @@ public final class ShipEntity extends Entity {
             }
         }
 
-        // Notify nearby players
         if (level() instanceof ServerLevel serverLevel) {
             String key;
             Object arg;
@@ -390,15 +485,103 @@ public final class ShipEntity extends Entity {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHYSICS UPDATE (Task 3.1)
+    // DAMAGE SYSTEM (Feature 5)
     // ═══════════════════════════════════════════════════════════════════
 
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        if (level().isClientSide || isDestroyed()) return false;
+        if (damageCooldownTicks > 0) return false;
+
+        // Scale damage based on source
+        float damage;
+        if (source.getEntity() == null) {
+            // Explosion or environmental (no direct attacker)
+            damage = EXPLOSION_DAMAGE;
+        } else {
+            // Direct attack from player/mob
+            damage = Math.max(ATTACK_DAMAGE_DEFAULT, amount);
+        }
+
+        health = Math.max(0, health - (int) damage);
+        damageCooldownTicks = 10; // 0.5 sec cooldown
+
+        // Sync to client
+        this.entityData.set(SYNC_HEALTH, health);
+
+        // Notify nearby players
+        if (level() instanceof ServerLevel serverLevel) {
+            for (ServerPlayer sp : serverLevel.players()) {
+                if (sp.distanceTo(this) < 32) {
+                    sp.sendSystemMessage(Component.literal(
+                            "§cSchiff beschädigt! HP: " + health + "/" + MAX_HEALTH));
+                }
+            }
+        }
+
+        // Destroyed at 0 HP
+        if (health <= 0) {
+            onShipDestroyed();
+        }
+
+        return true;
+    }
+
     /**
-     * Sends a message to the pilot player (server-side only).
-     * ShipEntity is not a Player, so we must look up the pilot via UUID.
-     *
-     * @param message The message component to deliver
+     * Applies collision damage based on speed.
+     * Called when the ship hits a solid block at speed.
      */
+    private void applyCollisionDamage() {
+        if (currentSpeed < COLLISION_SPEED_THRESHOLD) return;
+        float damage = (currentSpeed - COLLISION_SPEED_THRESHOLD) * COLLISION_DAMAGE_MULTIPLIER;
+        if (damage < 1) return;
+
+        health = Math.max(0, health - (int) damage);
+        damageCooldownTicks = 20; // 1 sec cooldown after collision
+
+        this.entityData.set(SYNC_HEALTH, health);
+
+        if (level() instanceof ServerLevel serverLevel) {
+            for (ServerPlayer sp : serverLevel.players()) {
+                if (sp.distanceTo(this) < 32) {
+                    sp.sendSystemMessage(Component.literal(
+                            "§cKollision! Schaden: " + (int) damage + " | HP: " + health + "/" + MAX_HEALTH));
+                }
+            }
+        }
+
+        if (health <= 0) {
+            onShipDestroyed();
+        }
+    }
+
+    /**
+     * Called when ship reaches 0 HP.
+     * Disassembles the ship and drops blocks.
+     */
+    private void onShipDestroyed() {
+        if (level().isClientSide) return;
+
+        // Eject passengers
+        this.ejectPassengers();
+
+        // Notify players
+        if (level() instanceof ServerLevel serverLevel) {
+            for (ServerPlayer sp : serverLevel.players()) {
+                if (sp.distanceTo(this) < 64) {
+                    sp.sendSystemMessage(Component.literal("§4§l⚠ Schiff zerstört!"));
+                }
+            }
+        }
+
+        // Disassemble wreck
+        disassemble();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PHYSICS UPDATE (Bug 1+2+4 Fix)
+    // ═══════════════════════════════════════════════════════════════════
+
     private void notifyPilot(Component message) {
         if (level().isClientSide || pilot == null) return;
         if (!(level() instanceof ServerLevel serverLevel)) return;
@@ -410,19 +593,27 @@ public final class ShipEntity extends Entity {
 
     /**
      * Updates ship physics: acceleration, weight, height penalty, fuel consumption.
-     * Called every tick from tick() method.
      *
-     * <p>Fuel is consumed at the documented energy/sec rate (once every 20 ticks),
-     * not once per tick. The overload warning is rate-limited to avoid chat spam.</p>
+     * <p>Direction: Entity yaw is the single source of truth, initialized from
+     * the BUG block's FACING at assembly. A/D steering modifies entity yaw.
+     * Player look direction has no influence on movement.</p>
      */
     private void updatePhysics() {
         if (level().isClientSide) return;
 
-        // ━━━ Beschleunigung / Deceleration ━━━
+        // Damaged cooldown
+        if (damageCooldownTicks > 0) damageCooldownTicks--;
+
+        // Destroyed check
+        if (isDestroyed()) {
+            setDeltaMovement(new Vec3(0, -0.3, 0));
+            return;
+        }
+
+        // ━━━ Acceleration / Deceleration ━━━
         if (inputForward > 0 && !engineOut) {
             accelerationTicks++;
         } else {
-            // Decelerate faster than we accelerated (responsive feel)
             accelerationTicks = Math.max(0, accelerationTicks - 4);
             currentSpeed = Mth.lerp(0.15f, currentSpeed, 0.0f);
             if (currentSpeed < 0.01f) currentSpeed = 0.0f;
@@ -430,21 +621,21 @@ public final class ShipEntity extends Entity {
 
         phase = ShipPhysics.calculatePhase(accelerationTicks);
 
-        // ━━━ Gewicht (Block-Anzahl) ━━━
+        // ━━━ Weight ━━━
         maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
         weightCategory = WeightCategory.fromBlockCount(blockCount);
 
-        // ━━━ Höhen-Penalty ━━━
+        // ━━━ Height Penalty ━━━
         heightPenalty = ShipPhysics.calculateHeightPenalty((float) this.getY());
 
-        // ━━━ Aktuelle Geschwindigkeit berechnen ━━━
+        // ━━━ Speed Calculation ━━━
         if (inputForward > 0 && !engineOut) {
             float targetSpeed = maxSpeed * heightPenalty * (phase.getSpeed() / 30.0f);
-            currentSpeed = Mth.lerp(0.1f, currentSpeed, targetSpeed);
+            // BUG FIX 4: Smoother acceleration lerp (was 0.1, now 0.08 for less jitter)
+            currentSpeed = Mth.lerp(0.08f, currentSpeed, targetSpeed);
         }
 
-        // ━━━ Treibstoff verbrauchen (1x pro Sekunde = alle 20 Ticks) ━━━
-        // FuelSystem values are documented as energy/sec; do NOT charge every tick.
+        // ━━━ Fuel Consumption (1x per second) ━━━
         if (!engineOut && inputForward > 0) {
             fuelConsumptionTick++;
             if (fuelConsumptionTick >= 20) {
@@ -462,85 +653,116 @@ public final class ShipEntity extends Entity {
             fuelConsumptionTick = 0;
         }
 
-        // ━━━ Gewicht-Warnungen (alle 100 Ticks = 5 Sekunden, via tickCount) ━━━
+        // ━━━ Overweight Warnings (every 5 sec) ━━━
         if (weightCategory == WeightCategory.OVERLOADED && tickCount % 100 == 0) {
             notifyPilot(Component.translatable("message.sharkengine.too_heavy"));
         }
 
-        // ━━━ Sync to client for HUD ━━━
+        // ━━━ Sync to client ━━━
         this.entityData.set(SYNC_FUEL, fuelLevel);
         this.entityData.set(SYNC_SPEED, currentSpeed);
         this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
         this.entityData.set(SYNC_ENGINE_OUT, engineOut);
+        this.entityData.set(SYNC_HEALTH, health);
     }
 
-    // --- Tick ---
+    // ═══════════════════════════════════════════════════════════════════
+    // TICK (Bug 1+2+4 Fix)
+    // ═══════════════════════════════════════════════════════════════════
 
     @Override
     public void tick() {
+        // BUG FIX 4: Store previous position for interpolation
+        this.prevPosX = this.getX();
+        this.prevPosY = this.getY();
+        this.prevPosZ = this.getZ();
+        this.prevYaw = this.getYRot();
+
         super.tick();
 
         if (level().isClientSide)
             return;
 
-        // ━━━ Anchor-Check ━━━
+        // ━━━ Anchor ━━━
         if (isAnchored()) {
             setDeltaMovement(Vec3.ZERO);
             return;
         }
 
-        // ━━━ Physik-Update (Task 3.1) ━━━
+        // ━━━ Physics Update ━━━
         updatePhysics();
 
-        // ━━━ Engine-Out Check ━━━
-        if (engineOut) {
-            // Check if ship is in water — apply buoyancy
+        // ━━━ Engine Out: drift/fall ━━━
+        if (engineOut || isDestroyed()) {
             FluidState fluid = level().getFluidState(blockPosition());
             if (!fluid.isEmpty()) {
-                // Float on water surface: gentle bob, no sinking
                 double bobVelocity = (this.getY() % 1.0 > 0.5) ? -0.02 : 0.02;
                 setDeltaMovement(new Vec3(0, bobVelocity, 0));
             } else {
-                // Fall gently through air (reduced from 0.5 to 0.15)
                 setDeltaMovement(new Vec3(0, -0.15, 0));
             }
             this.move(MoverType.SELF, getDeltaMovement());
             return;
         }
 
-        // ━━━ Turn (Rotation) ━━━
-        float yaw = this.getYRot() + (inputTurn * 4.0f); // deg/tick
+        // ━━━ BUG FIX 1+2: Turn (Rotation) ━━━
+        // Steering modifies the entity yaw. The entity yaw IS the forward direction.
+        // Smooth turning: 3 deg/tick (was 4, reduced for stability)
+        float yaw = this.getYRot() + (inputTurn * 3.0f);
         this.setYRot(yaw);
 
         // ━━━ Forward Movement ━━━
+        // Direction is ALWAYS based on entity yaw (single source of truth).
+        // At assembly, yaw is set from BUG block's FACING direction.
         double rad = Math.toRadians(yaw);
         double fx = -Math.sin(rad);
         double fz = Math.cos(rad);
 
-        // Bewegung mit currentSpeed anwenden
-        Vec3 moveVec = new Vec3(fx, 0, fz).scale(currentSpeed * 0.05);
+        // BUG FIX 4: Use currentSpeed directly, scale to ticks (÷20)
+        // Previously 0.05 was used which doesn't match blocks/sec definition
+        double speedPerTick = currentSpeed / 20.0;
+        Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
 
-        // ━━━ Vertical Movement (Leertaste/Shift) ━━━
-        double verticalMotion = inputVertical * 0.5; // Aufsteigen/Absteigen
+        // ━━━ Vertical Movement ━━━
+        // BUG FIX 4: Smooth vertical speed, scaled properly
+        double verticalMotion = inputVertical * 0.3;
 
         Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
 
-        // ━━━ Drag (Luftwiderstand) ━━━
-        vel = new Vec3(vel.x * 0.90, vel.y * 0.98, vel.z * 0.90);
+        // ━━━ Drag (Air Resistance) ━━━
+        // BUG FIX 4: Gentler drag for smoother movement
+        vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
         this.setDeltaMovement(vel);
 
-        // ━━━ Kollision prüfen (Task 3.2) ━━━
+        // ━━━ Collision Check ━━━
         if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint)) {
+            // Feature 5: Collision damage
+            applyCollisionDamage();
             setDeltaMovement(Vec3.ZERO);
+            currentSpeed *= 0.3f; // Lose most speed on collision
+            accelerationTicks = Math.max(0, accelerationTicks - 40);
         }
 
-        // ━━━ Bewegung anwenden ━━━
+        // ━━━ Apply Movement ━━━
         this.move(MoverType.SELF, this.getDeltaMovement());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BUG FIX 4: CLIENT INTERPOLATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Provides smooth client-side position interpolation.
+     * Overrides default to use our stored previous positions.
+     */
+    @Override
+    public void lerpTo(double x, double y, double z, float yaw, float pitch, int steps) {
+        // Use shorter lerp steps for smoother movement at high speed
+        super.lerpTo(x, y, z, yaw, pitch, Math.min(steps, 3));
     }
 
     @Override
     public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
-        // Always allow dismount by returning position next to the ship
         double rad = Math.toRadians(this.getYRot() + 90);
         double offsetX = Math.cos(rad) * 1.5;
         double offsetZ = Math.sin(rad) * 1.5;
@@ -552,30 +774,21 @@ public final class ShipEntity extends Entity {
         return true;
     }
 
-    @Override
-    public InteractionResult interact(Player player, InteractionHand hand) {
-        if (level().isClientSide)
-            return InteractionResult.SUCCESS;
-
-        // Shift-rightclick: if anchored, disassemble; otherwise toggle anchor
-        if (player.isShiftKeyDown()) {
-            if (isAnchored()) {
-                disassemble();
-            } else {
-                toggleAnchor(player);
-            }
-            return InteractionResult.CONSUME;
-        }
-
-        // Normal rightclick mounts
-        player.startRiding(this, true);
-        return InteractionResult.CONSUME;
-    }
-
     private static float clamp(float v, float a, float b) {
         return Math.max(a, Math.min(b, v));
     }
 
+    /**
+     * Applies blueprint stats: block count, weight, speed, thruster check.
+     *
+     * <p>Direction is NOT determined here – it comes exclusively from the
+     * BUG block's FACING property, set via {@link #setBugYawDeg(float)}
+     * during assembly.</p>
+     *
+     * <p>Thrusters are decorative thrust indicators only.
+     * They are still required for assembly validation but have
+     * no directional authority.</p>
+     */
     private void applyBlueprintStats() {
         if (blueprint == null) {
             blockCount = 0;
@@ -587,8 +800,12 @@ public final class ShipEntity extends Entity {
         blockCount = blueprint.blockCount();
         weightCategory = WeightCategory.fromBlockCount(blockCount);
         maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
-        hasThrusters = blueprint.blocks().stream().anyMatch(block -> block.state().is(ModBlocks.THRUSTER));
-        // Sync blockCount to client immediately
+
+        // Check for thrusters (required for assembly, decorative for direction)
+        hasThrusters = blueprint.blocks().stream()
+                .anyMatch(block -> block.state().is(ModBlocks.THRUSTER));
+
+        // Sync blockCount to client
         if (!level().isClientSide) {
             this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
         }

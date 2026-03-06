@@ -1,6 +1,7 @@
 package dev.sharkengine.content;
 
 import dev.sharkengine.SharkEngineMod;
+import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -34,6 +35,15 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    public static final Block BUG = registerBlock(
+            "bug",
+            BugBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -41,6 +51,7 @@ public final class ModBlocks {
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(entries -> {
             entries.accept(STEERING_WHEEL.asItem());
             entries.accept(THRUSTER.asItem());
+            entries.accept(BUG.asItem());
         });
     }
 

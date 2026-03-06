@@ -26,10 +26,16 @@ public final class SteeringWheelBlock extends Block {
             return;
         }
 
+        // Drop starter kit: 2 thrusters + 1 bug (front marker)
         ItemStack thrusters = new ItemStack(ModBlocks.THRUSTER.asItem(), 2);
-        ItemEntity drop = new ItemEntity(level, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, thrusters);
-        drop.setDefaultPickUpDelay();
-        level.addFreshEntity(drop);
+        ItemEntity dropThrusters = new ItemEntity(level, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, thrusters);
+        dropThrusters.setDefaultPickUpDelay();
+        level.addFreshEntity(dropThrusters);
+
+        ItemStack bug = new ItemStack(ModBlocks.BUG.asItem(), 1);
+        ItemEntity dropBug = new ItemEntity(level, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, bug);
+        dropBug.setDefaultPickUpDelay();
+        level.addFreshEntity(dropBug);
     }
 
     @Override

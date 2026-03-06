@@ -65,21 +65,26 @@ public final class FuelHudOverlay {
         float speed = ship.getCurrentSpeed();
         double height = player.getY();
         WeightCategory weight = ship.getWeightCategory();
+        int health = ship.getHealth();
+        int maxHealth = ship.getMaxHealth();
         
         // Render HUD background (semi-transparent black)
         int hudWidth = 220;
-        int hudHeight = 60;
+        int hudHeight = 76; // Extended for health bar
         graphics.fill(HUD_X - 2, HUD_Y - 2, HUD_X + hudWidth + 2, HUD_Y + hudHeight + 2, 0x80000000);
         
+        // Render health bar (Feature 5)
+        renderHealthBar(graphics, mc, HUD_X, HUD_Y, health, maxHealth);
+        
         // Render fuel bar
-        renderFuelBar(graphics, mc, HUD_X, HUD_Y, fuel, FuelSystem.MAX_FUEL);
+        renderFuelBar(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT, fuel, FuelSystem.MAX_FUEL);
         
         // Render stats
-        renderStats(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT, blocks, speed, height);
+        renderStats(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 2, blocks, speed, height);
         
         // Render warning if applicable
         if (weight.getWarning() != null) {
-            renderWarning(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 3, weight);
+            renderWarning(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 4, weight);
         }
     }
     
@@ -157,17 +162,42 @@ public final class FuelHudOverlay {
     
     /**
      * Renders warning message for heavy/overloaded ships.
-     * 
-     * @param g GuiGraphics
-     * @param mc Minecraft instance
-     * @param x X position
-     * @param y Y position
-     * @param category Weight category
      */
     private static void renderWarning(GuiGraphics g, Minecraft mc, int x, int y, WeightCategory category) {
         if (category.getWarning() == null) return;
         
         int color = category == WeightCategory.OVERLOADED ? ERROR_COLOR : WARNING_COLOR;
         g.drawString(mc.font, category.getWarning(), x, y, color);
+    }
+    
+    /**
+     * Renders the health bar (Feature 5).
+     */
+    private static void renderHealthBar(GuiGraphics g, Minecraft mc, int x, int y, int health, int maxHealth) {
+        if (maxHealth <= 0) return;
+        
+        int percent = Math.min(100, Math.max(0, (health * 100) / maxHealth));
+        int bars = percent / 10;
+        int emptyBars = 10 - bars;
+        
+        int barColor;
+        if (percent > 60) {
+            barColor = 0xFF00FF00; // Green
+        } else if (percent > 30) {
+            barColor = 0xFFFFAA00; // Orange
+        } else {
+            barColor = 0xFFFF0000; // Red
+        }
+        
+        String label = "Schiff-HP: ";
+        g.drawString(mc.font, label, x, y, TEXT_COLOR);
+        
+        int barX = x + mc.font.width(label);
+        g.drawString(mc.font, "█".repeat(bars), barX, y, barColor);
+        int emptyX = barX + mc.font.width("█".repeat(bars));
+        g.drawString(mc.font, "░".repeat(emptyBars), emptyX, y, 0xFF888888);
+        
+        String hpText = " " + health + "/" + maxHealth;
+        g.drawString(mc.font, hpText, emptyX + mc.font.width("░".repeat(emptyBars)), y, TEXT_COLOR);
     }
 }
