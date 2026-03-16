@@ -1,6 +1,7 @@
 package dev.sharkengine.client;
 
 import dev.sharkengine.client.builder.BuilderModeClient;
+import dev.sharkengine.client.render.FirstLaunchOnboardingHud;
 import dev.sharkengine.client.render.FuelHudOverlay;
 import dev.sharkengine.client.render.ShipEntityRenderer;
 import dev.sharkengine.client.tutorial.TutorialPopupClient;
@@ -46,7 +47,9 @@ public final class SharkEngineClient implements ClientModInitializer {
         // Register HUD overlay renderer
         // Renders fuel bar, height, speed, and weight warnings
         HudRenderCallback.EVENT.register((guiGraphics, tickDelta) -> {
-            FuelHudOverlay.render(guiGraphics, net.minecraft.client.Minecraft.getInstance());
+            var minecraft = net.minecraft.client.Minecraft.getInstance();
+            FuelHudOverlay.render(guiGraphics, minecraft);
+            FirstLaunchOnboardingHud.render(guiGraphics, minecraft);
         });
     }
 }

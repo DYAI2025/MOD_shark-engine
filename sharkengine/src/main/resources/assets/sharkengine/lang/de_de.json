@@ -52,5 +52,10 @@
     "screen.sharkengine.builder.bugs": "%s Bug-Block(s) gefunden",
     "message.sharkengine.no_fuel": "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.",
     "message.sharkengine.too_heavy": "⚠ Schiff zu schwer zum Fliegen (61+ Blöcke)!",
-    "message.sharkengine.fuel_added": "Treibstoff aufgefüllt: %s"
+    "message.sharkengine.fuel_added": "Treibstoff aufgefüllt: %s",
+    "hud.sharkengine.onboarding.title": "Shark Engine V4 · Flug-Kurzanleitung",
+    "hud.sharkengine.onboarding.movement": "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.",
+    "hud.sharkengine.onboarding.vertical": "Vertikal: Leertaste steigt, Shift sinkt. Schwere Schiffe steigen langsamer.",
+    "hud.sharkengine.onboarding.fuel": "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.",
+    "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden."
 }

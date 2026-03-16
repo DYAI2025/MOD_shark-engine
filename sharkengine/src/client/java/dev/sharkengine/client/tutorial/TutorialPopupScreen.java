@@ -9,10 +9,16 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
+import java.util.List;
 import java.util.Locale;
 
 public final class TutorialPopupScreen extends Screen {
+    private static final int PANEL_WIDTH_MAX = 380;
+    private static final int PANEL_PADDING = 12;
+    private static final int BODY_LINE_HEIGHT = 11;
+
     private final TutorialPopupStage stage;
     private VehicleClass selectedMode = VehicleClass.AIR;
 
@@ -24,30 +30,41 @@ public final class TutorialPopupScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+
+        int buttonWidth = stage == TutorialPopupStage.WELCOME ? 120 : 160;
+        int buttonY = Math.min(height - 34, computePanelBottom() + 8);
+
         switch (stage) {
-            case WELCOME -> initWelcome();
-            case MODE_SELECTION -> initModeSelection();
-            case BUILD_GUIDE -> initBuildGuide();
-            case READY_TO_LAUNCH -> initReadyPopup();
-            case FLIGHT_TIPS -> initFlightTips();
+            case WELCOME -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
+                    .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
+                    .build());
+            case MODE_SELECTION -> {
+                initModeSelection();
+                addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.confirm"), button -> confirmModeSelection())
+                        .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
+                        .build());
+            }
+            case BUILD_GUIDE -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> {
+                ClientPlayNetworking.send(new TutorialAdvanceC2SPayload(TutorialPopupStage.BUILD_GUIDE));
+                onClose();
+            }).bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20).build());
+            case READY_TO_LAUNCH -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.launch"), button -> onClose())
+                    .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
+                    .build());
+            case FLIGHT_TIPS -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
+                    .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
+                    .build());
         }
     }
 
-    private void initWelcome() {
-        int buttonWidth = 120;
-        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
-                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
-                .build());
-    }
-
     private void initModeSelection() {
-        int startY = height / 2 - 30;
+        int startY = computePanelTop() + 55;
         int buttonWidth = 160;
 
         for (VehicleClass mode : VehicleClass.values()) {
             int y = startY + mode.ordinal() * 25;
             boolean enabled = mode == VehicleClass.AIR;
-            Component label = Component.translatable("screen.sharkengine.tutorial.mode." + mode.name().toLowerCase(java.util.Locale.ROOT));
+            Component label = Component.translatable("screen.sharkengine.tutorial.mode." + mode.name().toLowerCase(Locale.ROOT));
             Button button = Button.builder(label, btn -> {
                 if (enabled) {
                     selectedMode = mode;
@@ -56,32 +73,6 @@ public final class TutorialPopupScreen extends Screen {
             button.active = enabled;
             addRenderableWidget(button);
         }
-
-        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.confirm"), button -> confirmModeSelection())
-                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
-                .build());
-    }
-
-    private void initBuildGuide() {
-        int buttonWidth = 160;
-        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> {
-            ClientPlayNetworking.send(new TutorialAdvanceC2SPayload(TutorialPopupStage.BUILD_GUIDE));
-            onClose();
-        }).bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20).build());
-    }
-
-    private void initReadyPopup() {
-        int buttonWidth = 160;
-        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.launch"), button -> onClose())
-                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
-                .build());
-    }
-
-    private void initFlightTips() {
-        int buttonWidth = 160;
-        addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
-                .bounds((width - buttonWidth) / 2, height - 40, buttonWidth, 20)
-                .build());
     }
 
     private void confirmModeSelection() {
@@ -93,23 +84,51 @@ public final class TutorialPopupScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         renderBackground(graphics, mouseX, mouseY, delta);
 
-        // Dark panel behind text for readability
-        int panelW = Math.min(width - 40, 340);
+        int panelW = Math.min(width - 40, PANEL_WIDTH_MAX);
         int panelX = (width - panelW) / 2;
-        int panelY = height / 2 - 95;
-        int panelH = (stage == TutorialPopupStage.MODE_SELECTION) ? 150 : 60;
-        graphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xCC000000);
+        int panelTop = computePanelTop();
+        int panelBottom = computePanelBottom();
 
-        graphics.drawCenteredString(font, getStageTitle(), width / 2, height / 2 - 80, 0xFFFFFF);
-        graphics.drawCenteredString(font, getBody(), width / 2, height / 2 - 60, 0xCCCCCC);
+        graphics.fill(panelX, panelTop, panelX + panelW, panelBottom, 0xCC000000);
+
+        int currentY = panelTop + PANEL_PADDING;
+        graphics.drawCenteredString(font, getStageTitle(), width / 2, currentY, 0xFFFFFF);
+        currentY += 20;
+
+        List<FormattedCharSequence> bodyLines = font.split(getBody(), panelW - PANEL_PADDING * 2);
+        for (FormattedCharSequence line : bodyLines) {
+            graphics.drawCenteredString(font, line, width / 2, currentY, 0xDDDDDD);
+            currentY += BODY_LINE_HEIGHT;
+        }
+
         if (stage == TutorialPopupStage.MODE_SELECTION) {
             graphics.drawCenteredString(font,
                     Component.translatable("screen.sharkengine.tutorial.mode.disabled_note"),
                     width / 2,
-                    height / 2 + 40,
+                    computePanelBottom() - 26,
                     0xAAAAAA);
         }
+
         super.render(graphics, mouseX, mouseY, delta);
+    }
+
+    private int computePanelTop() {
+        int panelHeight = computePanelHeight();
+        return Math.max(20, (height - panelHeight) / 2 - 10);
+    }
+
+    private int computePanelBottom() {
+        return computePanelTop() + computePanelHeight();
+    }
+
+    private int computePanelHeight() {
+        int panelW = Math.min(width - 40, PANEL_WIDTH_MAX);
+        int bodyHeight = font.split(getBody(), panelW - PANEL_PADDING * 2).size() * BODY_LINE_HEIGHT;
+        int baseHeight = PANEL_PADDING * 2 + 20 + bodyHeight;
+        if (stage == TutorialPopupStage.MODE_SELECTION) {
+            baseHeight = Math.max(baseHeight, 180);
+        }
+        return baseHeight;
     }
 
     private Component getStageTitle() {
