@@ -97,7 +97,9 @@ public final class TutorialPopupScreen extends Screen {
 
         List<FormattedCharSequence> bodyLines = font.split(getBody(), panelW - PANEL_PADDING * 2);
         for (FormattedCharSequence line : bodyLines) {
-            graphics.drawCenteredString(font, line, width / 2, currentY, 0xDDDDDD);
+            int lineWidth = font.width(line);
+            int lineX = (width - lineWidth) / 2;
+            graphics.drawString(font, line, lineX, currentY, 0xDDDDDD);
             currentY += BODY_LINE_HEIGHT;
         }
 
