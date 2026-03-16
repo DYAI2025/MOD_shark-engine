@@ -58,7 +58,9 @@ public final class TutorialPopupScreen extends Screen {
     }
 
     private void initModeSelection() {
-        int startY = computePanelTop() + 55;
+        // Reserve enough vertical space for the body text (up to 4 lines) before placing mode buttons
+        int maxBodyLines = 4;
+        int startY = computePanelTop() + PANEL_PADDING + BODY_LINE_HEIGHT * maxBodyLines;
         int buttonWidth = 160;
 
         for (VehicleClass mode : VehicleClass.values()) {
