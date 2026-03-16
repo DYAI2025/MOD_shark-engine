@@ -43,6 +43,13 @@ public final class FirstLaunchOnboardingHud {
         if (!(mc.getCameraEntity() instanceof LocalPlayer player)) return;
         if (!(player.getVehicle() instanceof ShipEntity)) return;
 
+        // Only allow dismissal when no other screen (chat, inventory, menus, etc.) is open.
+        if (mc.screen != null) {
+            // Reset key state so a key held while a screen is open doesn't immediately trigger on close.
+            lastDismissKeyDown = false;
+            return;
+        }
+
         boolean dismissKeyDown = InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_X);
         if (dismissKeyDown && !lastDismissKeyDown) {
             dismissed = true;
