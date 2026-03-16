@@ -16,6 +16,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Version 4 onboarding HUD card.
@@ -33,8 +35,20 @@ public final class FirstLaunchOnboardingHud {
     private static boolean dismissed;
     private static boolean lastDismissKeyDown;
 
+    // Single-threaded executor to perform config file writes off the render thread.
+    private static final ExecutorService CONFIG_WRITE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "SharkEngine-Config-Writer");
+        t.setDaemon(true);
+        return t;
+    });
+
     private FirstLaunchOnboardingHud() {
         throw new UnsupportedOperationException("FirstLaunchOnboardingHud is a utility class");
+    }
+
+    private static void scheduleSaveDismissedState(Minecraft mc) {
+        // Offload potentially blocking filesystem I/O from the render callback.
+        CONFIG_WRITE_EXECUTOR.submit(() -> saveDismissedState(mc));
     }
 
     public static void render(GuiGraphics graphics, Minecraft mc) {
@@ -53,7 +67,7 @@ public final class FirstLaunchOnboardingHud {
         boolean dismissKeyDown = InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_X);
         if (dismissKeyDown && !lastDismissKeyDown) {
             dismissed = true;
-            saveDismissedState(mc);
+            scheduleSaveDismissedState(mc);
             return;
         }
         lastDismissKeyDown = dismissKeyDown;
