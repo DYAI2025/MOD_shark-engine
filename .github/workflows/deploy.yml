@@ -40,10 +40,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check Railway token
+        id: railway_token
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -n "$RAILWAY_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "RAILWAY_TOKEN is not configured, skipping deploy."
+          fi
+
       - name: Install Railway CLI
+        if: ${{ steps.railway_token.outputs.available == 'true' }}
         run: npm install -g @railway/cli
 
       - name: Deploy to Railway
+        if: ${{ steps.railway_token.outputs.available == 'true' }}
         run: railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
