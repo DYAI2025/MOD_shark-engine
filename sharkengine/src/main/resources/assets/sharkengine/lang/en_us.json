@@ -57,5 +57,6 @@
     "hud.sharkengine.onboarding.movement": "Movement: W = forward, A/D = turn. Build momentum before climbing.",
     "hud.sharkengine.onboarding.vertical": "Vertical: Space rises, Shift descends. Heavy ships climb slower.",
     "hud.sharkengine.onboarding.fuel": "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.",
-    "hud.sharkengine.onboarding.dismiss": "Press X to dismiss this card."
+    "hud.sharkengine.onboarding.dismiss": "Press X to dismiss this card.",
+    "message.sharkengine.not_pilot": "You are not the pilot of this ship."
 }

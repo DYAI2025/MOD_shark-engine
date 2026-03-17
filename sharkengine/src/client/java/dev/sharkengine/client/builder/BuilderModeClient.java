@@ -89,7 +89,7 @@ public final class BuilderModeClient {
         preview = null;
     }
 
-    static PreviewState getPreview() {
+    public static PreviewState getPreview() {
         return preview;
     }
 
