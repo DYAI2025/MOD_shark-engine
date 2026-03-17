@@ -285,6 +285,10 @@ public final class ShipAssemblyService {
             BlockPos p = BlockPos.of(it.nextLong());
 
             for (Direction d : Direction.values()) {
+                // DOWN is not a contact: ships placed on the ground can always
+                // take off vertically. Only horizontal and UP contacts block flight.
+                if (d == Direction.DOWN) continue;
+
                 BlockPos n = p.relative(d);
                 if (ship.contains(n.asLong())) continue;
 

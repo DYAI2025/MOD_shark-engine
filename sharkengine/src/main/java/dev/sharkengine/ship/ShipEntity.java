@@ -400,8 +400,14 @@ public final class ShipEntity extends Entity {
         if (level().isClientSide)
             return InteractionResult.SUCCESS;
 
-        // Shift-rightclick: if anchored, disassemble; otherwise toggle anchor
+        // Shift-rightclick: anchor/disassemble – only the pilot may do this
         if (player.isShiftKeyDown()) {
+            if (!isPilot(player)) {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.translatable("message.sharkengine.not_pilot"));
+                }
+                return InteractionResult.CONSUME;
+            }
             if (isAnchored()) {
                 disassemble();
             } else {
@@ -410,18 +416,24 @@ public final class ShipEntity extends Entity {
             return InteractionResult.CONSUME;
         }
 
-        // Check if player is holding wood/logs → refuel
+        // Check if player is holding wood/logs → refuel (pilot only)
         ItemStack heldItem = player.getItemInHand(hand);
         if (!heldItem.isEmpty() && (heldItem.is(ItemTags.LOGS) || heldItem.is(ItemTags.PLANKS))) {
+            if (!isPilot(player)) {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.translatable("message.sharkengine.not_pilot"));
+                }
+                return InteractionResult.CONSUME;
+            }
             if (fuelLevel < FuelSystem.MAX_FUEL) {
                 int fuelBefore = fuelLevel;
                 // Each item = 1 wood unit
-                int toConsume = Math.min(heldItem.getCount(), 
+                int toConsume = Math.min(heldItem.getCount(),
                     (FuelSystem.MAX_FUEL - fuelLevel + FuelSystem.ENERGY_PER_WOOD - 1) / FuelSystem.ENERGY_PER_WOOD);
                 toConsume = Math.max(1, toConsume);
-                
+
                 addFuel(toConsume);
-                
+
                 if (fuelLevel > fuelBefore) {
                     if (!player.getAbilities().instabuild) {
                         heldItem.shrink(toConsume);
@@ -436,7 +448,11 @@ public final class ShipEntity extends Entity {
             }
         }
 
-        // Normal rightclick: mount
+        // Normal rightclick: mount (only one pilot at a time)
+        if (pilot != null && !isPilot(player) && getPassengers().stream().anyMatch(e -> e instanceof Player)) {
+            // Ship already has a pilot – don't allow a second mount
+            return InteractionResult.CONSUME;
+        }
         player.startRiding(this, true);
         return InteractionResult.CONSUME;
     }

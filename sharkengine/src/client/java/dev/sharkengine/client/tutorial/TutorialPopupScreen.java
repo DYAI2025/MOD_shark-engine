@@ -1,5 +1,8 @@
 package dev.sharkengine.client.tutorial;
 
+import dev.sharkengine.client.builder.BuilderModeClient;
+import dev.sharkengine.client.builder.PreviewState;
+import dev.sharkengine.net.BuilderAssembleC2SPayload;
 import dev.sharkengine.net.TutorialAdvanceC2SPayload;
 import dev.sharkengine.net.TutorialModeSelectionC2SPayload;
 import dev.sharkengine.ship.VehicleClass;
@@ -48,9 +51,15 @@ public final class TutorialPopupScreen extends Screen {
                 ClientPlayNetworking.send(new TutorialAdvanceC2SPayload(TutorialPopupStage.BUILD_GUIDE));
                 onClose();
             }).bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20).build());
-            case READY_TO_LAUNCH -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.launch"), button -> onClose())
-                    .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
-                    .build());
+            case READY_TO_LAUNCH -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.launch"), button -> {
+                // Trigger assembly directly so the player doesn't have to find the
+                // "Assemble & Launch" button in the builder screen behind this popup.
+                PreviewState preview = BuilderModeClient.getPreview();
+                if (preview != null && preview.canAssemble()) {
+                    ClientPlayNetworking.send(new BuilderAssembleC2SPayload(preview.wheelPos()));
+                }
+                onClose();
+            }).bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20).build());
             case FLIGHT_TIPS -> addRenderableWidget(Button.builder(Component.translatable("screen.sharkengine.tutorial.button.continue"), button -> onClose())
                     .bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20)
                     .build());
