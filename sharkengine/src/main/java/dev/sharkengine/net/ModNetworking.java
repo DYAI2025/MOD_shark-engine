@@ -55,6 +55,7 @@ public final class ModNetworking {
                 if (!(sp.level() instanceof ServerLevel serverLevel)) {
                     return;
                 }
+                
                 ShipAssemblyService.AssembleResult result = ShipAssemblyService.tryAssemble(serverLevel, payload.wheelPos(), sp);
                 sp.sendSystemMessage(Component.translatable(result.translationKey(), result.arg()));
 

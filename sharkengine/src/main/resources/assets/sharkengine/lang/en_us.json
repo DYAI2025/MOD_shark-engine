@@ -43,6 +43,7 @@
     "screen.sharkengine.tutorial.ready.body": "All requirements met. Press Launch to take off!",
     "screen.sharkengine.tutorial.flight_tips.title": "Flight Controls",
     "screen.sharkengine.tutorial.flight_tips.body": "WASD to steer, Space to rise, Shift to descend. Monitor fuel and weight warnings.",
+    "screen.sharkengine.tutorial.flight_tips.controller": "Controller: Left Stick=Throttle, Right Stick=Turn, Triggers=Up/Down",
     "block.sharkengine.bug": "Bow (Front Marker)",
     "item.sharkengine.bug": "Bow (Front Marker)",
     "item.sharkengine.thruster": "Thruster",
@@ -58,5 +59,11 @@
     "hud.sharkengine.onboarding.vertical": "Vertical: Space rises, Shift descends. Heavy ships climb slower.",
     "hud.sharkengine.onboarding.fuel": "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.",
     "hud.sharkengine.onboarding.dismiss": "Press X to dismiss this card.",
-    "message.sharkengine.not_pilot": "You are not the pilot of this ship."
+    "message.sharkengine.not_pilot": "You are not the pilot of this ship.",
+    "message.sharkengine.controller_connected": "🎮 Controller connected",
+    "message.sharkengine.controller_disconnected": "Controller disconnected",
+    "config.sharkengine.controller.title": "Controller Settings",
+    "config.sharkengine.controller.deadzone": "Stick Deadzone",
+    "config.sharkengine.controller.invert_yaw": "Invert Yaw",
+    "config.sharkengine.controller.vibration": "Vibration Feedback"
 }

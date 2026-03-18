@@ -43,6 +43,7 @@
     "screen.sharkengine.tutorial.ready.body": "Alle Anforderungen erfüllt. Drücke Starten zum Abheben!",
     "screen.sharkengine.tutorial.flight_tips.title": "Flugsteuerung",
     "screen.sharkengine.tutorial.flight_tips.body": "WASD zum Lenken, Leertaste zum Steigen, Shift zum Sinken. Achte auf Treibstoff- und Gewichtswarnungen.",
+    "screen.sharkengine.tutorial.flight_tips.controller": "Controller: Linker Stick=Schub, Rechter Stick=Drehung, Trigger=Hoch/Runter",
     "block.sharkengine.bug": "Bug (Frontmarker)",
     "item.sharkengine.bug": "Bug (Frontmarker)",
     "item.sharkengine.thruster": "Triebwerk",
@@ -57,5 +58,12 @@
     "hud.sharkengine.onboarding.movement": "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.",
     "hud.sharkengine.onboarding.vertical": "Vertikal: Leertaste steigt, Shift sinkt. Schwere Schiffe steigen langsamer.",
     "hud.sharkengine.onboarding.fuel": "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.",
-    "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden."
+    "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden.",
+    "message.sharkengine.not_pilot": "Du bist nicht der Pilot dieses Schiffs.",
+    "message.sharkengine.controller_connected": "🎮 Controller verbunden",
+    "message.sharkengine.controller_disconnected": "Controller getrennt",
+    "config.sharkengine.controller.title": "Controller-Einstellungen",
+    "config.sharkengine.controller.deadzone": "Stick-Deadzone",
+    "config.sharkengine.controller.invert_yaw": "Yaw invertieren",
+    "config.sharkengine.controller.vibration": "Vibrations-Feedback"
 }

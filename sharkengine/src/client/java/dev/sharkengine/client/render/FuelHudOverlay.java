@@ -1,5 +1,6 @@
 package dev.sharkengine.client.render;
 
+import dev.sharkengine.client.ControllerInput;
 import dev.sharkengine.ship.FuelSystem;
 import dev.sharkengine.ship.ShipEntity;
 import dev.sharkengine.ship.WeightCategory;
@@ -11,38 +12,43 @@ import net.minecraft.network.chat.Component;
 /**
  * Client-side HUD overlay for ship fuel and status display.
  * Renders fuel bar, height, speed, and weight warnings.
- * 
+ *
  * <p>Display layout:</p>
  * <pre>
  * ┌─────────────────────────────────┐
+ * │ Schiff-HP: [████████░░] 80/100 │
  * │ Treibstoff: [████████░░] 80%   │
  * │ Höhe: Y=127                     │
  * │ Geschwindigkeit: 25 Blöcke/sec │
  * │ Gewicht: 34 Blöcke → 20 max    │
+ * │ [🎮 Controller verbunden]       │
  * │ [Warnung bei HEAVY/OVERLOADED] │
  * └─────────────────────────────────┘
  * </pre>
- * 
+ *
  * @author Shark Engine Team
- * @version 1.0 (Luftfahrzeug-MVP)
+ * @version 2.0 (Controller-Indikator)
  */
 public final class FuelHudOverlay {
     
     /** HUD position (top-left corner) */
     private static final int HUD_X = 10;
     private static final int HUD_Y = 10;
-    
+
     /** Line height in pixels */
     private static final int LINE_HEIGHT = 12;
-    
+
     /** Text color (white) */
     private static final int TEXT_COLOR = 0xFFFFFFFF;
-    
+
     /** Warning color (yellow) */
     private static final int WARNING_COLOR = 0xFFFFFF00;
-    
+
     /** Error color (red) */
     private static final int ERROR_COLOR = 0xFFFF0000;
+
+    /** Controller indicator color (green) */
+    private static final int CONTROLLER_COLOR = 0xFF00AA00;
     
     private FuelHudOverlay() {
         throw new UnsupportedOperationException("FuelHudOverlay is a utility class");
@@ -51,14 +57,14 @@ public final class FuelHudOverlay {
     /**
      * Renders the fuel HUD overlay.
      * Called every frame when player is piloting a ship.
-     * 
+     *
      * @param graphics GuiGraphics for rendering
      * @param mc Minecraft instance
      */
     public static void render(GuiGraphics graphics, Minecraft mc) {
         if (!(mc.getCameraEntity() instanceof LocalPlayer player)) return;
         if (!(player.getVehicle() instanceof ShipEntity ship)) return;
-        
+
         // Get ship data
         int fuel = ship.getFuelLevel();
         int blocks = ship.getBlockCount();
@@ -67,24 +73,26 @@ public final class FuelHudOverlay {
         WeightCategory weight = ship.getWeightCategory();
         int health = ship.getHealth();
         int maxHealth = ship.getMaxHealth();
-        
+
         // Render HUD background (semi-transparent black)
         int hudWidth = 220;
-        int hudHeight = 76; // Extended for health bar
-        graphics.fill(HUD_X - 2, HUD_Y - 2, HUD_X + hudWidth + 2, HUD_Y + hudHeight + 2, 0x80000000);
-        
+        int hudHeight = 88; // Extended for controller indicator
+
         // Render health bar (Feature 5)
         renderHealthBar(graphics, mc, HUD_X, HUD_Y, health, maxHealth);
-        
+
         // Render fuel bar
         renderFuelBar(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT, fuel, FuelSystem.MAX_FUEL);
-        
+
         // Render stats
         renderStats(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 2, blocks, speed, height);
-        
+
+        // Render controller indicator if connected
+        renderControllerIndicator(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 4);
+
         // Render warning if applicable
         if (weight.getWarning() != null) {
-            renderWarning(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 4, weight);
+            renderWarning(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 5, weight);
         }
     }
     
@@ -175,11 +183,11 @@ public final class FuelHudOverlay {
      */
     private static void renderHealthBar(GuiGraphics g, Minecraft mc, int x, int y, int health, int maxHealth) {
         if (maxHealth <= 0) return;
-        
+
         int percent = Math.min(100, Math.max(0, (health * 100) / maxHealth));
         int bars = percent / 10;
         int emptyBars = 10 - bars;
-        
+
         int barColor;
         if (percent > 60) {
             barColor = 0xFF00FF00; // Green
@@ -188,16 +196,31 @@ public final class FuelHudOverlay {
         } else {
             barColor = 0xFFFF0000; // Red
         }
-        
+
         String label = "Schiff-HP: ";
         g.drawString(mc.font, label, x, y, TEXT_COLOR);
-        
+
         int barX = x + mc.font.width(label);
         g.drawString(mc.font, "█".repeat(bars), barX, y, barColor);
         int emptyX = barX + mc.font.width("█".repeat(bars));
         g.drawString(mc.font, "░".repeat(emptyBars), emptyX, y, 0xFF888888);
-        
+
         String hpText = " " + health + "/" + maxHealth;
         g.drawString(mc.font, hpText, emptyX + mc.font.width("░".repeat(emptyBars)), y, TEXT_COLOR);
+    }
+
+    /**
+     * Renders controller connection indicator.
+     * Shows controller icon and status when gamepad is connected.
+     */
+    private static void renderControllerIndicator(GuiGraphics g, Minecraft mc, int x, int y) {
+        if (!ControllerInput.isConnected()) return;
+
+        // Controller icon (🎮 or simple gamepad symbol)
+        String controllerIcon = "[🎮] ";
+        String statusText = "Controller verbunden";
+
+        // Render with controller color
+        g.drawString(mc.font, controllerIcon + statusText, x, y, CONTROLLER_COLOR);
     }
 }

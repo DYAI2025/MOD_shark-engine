@@ -468,14 +468,36 @@ public final class ShipEntity extends Entity {
         BlockPos base = blockPosition();
         int placed = 0;
         int blocked = 0;
+        int returnedToInventory = 0;
+
+        // Get pilot for inventory return
+        ServerPlayer pilot = null;
+        if (this.pilot != null && level() instanceof ServerLevel serverLevel) {
+            pilot = serverLevel.getServer().getPlayerList().getPlayer(this.pilot);
+        }
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockPos target = base.offset(block.dx(), block.dy(), block.dz());
             BlockState existing = level().getBlockState(target);
+            
+            // Try to place block back
             if (existing.isAir() || existing.canBeReplaced()) {
                 level().setBlock(target, block.state(), 3);
                 placed++;
             } else {
+                // Block is obstructed - return to pilot's inventory
+                if (pilot != null) {
+                    ItemStack blockStack = new ItemStack(block.state().getBlock(), 1);
+                    boolean added = pilot.getInventory().add(blockStack);
+                    if (added) {
+                        returnedToInventory++;
+                    } else {
+                        // Inventory full - drop as item entity
+                        level().addFreshEntity(new net.minecraft.world.entity.item.ItemEntity(
+                            level(), target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5, blockStack));
+                        returnedToInventory++;
+                    }
+                }
                 blocked++;
             }
         }
@@ -488,7 +510,7 @@ public final class ShipEntity extends Entity {
                 arg = placed;
             } else {
                 key = "message.sharkengine.disassembly_partial";
-                arg = placed + "/" + (placed + blocked);
+                arg = placed + " platziert, " + returnedToInventory + " im Inventar";
             }
             for (ServerPlayer sp : serverLevel.players()) {
                 if (sp.distanceTo(this) < 64) {

@@ -17,6 +17,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -31,9 +33,11 @@ import java.util.List;
  * provide thrust power but have no directional authority.</p>
  *
  * @author Shark Engine Team
- * @version 3.0 (BUG-Frontsystem)
+ * @version 3.0 (BUG-Frontsystem + Debug-Logs)
  */
 public final class ShipAssemblyService {
+    private static final Logger LOGGER = LoggerFactory.getLogger("SharkEngine-Assembly");
+    
     public static final int MAX_BLOCKS = 512;
     public static final int MAX_RADIUS = 32;
 
@@ -79,25 +83,35 @@ public final class ShipAssemblyService {
     }
 
     public static AssembleResult tryAssemble(ServerLevel level, BlockPos wheelPos, ServerPlayer pilot) {
+        LOGGER.info("🔧 Assembly requested at {}", wheelPos);
+        
         StructureScan scan = scanStructure(level, wheelPos);
+        LOGGER.info("📊 Scan result: {} blocks, {} invalid, {} contacts, {} thrusters, {} core, {} bugs",
+            scan.blockCount(), scan.invalidAttachments().size(), scan.contactPoints(),
+            scan.thrusterCount(), scan.coreNeighbors(), scan.bugCount());
 
         if (scan.isEmpty()) {
+            LOGGER.warn("❌ Assembly failed: empty structure");
             return new AssembleResult("message.sharkengine.assembly_fail_empty", "");
         }
 
         if (!scan.invalidAttachments().isEmpty()) {
+            LOGGER.warn("❌ Assembly failed: {} invalid attachments", scan.invalidAttachments().size());
             return new AssembleResult("message.sharkengine.assembly_fail_invalid", scan.invalidAttachments().size());
         }
 
         if (scan.contactPoints() > 0) {
+            LOGGER.warn("❌ Assembly failed: {} world contacts", scan.contactPoints());
             return new AssembleResult("message.sharkengine.assembly_fail_contact", scan.contactPoints());
         }
 
         if (!scan.hasThruster()) {
+            LOGGER.warn("❌ Assembly failed: no thrusters (count: {})", scan.thrusterCount());
             return new AssembleResult("message.sharkengine.assembly_fail_thruster", scan.thrusterCount());
         }
 
         if (scan.coreNeighbors() < 4) {
+            LOGGER.warn("❌ Assembly failed: only {} core neighbors (need 4)", scan.coreNeighbors());
             return new AssembleResult("message.sharkengine.assembly_fail_core", scan.coreNeighbors());
         }
 
@@ -105,14 +119,19 @@ public final class ShipAssemblyService {
         // BUG VALIDATION
         // ═══════════════════════════════════════════════════════════════════
         if (scan.bugCount() == 0) {
+            LOGGER.warn("❌ Assembly failed: no bug block found");
             return new AssembleResult("message.sharkengine.assembly_fail_no_bug", "");
         }
         if (scan.bugCount() > 1) {
+            LOGGER.warn("❌ Assembly failed: {} bug blocks (need exactly 1)", scan.bugCount());
             return new AssembleResult("message.sharkengine.assembly_fail_multi_bug", scan.bugCount());
         }
         if (!scan.bugOnEdge()) {
+            LOGGER.warn("❌ Assembly failed: bug block not on edge");
             return new AssembleResult("message.sharkengine.assembly_fail_bug_inside", "");
         }
+
+        LOGGER.info("✅ All validation passed! Assembling ship...");
 
         ShipBlueprint blueprint = scan.toBlueprint();
 
@@ -138,10 +157,14 @@ public final class ShipAssemblyService {
         shipEntity.setYawDeg(scan.bugYawDeg());
 
         level.addFreshEntity(shipEntity);
+        LOGGER.info("✅ Ship entity created and added to level");
 
-        pilot.startRiding(shipEntity, true);
+        boolean mounted = pilot.startRiding(shipEntity, true);
+        LOGGER.info("✅ Player mounted: {}", mounted);
+        
         TutorialService.notifyFlightTips(pilot);
 
+        LOGGER.info("🎉 Assembly complete! Ship has {} blocks", blueprint.blockCount());
         return new AssembleResult("message.sharkengine.assembly_ok", blueprint.blockCount());
     }
 

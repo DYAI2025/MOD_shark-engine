@@ -1,5 +1,6 @@
 package dev.sharkengine;
 
+import dev.sharkengine.command.ModCommands;
 import dev.sharkengine.content.ModBlocks;
 import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.net.ModNetworking;
@@ -14,6 +15,7 @@ public final class SharkEngineMod {
         ModBlocks.init();
         ModEntities.init();
         ModNetworking.init();
+        ModCommands.init();
         LOGGER.info("Shark Engine initialized");
     }
 }

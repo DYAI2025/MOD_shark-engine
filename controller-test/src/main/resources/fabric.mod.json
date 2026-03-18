@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "id": "controller-test",
+    "version": "${version}",
+    "name": "Controller Test",
+    "description": "Independent controller/gamepad test mod for debugging input",
+    "authors": [
+        "Shark Engine Team"
+    ],
+    "license": "MIT",
+    "environment": "client",
+    "entrypoints": {
+        "client": [
+            "dev.sharkengine.controllertest.ControllerTestClient"
+        ]
+    },
+    "depends": {
+        "minecraft": ">=1.21.1",
+        "fabricloader": ">=0.16.5",
+        "fabric-api": "*"
+    }
+}

@@ -25,7 +25,22 @@ class FuelSystemTest {
     void testMaxFuelConstant() {
         assertEquals(100, FuelSystem.MAX_FUEL);
     }
-    
+
+    @Test
+    @DisplayName("MaxFuel: Maximum fuel capacity is 100 energy units")
+    void testMaxFuel() {
+        // Verify MAX_FUEL constant
+        assertEquals(100, FuelSystem.MAX_FUEL, "Max fuel should be 100 energy units");
+        
+        // Verify fuel cannot exceed MAX_FUEL when using formatFuelDisplay
+        String display = FuelSystem.formatFuelDisplay(FuelSystem.MAX_FUEL, FuelSystem.MAX_FUEL);
+        assertTrue(display.contains("100%"), "Full fuel should display 100%");
+        
+        // Verify isCritical returns false at MAX_FUEL
+        assertFalse(FuelSystem.isCritical(FuelSystem.MAX_FUEL, FuelSystem.MAX_FUEL),
+                "Full fuel should not be critical");
+    }
+
     @Test
     @DisplayName("woodToEnergy: 1 wood = 100 energy")
     void testWoodToEnergy() {

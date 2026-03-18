@@ -1,5 +1,7 @@
 package dev.sharkengine.client;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,14 +23,13 @@ import java.nio.FloatBuffer;
  *   <li>Y-Button (3) → Interact (mount/builder)</li>
  * </ul>
  *
+ * <p>Configuration is loaded from config/sharkengine-controller.properties</p>
+ *
  * @author Shark Engine Team
- * @version 1.0
+ * @version 2.0 (Config-Support + Chat-Nachrichten)
  */
 public final class ControllerInput {
     private static final Logger LOGGER = LoggerFactory.getLogger("SharkEngine-Controller");
-
-    /** Deadzone threshold to prevent stick drift */
-    private static final float DEADZONE = 0.15f;
 
     /** Connected joystick ID (GLFW_JOYSTICK_1 .. _15), or -1 if none */
     private static int connectedJoystick = -1;
@@ -49,12 +50,57 @@ public final class ControllerInput {
     private static boolean lastDismountButton = false;
     private static boolean lastInteractButton = false;
 
+    // Vibration state
+    private static long lastVibrationTime = 0;
+
     private ControllerInput() {}
+
+    /**
+     * @return Config instance for controller settings
+     */
+    private static ControllerConfig getConfig() {
+        return ControllerConfig.getInstance();
+    }
+
+    /**
+     * Initializes controller detection and sends chat message.
+     * Call once during client initialization.
+     */
+    public static void init() {
+        // Check for controllers immediately on init
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            scanForControllers(mc);
+        }
+    }
+
+    /**
+     * Scans for connected controllers and sends chat notification.
+     * @param mc Minecraft instance for chat messages
+     */
+    private static void scanForControllers(Minecraft mc) {
+        for (int i = GLFW.GLFW_JOYSTICK_1; i <= GLFW.GLFW_JOYSTICK_LAST; i++) {
+            if (GLFW.glfwJoystickPresent(i)) {
+                connectedJoystick = i;
+                String name = GLFW.glfwGetJoystickName(i);
+                if (!wasConnected) {
+                    LOGGER.info("🎮 Controller connected: {} (slot {})", name, i);
+                    if (mc.player != null) {
+                        mc.player.sendSystemMessage(Component.translatable("message.sharkengine.controller_connected"));
+                    }
+                    wasConnected = true;
+                }
+                return;
+            }
+        }
+    }
 
     /**
      * Scans for connected controllers. Call once per tick.
      */
     public static void pollController() {
+        Minecraft mc = Minecraft.getInstance();
+        
         // Find connected joystick
         if (connectedJoystick < 0) {
             for (int i = GLFW.GLFW_JOYSTICK_1; i <= GLFW.GLFW_JOYSTICK_LAST; i++) {
@@ -62,7 +108,10 @@ public final class ControllerInput {
                     connectedJoystick = i;
                     String name = GLFW.glfwGetJoystickName(i);
                     if (!wasConnected) {
-                        LOGGER.info("Controller connected: {} (slot {})", name, i);
+                        LOGGER.info("🎮 Controller connected: {} (slot {})", name, i);
+                        if (mc.player != null) {
+                            mc.player.sendSystemMessage(Component.translatable("message.sharkengine.controller_connected"));
+                        }
                         wasConnected = true;
                     }
                     break;
@@ -78,6 +127,9 @@ public final class ControllerInput {
         // Check still connected
         if (!GLFW.glfwJoystickPresent(connectedJoystick)) {
             LOGGER.info("Controller disconnected (slot {})", connectedJoystick);
+            if (mc.player != null) {
+                mc.player.sendSystemMessage(Component.translatable("message.sharkengine.controller_disconnected"));
+            }
             connectedJoystick = -1;
             wasConnected = false;
             resetInputs();
@@ -108,6 +160,9 @@ public final class ControllerInput {
 
         // Turn: right stick X
         turn = -applyDeadzone(rightStickX); // Invert so right stick right = turn right
+        if (getConfig().isInvertYaw()) {
+            turn = -turn;
+        }
 
         // Vertical: triggers
         float vertUp = 0f;
@@ -161,11 +216,18 @@ public final class ControllerInput {
     /** @return true on Y-button press edge (interact) */
     public static boolean isInteractPressed() { return interactPressed; }
 
+    /**
+     * Applies deadzone and rescales output.
+     * Uses configurable deadzone from ControllerConfig.
+     * @param value Input value (-1..+1)
+     * @return Processed value with deadzone applied
+     */
     private static float applyDeadzone(float value) {
-        if (Math.abs(value) < DEADZONE) return 0f;
+        float deadzone = getConfig().getDeadzone();
+        if (Math.abs(value) < deadzone) return 0f;
         // Rescale so that output starts at 0 right outside deadzone
         float sign = Math.signum(value);
-        return sign * (Math.abs(value) - DEADZONE) / (1f - DEADZONE);
+        return sign * (Math.abs(value) - deadzone) / (1f - deadzone);
     }
 
     private static void resetInputs() {

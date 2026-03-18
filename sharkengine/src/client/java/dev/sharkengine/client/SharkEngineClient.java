@@ -12,24 +12,28 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 /**
  * Client-side mod initializer for Shark Engine.
- * 
+ *
  * <p>Initializes:</p>
  * <ul>
+ *   <li>ControllerInput - Gamepad/Controller handler</li>
  *   <li>HelmInputClient - Player input handler</li>
  *   <li>ShipBlueprintHandler - Client-side blueprint rendering</li>
  *   <li>ShipEntityRenderer - Ship entity renderer with particles</li>
  *   <li>FuelHudOverlay - Fuel and status HUD overlay</li>
  * </ul>
- * 
+ *
  * @author Shark Engine Team
- * @version 2.0 (Luftfahrzeug-MVP)
+ * @version 2.0 (Luftfahrzeug-MVP + Controller)
  */
 public final class SharkEngineClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        // Initialize controller input (detects gamepads immediately)
+        ControllerInput.init();
+        
         // Initialize input handler
         HelmInputClient.init();
-        
+
         // Initialize blueprint handler
         ShipBlueprintHandler.init();
 
@@ -37,10 +41,10 @@ public final class SharkEngineClient implements ClientModInitializer {
         BuilderModeClient.init();
         FlightCameraHandler.init();
         TutorialPopupClient.init();
-        
+
         // Register ship entity renderer
         EntityRendererRegistry.register(ModEntities.SHIP, ShipEntityRenderer::new);
-        
+
         // ═══════════════════════════════════════════════════════════════════
         // FUEL HUD OVERLAY INTEGRATION (Task 4.4)
         // ═══════════════════════════════════════════════════════════════════
