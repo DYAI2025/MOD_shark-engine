@@ -9,6 +9,7 @@ public final class HovercraftController {
     private static final float FRICTION_MULTIPLIER = 0.4f;
     private static final float VELOCITY_EPSILON = 0.001f;
     private static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+    private static final float ACCELERATION_RATE = 0.15f;
 
     public HovercraftOutput tick(HovercraftInput input, HovercraftState state) {
         float newVelX;
@@ -42,10 +43,14 @@ public final class HovercraftController {
             // Convert max speed from blocks/sec to blocks/tick (20 TPS)
             float maxSpeed = state.weightCategory().getMaxSpeed() / 20.0f;
 
-            // Apply acceleration: blend toward target velocity
-            newVelX = hx * maxSpeed;
-            newVelY = input.moveVertical() * maxSpeed;
-            newVelZ = hz * maxSpeed;
+            // Blend from current velocity toward target (gradual acceleration)
+            float targetVelX = hx * maxSpeed;
+            float targetVelY = input.moveVertical() * maxSpeed;
+            float targetVelZ = hz * maxSpeed;
+
+            newVelX = state.velX() + (targetVelX - state.velX()) * ACCELERATION_RATE;
+            newVelY = state.velY() + (targetVelY - state.velY()) * ACCELERATION_RATE;
+            newVelZ = state.velZ() + (targetVelZ - state.velZ()) * ACCELERATION_RATE;
         }
 
         return new HovercraftOutput(newVelX, newVelY, newVelZ);

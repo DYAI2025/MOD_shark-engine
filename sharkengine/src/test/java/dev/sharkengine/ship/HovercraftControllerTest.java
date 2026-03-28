@@ -288,4 +288,51 @@ class HovercraftControllerTest {
             assertTrue(Math.abs(output180.newVelX()) < 0.01f, "At yaw=180° X should be near 0");
         }
     }
+
+    // ── Acceleration ─────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Acceleration — velocity ramps up gradually")
+    class Acceleration {
+
+        @Test
+        @DisplayName("First tick of forward input does not reach max speed")
+        void firstTick_doesNotReachMaxSpeed() {
+            var input = new HovercraftInput(1f, 0f, 0f, 0f);
+            var state = atRest();
+
+            var output = controller.tick(input, state);
+
+            float maxSpeed = WeightCategory.LIGHT.getMaxSpeed() / 20.0f;
+            float outputSpeed = (float) Math.sqrt(
+                    output.newVelX() * output.newVelX() + output.newVelZ() * output.newVelZ());
+
+            assertTrue(outputSpeed < maxSpeed * 0.5f,
+                    "First tick should be well below max speed, was " + outputSpeed + " vs max " + maxSpeed);
+            assertTrue(outputSpeed > 0.001f,
+                    "First tick should produce some movement");
+        }
+
+        @Test
+        @DisplayName("Speed increases over multiple ticks toward max")
+        void multiTick_speedIncreases() {
+            var input = new HovercraftInput(1f, 0f, 0f, 0f);
+            var state = atRest();
+
+            float prevSpeed = 0f;
+            for (int tick = 0; tick < 20; tick++) {
+                var output = controller.tick(input, state);
+                float speed = (float) Math.sqrt(
+                        output.newVelX() * output.newVelX() + output.newVelZ() * output.newVelZ());
+                assertTrue(speed >= prevSpeed - 0.001f,
+                        "Speed should increase or stay at tick " + tick);
+                prevSpeed = speed;
+                state = new HovercraftState(output.newVelX(), output.newVelY(), output.newVelZ(),
+                        WeightCategory.LIGHT, 100f);
+            }
+            float maxSpeed = WeightCategory.LIGHT.getMaxSpeed() / 20.0f;
+            assertTrue(prevSpeed > maxSpeed * 0.8f,
+                    "After 20 ticks should be near max speed, was " + prevSpeed);
+        }
+    }
 }
