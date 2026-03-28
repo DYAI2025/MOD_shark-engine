@@ -15,7 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
  * 
  * <p>Registered Payloads:</p>
  * <ul>
- *   <li>C2S: {@link HelmInputC2SPayload} - Client to Server helm/steering input</li>
+ *   <li>C2S: {@link HovercraftInputC2SPayload} - Client to Server hovercraft flight input</li>
  *   <li>S2C: {@link ShipBlueprintS2CPayload} - Server to Client blueprint sync</li>
  * </ul>
  * 
@@ -37,23 +37,12 @@ public final class ModNetworking {
         // ═══════════════════════════════════════════════════════════════════
         // C2S: Helm Input (Client → Server)
         // ═══════════════════════════════════════════════════════════════════
-        PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(HovercraftInputC2SPayload.TYPE, HovercraftInputC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BuilderAssembleC2SPayload.TYPE, BuilderAssembleC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TutorialModeSelectionC2SPayload.TYPE, TutorialModeSelectionC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TutorialAdvanceC2SPayload.TYPE, TutorialAdvanceC2SPayload.CODEC);
 
-        // Legacy helm input handler (kept until client is migrated in Phase 3)
-        ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
-            ServerPlayer sp = ctx.player();
-            ctx.server().execute(() -> {
-                if (!(sp.getVehicle() instanceof ShipEntity ship)) return;
-                if (!ship.isPilot(sp)) return;
-                ship.setInputs(payload.throttle(), payload.turn(), payload.forward());
-            });
-        });
-
-        // Hovercraft input handler (new 3-axis model)
+        // Hovercraft input handler (3-axis model)
         ServerPlayNetworking.registerGlobalReceiver(HovercraftInputC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
             ctx.server().execute(() -> {

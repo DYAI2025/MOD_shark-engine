@@ -763,38 +763,18 @@ public final class ShipEntity extends Entity {
             return;
         }
 
-        Vec3 vel;
-        if (useHovercraftInput) {
-            // ━━━ Hovercraft flight model ━━━
-            // Movement direction from player yaw, not entity yaw (REQ-F-bugblock-orientation-only)
-            HovercraftInput hcInput = new HovercraftInput(
-                    hcMoveForward, hcMoveStrafe, hcMoveVertical, hcPlayerYaw);
-            HovercraftState hcState = new HovercraftState(
-                    (float) getDeltaMovement().x,
-                    (float) getDeltaMovement().y,
-                    (float) getDeltaMovement().z,
-                    weightCategory,
-                    fuelLevel);
-            HovercraftOutput hcOutput = hovercraftController.tick(hcInput, hcState);
-            vel = new Vec3(hcOutput.newVelX(), hcOutput.newVelY(), hcOutput.newVelZ());
-            this.setDeltaMovement(vel);
-        } else {
-            // ━━━ Legacy flight model (until client migrates to hovercraft input) ━━━
-            float yaw = this.getYRot() + (inputTurn * 3.0f);
-            this.setYRot(yaw);
-
-            double rad = Math.toRadians(yaw);
-            double fx = -Math.sin(rad);
-            double fz = Math.cos(rad);
-
-            double speedPerTick = currentSpeed / 20.0;
-            Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
-
-            double verticalMotion = inputVertical * 0.3;
-            vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
-            vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
-            this.setDeltaMovement(vel);
-        }
+        // ━━━ Hovercraft flight model ━━━
+        // Movement direction from player yaw, not entity yaw (REQ-F-bugblock-orientation-only)
+        HovercraftInput hcInput = new HovercraftInput(
+                hcMoveForward, hcMoveStrafe, hcMoveVertical, hcPlayerYaw);
+        HovercraftState hcState = new HovercraftState(
+                (float) getDeltaMovement().x,
+                (float) getDeltaMovement().y,
+                (float) getDeltaMovement().z,
+                weightCategory,
+                fuelLevel);
+        HovercraftOutput hcOutput = hovercraftController.tick(hcInput, hcState);
+        this.setDeltaMovement(new Vec3(hcOutput.newVelX(), hcOutput.newVelY(), hcOutput.newVelZ()));
 
         // ━━━ Collision Check ━━━
         if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint)) {

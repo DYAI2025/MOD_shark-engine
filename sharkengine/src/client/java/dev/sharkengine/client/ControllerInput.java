@@ -37,9 +37,9 @@ public final class ControllerInput {
     /** Whether a gamepad was ever detected (for log spam prevention) */
     private static boolean wasConnected = false;
 
-    // Current input state
+    // Current input state (hovercraft 3-axis model)
     private static float forward = 0f;
-    private static float turn = 0f;
+    private static float strafe = 0f;
     private static float vertical = 0f;
     private static boolean anchorPressed = false;
     private static boolean dismountPressed = false;
@@ -152,17 +152,13 @@ public final class ControllerInput {
         // Axis 5: Right Trigger (-1 = released, +1 = fully pressed)
 
         float leftStickY = axes.get(1);    // Forward/back
-        float rightStickX = axes.get(2);   // Turn
+        float leftStickX = axes.get(0);    // Strafe
 
-        // Forward: left stick pushed up (negative Y = forward)
+        // Forward/backward: left stick Y (negative Y = forward)
         forward = applyDeadzone(-leftStickY);
-        forward = Math.max(0f, forward); // Only forward, no reverse
 
-        // Turn: right stick X
-        turn = -applyDeadzone(rightStickX); // Invert so right stick right = turn right
-        if (getConfig().isInvertYaw()) {
-            turn = -turn;
-        }
+        // Strafe: left stick X (positive X = right)
+        strafe = applyDeadzone(leftStickX);
 
         // Vertical: triggers
         float vertUp = 0f;
@@ -198,11 +194,11 @@ public final class ControllerInput {
         return connectedJoystick >= 0;
     }
 
-    /** @return Forward input 0..1 (left stick up) */
+    /** @return Forward/backward input -1..+1 (left stick Y) */
     public static float getForward() { return forward; }
 
-    /** @return Turn input -1..+1 (right stick X) */
-    public static float getTurn() { return turn; }
+    /** @return Strafe input -1..+1 (left stick X, positive = right) */
+    public static float getStrafe() { return strafe; }
 
     /** @return Vertical input -1..+1 (triggers: RT=up, LT=down) */
     public static float getVertical() { return vertical; }
@@ -232,7 +228,7 @@ public final class ControllerInput {
 
     private static void resetInputs() {
         forward = 0f;
-        turn = 0f;
+        strafe = 0f;
         vertical = 0f;
         anchorPressed = false;
         dismountPressed = false;

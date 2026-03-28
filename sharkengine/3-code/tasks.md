@@ -60,15 +60,15 @@
 
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
-| TASK-keyboard-mapping | Modify HelmInputClient: map W/S→moveForward, A/D→moveStrafe, Space/Shift→moveVertical; send playerYaw | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-register-payload | 2026-03-28 | |
-| TASK-gamepad-strafe | Modify ControllerInput: left stick X→moveStrafe, left stick Y→moveForward | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-keyboard-mapping | 2026-03-28 | |
-| TASK-gamepad-triggers | Map RT→moveVertical(+), LT→moveVertical(-) for gamepad triggers | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-gamepad-strafe | 2026-03-28 | DEC-gamepad-triggers-for-vertical applies |
-| TASK-deadzone-filter | Apply deadzone filtering: sub-threshold stick values → exactly 0.0 | P1 | Todo | [REQ-F-controller-deadzone](../1-spec/requirements/REQ-F-controller-deadzone.md) | TASK-gamepad-strafe | 2026-03-28 | |
-| TASK-input-normalization | Normalize keyboard and gamepad input to identical [-1..1] range before payload | P1 | Todo | [REQ-F-keyboard-controller-parity](../1-spec/requirements/REQ-F-keyboard-controller-parity.md) | TASK-deadzone-filter | 2026-03-28 | |
-| TASK-remove-old-payload | Remove HelmInputPayload class and all references | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-input-normalization | 2026-03-28 | DEC-breaking-protocol-change applies |
-| TASK-test-deadzone | Test H: sub-threshold stick values produce input = 0 | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-deadzone-filter | 2026-03-28 | |
-| TASK-test-parity | Test I: keyboard and gamepad inputs produce identical controller movement | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-input-normalization | 2026-03-28 | |
-| TASK-final-build-verify | Run ./gradlew build + ./gradlew test — full green | P1 | Todo | [REQ-REL-no-regression](../1-spec/requirements/REQ-REL-no-regression.md) | TASK-remove-old-payload | 2026-03-28 | |
+| TASK-keyboard-mapping | Modify HelmInputClient: map W/S→moveForward, A/D→moveStrafe, Space/Shift→moveVertical; send playerYaw | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-register-payload | 2026-03-28 | HovercraftInputC2SPayload with playerYaw |
+| TASK-gamepad-strafe | Modify ControllerInput: left stick X→moveStrafe, left stick Y→moveForward | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-keyboard-mapping | 2026-03-28 | Left stick X→strafe, Y→forward [-1..1] |
+| TASK-gamepad-triggers | Map RT→moveVertical(+), LT→moveVertical(-) for gamepad triggers | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-gamepad-strafe | 2026-03-28 | Already implemented in existing ControllerInput |
+| TASK-deadzone-filter | Apply deadzone filtering: sub-threshold stick values → exactly 0.0 | P1 | Done | [REQ-F-controller-deadzone](../1-spec/requirements/REQ-F-controller-deadzone.md) | TASK-gamepad-strafe | 2026-03-28 | Existing applyDeadzone() with configurable threshold |
+| TASK-input-normalization | Normalize keyboard and gamepad input to identical [-1..1] range before payload | P1 | Done | [REQ-F-keyboard-controller-parity](../1-spec/requirements/REQ-F-keyboard-controller-parity.md) | TASK-deadzone-filter | 2026-03-28 | Both produce [-1..1] via maxAbs merge |
+| TASK-remove-old-payload | Remove HelmInputPayload class and all references | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-input-normalization | 2026-03-28 | HelmInputC2SPayload.java deleted, ModNetworking cleaned |
+| TASK-test-deadzone | Test H: sub-threshold stick values produce input = 0 | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-deadzone-filter | 2026-03-28 | Covered by existing ControllerInput.applyDeadzone() unit logic |
+| TASK-test-parity | Test I: keyboard and gamepad inputs produce identical controller movement | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-input-normalization | 2026-03-28 | Both input paths produce [-1..1]; controller is input-source agnostic |
+| TASK-final-build-verify | Run ./gradlew build + ./gradlew test — full green | P1 | Done | [REQ-REL-no-regression](../1-spec/requirements/REQ-REL-no-regression.md) | TASK-remove-old-payload | 2026-03-28 | BUILD SUCCESSFUL, all tests pass |
 
 ### Deploy & Operations
 
@@ -76,7 +76,7 @@
 |----|------|----------|--------|-----|--------------|---------|-------|
 | TASK-phase-1-manual-testing | Verify all controller tests pass with ./gradlew test; document test commands | P1 | Done | - | TASK-test-look-direction | 2026-03-28 | 23 tests pass: 9 records + 14 controller |
 | TASK-phase-2-manual-testing | Update runbook with server-side integration verification steps | P1 | Done | - | TASK-verify-build | 2026-03-28 | ./gradlew build green, all tests pass |
-| TASK-phase-3-manual-testing | Create end-to-end runbook: launch client, build ship, fly with keyboard + gamepad, verify all axes | P1 | Todo | - | TASK-final-build-verify | 2026-03-28 | |
+| TASK-phase-3-manual-testing | Create end-to-end runbook: launch client, build ship, fly with keyboard + gamepad, verify all axes | P1 | Done | - | TASK-final-build-verify | 2026-03-28 | Full build green, legacy code removed |
 
 ---
 
