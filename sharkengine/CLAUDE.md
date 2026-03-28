@@ -473,3 +473,96 @@ Add `--with-design` for 4 design docs + tokens.css.
 - [docs/architecture.md](docs/architecture.md) — Workflow structure
 - [docs/developer-guide.md](docs/developer-guide.md) — Complete developer reference
 - [CHANGELOG.md](CHANGELOG.md) — Version history
+
+---
+
+# AI SDLC Scaffold
+
+This project uses a structured, AI-first development lifecycle. All project knowledge — specification, design, decisions, tasks — lives alongside the source code in phase directories.
+
+## Project Overview
+
+**Shark Engine** is a Minecraft 1.21.1 Fabric mod that enables players to construct and pilot custom flying vehicles. Players place a Steering Wheel block, attach ship-eligible blocks (including Thrusters), and assemble a controllable airship through a guided tutorial flow.
+
+**Core systems:**
+- **Assembly** — BFS scan from Steering Wheel validates structure (min 4 adjacent blocks, ≥1 Thruster, no terrain contact, max 512 blocks)
+- **Physics** — Weight categories (LIGHT/MEDIUM/HEAVY/OVERLOADED), 5 acceleration phases (5–30 blocks/sec), height penalty above Y=100
+- **Fuel** — 100-unit capacity, 1 wood = 100 energy, consumption scales by phase
+- **Tutorial** — Sequential popup flow (WELCOME → MODE_SELECTION → BUILD_GUIDE → READY_TO_LAUNCH → FLIGHT_TIPS)
+- **Networking** — Server-authoritative; client sends helm input, server computes physics and syncs state
+
+**Current milestone:** MSP-1 — guided builder loop + full flight UX. AIR vehicle class is functional at v0.0.1.
+
+### Current State
+
+Specification phase in progress. Stakeholders defined (STK-player, STK-mod-developer, STK-server-operator). Constraints defined (CON-fabric-minecraft-1-21-1, CON-server-authoritative-physics, CON-preserve-existing-systems). Code phase in progress. Implementation progress: 1/35 tasks done, currently in Phase 1 (Pure Flight Controller + Tests).
+
+---
+
+## Phase-Specific Instructions
+
+Each phase directory contains a `CLAUDE.<phase>.md` file. When working in a phase:
+
+1. Read the phase-specific instructions — they extend (not override) this file
+2. Consult the decisions index in that phase file before starting work
+3. Work within the appropriate phase structure
+
+| Phase | Directory | Focus |
+|-------|-----------|-------|
+| **Specification** | `1-spec/` | Define what to build and why |
+| **Design** | `2-design/` | Define how to build it |
+| **Code** | `3-code/` | Build it |
+| **Deploy** | `4-deploy/` | Ship and operate it |
+
+### Cross-Skill Artifact Procedures
+
+Any modification to phase artifacts must follow the authoritative procedures for that phase:
+
+- **Specification artifacts** (`1-spec/`): follow `.claude/skills/SDLC-elicit/SKILL.md`
+- **Design artifacts** (`2-design/`): follow `.claude/skills/SDLC-design/SKILL.md`
+- **Code phase task artifacts** (`3-code/tasks.md`): follow `.claude/skills/SDLC-implementation-plan/SKILL.md`
+
+### Phase Gates
+
+| Transition | Preconditions |
+|------------|---------------|
+| Spec → Design | Stakeholders defined; at least one goal Approved; at least one requirement Approved; gap analysis in Current State, no Critical gaps |
+| Design → Code | All design docs drafted; completeness assessment fresh, no Critical findings; components identified in `3-code/` |
+
+---
+
+## Artifacts
+
+| Prefix | Artifact | Location |
+|--------|----------|----------|
+| `GOAL` | Goals | `1-spec/goals/` |
+| `US` | User Stories | `1-spec/user-stories/` |
+| `REQ-CLASS` | Requirements | `1-spec/requirements/` |
+| `ASM` | Assumptions | `1-spec/assumptions/` |
+| `CON` | Constraints | `1-spec/constraints/` |
+| `STK` | Stakeholders | `1-spec/stakeholders.md` |
+| `TASK` | Tasks | `3-code/tasks.md` |
+| `DEC` | Decisions | `decisions/` |
+
+Artifact IDs use `PREFIX-kebab-name` (e.g., `DEC-fabric-mod-loader`, `REQ-F-flight-physics`). No numeric sequences.
+
+---
+
+## Graduated Safeguards
+
+| Tier | When | Agent behavior |
+|------|------|----------------|
+| **Always ask** | Conflict resolution, design gaps, decision deprecation, phase gate advancement | Stop, present options, wait for approval |
+| **Ask first time, then follow precedent** | Naming conventions, error handling patterns, test structure | Ask once, record decision, apply consistently |
+| **Decide and record** | Routine implementation choices within established patterns | Decide autonomously, record in artifact |
+
+---
+
+## Decisions
+
+Decisions live in `decisions/`. Each decision has two files:
+
+- **`DEC-kebab-name.md`** — active record (context, decision, enforcement)
+- **`DEC-kebab-name.history.md`** — trail (alternatives, reasoning, changelog)
+
+See [`decisions/PROCEDURES.md`](decisions/PROCEDURES.md) for recording, deprecating, and superseding decisions.
