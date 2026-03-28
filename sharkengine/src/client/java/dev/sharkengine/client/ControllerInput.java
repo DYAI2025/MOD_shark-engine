@@ -14,8 +14,8 @@ import java.nio.FloatBuffer;
  *
  * <p>Mapping (Xbox-style layout):</p>
  * <ul>
- *   <li>Left Stick Y-axis → Forward (push up = accelerate)</li>
- *   <li>Right Stick X-axis → Turn left/right</li>
+ *   <li>Left Stick Y-axis → Forward/backward</li>
+ *   <li>Left Stick X-axis → Strafe left/right</li>
  *   <li>Right Trigger (axis 5) → Climb up</li>
  *   <li>Left Trigger (axis 4) → Descend</li>
  *   <li>A-Button (0) → Toggle anchor</li>

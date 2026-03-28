@@ -50,7 +50,7 @@ public final class HelmInputClient {
                 }
             }
 
-            if (!(player.getVehicle() instanceof ShipEntity ship)) return;
+            if (!(player.getVehicle() instanceof ShipEntity)) return;
 
             // ─── Keyboard input ──────────────────────────────────────
             float kbForward = 0f;

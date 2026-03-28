@@ -588,8 +588,10 @@ public final class ShipEntity extends Entity {
      * Called when the ship hits a solid block at speed.
      */
     private void applyCollisionDamage() {
-        if (currentSpeed < COLLISION_SPEED_THRESHOLD) return;
-        float damage = (currentSpeed - COLLISION_SPEED_THRESHOLD) * COLLISION_DAMAGE_MULTIPLIER;
+        Vec3 vel = getDeltaMovement();
+        float actualSpeed = (float) vel.length() * 20.0f; // convert blocks/tick → blocks/sec
+        if (actualSpeed < COLLISION_SPEED_THRESHOLD) return;
+        float damage = (actualSpeed - COLLISION_SPEED_THRESHOLD) * COLLISION_DAMAGE_MULTIPLIER;
         if (damage < 1) return;
 
         health = Math.max(0, health - (int) damage);
