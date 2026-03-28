@@ -495,7 +495,7 @@ This project uses a structured, AI-first development lifecycle. All project know
 
 ### Current State
 
-Specification phase in progress. Stakeholders defined (STK-player, STK-mod-developer, STK-server-operator). Constraints defined (CON-fabric-minecraft-1-21-1, CON-server-authoritative-physics, CON-preserve-existing-systems). Implementation complete. 35/35 tasks done. All 3 phases complete. All 4 goals (hovercraft-flight-model, testable-flight-architecture, reliable-flight-tests, no-regression-existing-systems) addressed. ./gradlew build green, all tests pass.
+Specification phase in progress. Stakeholders defined (STK-player, STK-mod-developer, STK-server-operator). Constraints defined (CON-fabric-minecraft-1-21-1, CON-server-authoritative-physics, CON-preserve-existing-systems). Implementation complete. 35/35 tasks done, all 3 phases complete. Code review fixes applied (2026-03-28): B1 gradual acceleration, B3 fuel consumption, B2 dead code removal, I1 yaw normalization. ./gradlew clean build green, all tests pass.
 
 ---
 
