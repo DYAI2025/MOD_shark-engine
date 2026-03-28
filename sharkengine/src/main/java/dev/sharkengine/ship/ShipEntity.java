@@ -108,6 +108,14 @@ public final class ShipEntity extends Entity {
     /** Tick counter for per-second fuel consumption */
     private int fuelConsumptionTick = 0;
 
+    // ─── Hovercraft input fields ─────────────────────────────────────
+    private float hcMoveForward = 0.0f;
+    private float hcMoveStrafe = 0.0f;
+    private float hcMoveVertical = 0.0f;
+    private float hcPlayerYaw = 0.0f;
+    private boolean useHovercraftInput = false;
+    private final HovercraftController hovercraftController = new HovercraftController();
+
     // ═══════════════════════════════════════════════════════════════════
     // BUG-BASED DIRECTION (replaces thruster direction)
     // ═══════════════════════════════════════════════════════════════════
@@ -279,6 +287,18 @@ public final class ShipEntity extends Entity {
         this.inputThrottle = clampedThrottle;
         setInputVertical(clampedThrottle);
         this.inputTurn = clamp(turn, -1.0f, 1.0f);
+    }
+
+    /**
+     * Sets hovercraft 3-axis input (new flight model).
+     * Activates hovercraft mode on first call.
+     */
+    public void setHovercraftInputs(float moveForward, float moveStrafe, float moveVertical, float playerYaw) {
+        this.hcMoveForward = moveForward;
+        this.hcMoveStrafe = moveStrafe;
+        this.hcMoveVertical = moveVertical;
+        this.hcPlayerYaw = playerYaw;
+        this.useHovercraftInput = true;
     }
 
     public void setYawDeg(float yaw) {
@@ -743,34 +763,38 @@ public final class ShipEntity extends Entity {
             return;
         }
 
-        // ━━━ BUG FIX 1+2: Turn (Rotation) ━━━
-        // Steering modifies the entity yaw. The entity yaw IS the forward direction.
-        // Smooth turning: 3 deg/tick (was 4, reduced for stability)
-        float yaw = this.getYRot() + (inputTurn * 3.0f);
-        this.setYRot(yaw);
+        Vec3 vel;
+        if (useHovercraftInput) {
+            // ━━━ Hovercraft flight model ━━━
+            // Movement direction from player yaw, not entity yaw (REQ-F-bugblock-orientation-only)
+            HovercraftInput hcInput = new HovercraftInput(
+                    hcMoveForward, hcMoveStrafe, hcMoveVertical, hcPlayerYaw);
+            HovercraftState hcState = new HovercraftState(
+                    (float) getDeltaMovement().x,
+                    (float) getDeltaMovement().y,
+                    (float) getDeltaMovement().z,
+                    weightCategory,
+                    fuelLevel);
+            HovercraftOutput hcOutput = hovercraftController.tick(hcInput, hcState);
+            vel = new Vec3(hcOutput.newVelX(), hcOutput.newVelY(), hcOutput.newVelZ());
+            this.setDeltaMovement(vel);
+        } else {
+            // ━━━ Legacy flight model (until client migrates to hovercraft input) ━━━
+            float yaw = this.getYRot() + (inputTurn * 3.0f);
+            this.setYRot(yaw);
 
-        // ━━━ Forward Movement ━━━
-        // Direction is ALWAYS based on entity yaw (single source of truth).
-        // At assembly, yaw is set from BUG block's FACING direction.
-        double rad = Math.toRadians(yaw);
-        double fx = -Math.sin(rad);
-        double fz = Math.cos(rad);
+            double rad = Math.toRadians(yaw);
+            double fx = -Math.sin(rad);
+            double fz = Math.cos(rad);
 
-        // BUG FIX 4: Use currentSpeed directly, scale to ticks (÷20)
-        // Previously 0.05 was used which doesn't match blocks/sec definition
-        double speedPerTick = currentSpeed / 20.0;
-        Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
+            double speedPerTick = currentSpeed / 20.0;
+            Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
 
-        // ━━━ Vertical Movement ━━━
-        // BUG FIX 4: Smooth vertical speed, scaled properly
-        double verticalMotion = inputVertical * 0.3;
-
-        Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
-
-        // ━━━ Drag (Air Resistance) ━━━
-        // BUG FIX 4: Gentler drag for smoother movement
-        vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
-        this.setDeltaMovement(vel);
+            double verticalMotion = inputVertical * 0.3;
+            vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
+            vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
+            this.setDeltaMovement(vel);
+        }
 
         // ━━━ Collision Check ━━━
         if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint)) {

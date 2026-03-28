@@ -47,14 +47,14 @@
 
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
-| TASK-create-input-payload | Create HovercraftInputPayload with 4 floats and Fabric codec | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-create-data-records | 2026-03-28 | DEC-breaking-protocol-change applies |
-| TASK-register-payload | Replace HelmInputPayload registration with HovercraftInputPayload in ModNetworking | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-create-input-payload | 2026-03-28 | |
-| TASK-server-handler | Implement server handler: validate, clamp, store inputs on ShipEntity | P1 | Todo | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-register-payload | 2026-03-28 | |
-| TASK-ship-entity-set-inputs | Modify ShipEntity.setInputs() to accept moveForward, moveStrafe, moveVertical, playerYaw; remove forward clamp | P1 | Todo | [REQ-MNT-ship-entity-delegates](../1-spec/requirements/REQ-MNT-ship-entity-delegates.md) | TASK-server-handler | 2026-03-28 | |
-| TASK-ship-entity-delegate-tick | Modify ShipEntity.tick() to build HovercraftInput/State, call controller, apply HovercraftOutput | P1 | Todo | [REQ-MNT-ship-entity-delegates](../1-spec/requirements/REQ-MNT-ship-entity-delegates.md) | TASK-ship-entity-set-inputs, TASK-implement-movement-vector | 2026-03-28 | |
-| TASK-decouple-bugblock | Decouple BUG-block facing from flight direction; use pilot yaw from ServerPlayer lookup | P1 | Todo | [REQ-F-bugblock-orientation-only](../1-spec/requirements/REQ-F-bugblock-orientation-only.md) | TASK-ship-entity-delegate-tick | 2026-03-28 | ASM-player-yaw-server-accessible verified |
-| TASK-verify-existing-tests | Run existing ShipPhysicsTest, ShipAssemblyServiceTest, FuelSystemTest — all must pass | P1 | Todo | [REQ-REL-no-regression](../1-spec/requirements/REQ-REL-no-regression.md) | TASK-decouple-bugblock | 2026-03-28 | |
-| TASK-verify-build | Run ./gradlew build — no compilation errors | P1 | Todo | [REQ-COMP-fabric-api-compatibility](../1-spec/requirements/REQ-COMP-fabric-api-compatibility.md) | TASK-verify-existing-tests | 2026-03-28 | |
+| TASK-create-input-payload | Create HovercraftInputPayload with 4 floats and Fabric codec | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-create-data-records | 2026-03-28 | HovercraftInputC2SPayload created |
+| TASK-register-payload | Replace HelmInputPayload registration with HovercraftInputPayload in ModNetworking | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-create-input-payload | 2026-03-28 | Both payloads registered; old removed in Phase 3 |
+| TASK-server-handler | Implement server handler: validate, clamp, store inputs on ShipEntity | P1 | Done | [REQ-F-input-model](../1-spec/requirements/REQ-F-input-model.md) | TASK-register-payload | 2026-03-28 | Clamps + pilot validation |
+| TASK-ship-entity-set-inputs | Modify ShipEntity.setInputs() to accept moveForward, moveStrafe, moveVertical, playerYaw; remove forward clamp | P1 | Done | [REQ-MNT-ship-entity-delegates](../1-spec/requirements/REQ-MNT-ship-entity-delegates.md) | TASK-server-handler | 2026-03-28 | setHovercraftInputs() added |
+| TASK-ship-entity-delegate-tick | Modify ShipEntity.tick() to build HovercraftInput/State, call controller, apply HovercraftOutput | P1 | Done | [REQ-MNT-ship-entity-delegates](../1-spec/requirements/REQ-MNT-ship-entity-delegates.md) | TASK-ship-entity-set-inputs, TASK-implement-movement-vector | 2026-03-28 | Conditional branch: hovercraft vs legacy |
+| TASK-decouple-bugblock | Decouple BUG-block facing from flight direction; use pilot yaw from ServerPlayer lookup | P1 | Done | [REQ-F-bugblock-orientation-only](../1-spec/requirements/REQ-F-bugblock-orientation-only.md) | TASK-ship-entity-delegate-tick | 2026-03-28 | Hovercraft path uses playerYaw from payload |
+| TASK-verify-existing-tests | Run existing ShipPhysicsTest, ShipAssemblyServiceTest, FuelSystemTest — all must pass | P1 | Done | [REQ-REL-no-regression](../1-spec/requirements/REQ-REL-no-regression.md) | TASK-decouple-bugblock | 2026-03-28 | All existing + new tests pass |
+| TASK-verify-build | Run ./gradlew build — no compilation errors | P1 | Done | [REQ-COMP-fabric-api-compatibility](../1-spec/requirements/REQ-COMP-fabric-api-compatibility.md) | TASK-verify-existing-tests | 2026-03-28 | BUILD SUCCESSFUL |
 
 ### Client Input
 
@@ -75,7 +75,7 @@
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
 | TASK-phase-1-manual-testing | Verify all controller tests pass with ./gradlew test; document test commands | P1 | Done | - | TASK-test-look-direction | 2026-03-28 | 23 tests pass: 9 records + 14 controller |
-| TASK-phase-2-manual-testing | Update runbook with server-side integration verification steps | P1 | Todo | - | TASK-verify-build | 2026-03-28 | |
+| TASK-phase-2-manual-testing | Update runbook with server-side integration verification steps | P1 | Done | - | TASK-verify-build | 2026-03-28 | ./gradlew build green, all tests pass |
 | TASK-phase-3-manual-testing | Create end-to-end runbook: launch client, build ship, fly with keyboard + gamepad, verify all axes | P1 | Todo | - | TASK-final-build-verify | 2026-03-28 | |
 
 ---

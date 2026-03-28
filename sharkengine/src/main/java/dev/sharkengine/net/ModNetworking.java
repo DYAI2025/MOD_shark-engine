@@ -25,6 +25,10 @@ import net.minecraft.server.level.ServerPlayer;
 public final class ModNetworking {
     private ModNetworking() {}
 
+    private static float clamp(float val, float min, float max) {
+        return Math.max(min, Math.min(max, val));
+    }
+
     /**
      * Initializes all networking handlers.
      * Call this during mod initialization.
@@ -34,18 +38,32 @@ public final class ModNetworking {
         // C2S: Helm Input (Client → Server)
         // ═══════════════════════════════════════════════════════════════════
         PayloadTypeRegistry.playC2S().register(HelmInputC2SPayload.TYPE, HelmInputC2SPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(HovercraftInputC2SPayload.TYPE, HovercraftInputC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BuilderAssembleC2SPayload.TYPE, BuilderAssembleC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TutorialModeSelectionC2SPayload.TYPE, TutorialModeSelectionC2SPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TutorialAdvanceC2SPayload.TYPE, TutorialAdvanceC2SPayload.CODEC);
 
+        // Legacy helm input handler (kept until client is migrated in Phase 3)
         ServerPlayNetworking.registerGlobalReceiver(HelmInputC2SPayload.TYPE, (payload, ctx) -> {
             ServerPlayer sp = ctx.player();
             ctx.server().execute(() -> {
                 if (!(sp.getVehicle() instanceof ShipEntity ship)) return;
                 if (!ship.isPilot(sp)) return;
-                
-                // Set all 3 inputs: throttle (vertical), turn, forward
                 ship.setInputs(payload.throttle(), payload.turn(), payload.forward());
+            });
+        });
+
+        // Hovercraft input handler (new 3-axis model)
+        ServerPlayNetworking.registerGlobalReceiver(HovercraftInputC2SPayload.TYPE, (payload, ctx) -> {
+            ServerPlayer sp = ctx.player();
+            ctx.server().execute(() -> {
+                if (!(sp.getVehicle() instanceof ShipEntity ship)) return;
+                if (!ship.isPilot(sp)) return;
+                float fwd = clamp(payload.moveForward(), -1.0f, 1.0f);
+                float strafe = clamp(payload.moveStrafe(), -1.0f, 1.0f);
+                float vert = clamp(payload.moveVertical(), -1.0f, 1.0f);
+                float yaw = payload.playerYaw() % 360.0f;
+                ship.setHovercraftInputs(fwd, strafe, vert, yaw);
             });
         });
 

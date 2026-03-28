@@ -495,7 +495,7 @@ This project uses a structured, AI-first development lifecycle. All project know
 
 ### Current State
 
-Specification phase in progress. Stakeholders defined (STK-player, STK-mod-developer, STK-server-operator). Constraints defined (CON-fabric-minecraft-1-21-1, CON-server-authoritative-physics, CON-preserve-existing-systems). Code phase in progress. Implementation progress: 16/35 tasks done. Phase 1 (Pure Flight Controller + Tests) complete. Phase 2 (Server Integration) next. DEC-friction-multiplier revised: 0.7→0.4 based on test verification.
+Specification phase in progress. Stakeholders defined (STK-player, STK-mod-developer, STK-server-operator). Constraints defined (CON-fabric-minecraft-1-21-1, CON-server-authoritative-physics, CON-preserve-existing-systems). Code phase in progress. Implementation progress: 25/35 tasks done. Phase 1 + Phase 2 complete. Phase 3 (Client Input + End-to-End) next.
 
 ---
 
