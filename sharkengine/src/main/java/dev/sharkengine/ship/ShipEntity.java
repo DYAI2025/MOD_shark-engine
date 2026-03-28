@@ -668,8 +668,14 @@ public final class ShipEntity extends Entity {
             return;
         }
 
+        // ━━━ Active input check (covers both old and hovercraft paths) ━━━
+        boolean hasInput = inputForward > 0
+                || hcMoveForward != 0.0f
+                || hcMoveStrafe != 0.0f
+                || hcMoveVertical != 0.0f;
+
         // ━━━ Acceleration / Deceleration ━━━
-        if (inputForward > 0 && !engineOut) {
+        if (hasInput && !engineOut) {
             accelerationTicks++;
         } else {
             accelerationTicks = Math.max(0, accelerationTicks - 4);
@@ -687,14 +693,13 @@ public final class ShipEntity extends Entity {
         heightPenalty = ShipPhysics.calculateHeightPenalty((float) this.getY());
 
         // ━━━ Speed Calculation ━━━
-        if (inputForward > 0 && !engineOut) {
+        if (hasInput && !engineOut) {
             float targetSpeed = maxSpeed * heightPenalty * (phase.getSpeed() / 30.0f);
-            // BUG FIX 4: Smoother acceleration lerp (was 0.1, now 0.08 for less jitter)
             currentSpeed = Mth.lerp(0.08f, currentSpeed, targetSpeed);
         }
 
         // ━━━ Fuel Consumption (1x per second) ━━━
-        if (!engineOut && inputForward > 0) {
+        if (!engineOut && hasInput) {
             fuelConsumptionTick++;
             if (fuelConsumptionTick >= 20) {
                 fuelConsumptionTick = 0;
