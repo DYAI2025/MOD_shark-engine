@@ -28,20 +28,20 @@
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
 | TASK-create-data-records | Create HovercraftInput, HovercraftState, HovercraftOutput as Java records | P1 | Done | [REQ-MNT-hovercraft-controller-class](../1-spec/requirements/REQ-MNT-hovercraft-controller-class.md) | - | 2026-03-28 | |
-| TASK-implement-movement-vector | Implement movement vector computation from playerYaw + forward/strafe axes with diagonal normalization | P1 | Todo | [REQ-F-forward-by-player-yaw](../1-spec/requirements/REQ-F-forward-by-player-yaw.md), [REQ-F-strafe-movement](../1-spec/requirements/REQ-F-strafe-movement.md) | TASK-create-data-records | 2026-03-28 | DEC-diagonal-normalization applies |
-| TASK-implement-vertical-axis | Implement vertical axis (Y-only, pitch-independent) | P1 | Todo | [REQ-F-vertical-only](../1-spec/requirements/REQ-F-vertical-only.md) | TASK-create-data-records | 2026-03-28 | |
-| TASK-implement-backward | Implement backward movement (moveForward accepts [-1..1]) | P1 | Todo | [REQ-F-backward-movement](../1-spec/requirements/REQ-F-backward-movement.md) | TASK-implement-movement-vector | 2026-03-28 | |
-| TASK-implement-deceleration | Implement friction deceleration (multiplier 0.7, snap below epsilon, 10-tick stop) | P1 | Todo | [REQ-F-controlled-deceleration](../1-spec/requirements/REQ-F-controlled-deceleration.md) | TASK-create-data-records | 2026-03-28 | DEC-friction-multiplier applies |
-| TASK-implement-no-drift | Ensure zero input produces zero acceleration and no velocity change | P1 | Todo | [REQ-F-no-drift-neutral](../1-spec/requirements/REQ-F-no-drift-neutral.md) | TASK-implement-deceleration | 2026-03-28 | |
-| TASK-implement-speed-cap | Implement speed capping by WeightCategory from HovercraftState | P2 | Todo | [REQ-PERF-controller-tick-budget](../1-spec/requirements/REQ-PERF-controller-tick-budget.md) | TASK-implement-movement-vector | 2026-03-28 | |
-| TASK-test-neutral-input | Test A: zero input over 40 ticks → no movement, no yaw change | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-no-drift | 2026-03-28 | |
-| TASK-test-forward | Test B: moveForward=1 → movement along playerForwardXZ | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
-| TASK-test-backward | Test C: moveForward=-1 → movement opposite to playerForwardXZ | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-backward | 2026-03-28 | |
-| TASK-test-strafe | Test D: moveStrafe=±1 → orthogonal movement | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
-| TASK-test-vertical | Test E: moveVertical=±1 → only Y changes | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-vertical-axis | 2026-03-28 | |
-| TASK-test-combination | Test F: simultaneous multi-axis → correct vector sum, no axis dominance | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector, TASK-implement-vertical-axis | 2026-03-28 | |
-| TASK-test-deceleration | Test G: input release → stop within 10 ticks, monotonic decrease | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-deceleration | 2026-03-28 | |
-| TASK-test-look-direction | Test J: same input, different yaw → movement follows yaw | P1 | Todo | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
+| TASK-implement-movement-vector | Implement movement vector computation from playerYaw + forward/strafe axes with diagonal normalization | P1 | Done | [REQ-F-forward-by-player-yaw](../1-spec/requirements/REQ-F-forward-by-player-yaw.md), [REQ-F-strafe-movement](../1-spec/requirements/REQ-F-strafe-movement.md) | TASK-create-data-records | 2026-03-28 | DEC-diagonal-normalization applies |
+| TASK-implement-vertical-axis | Implement vertical axis (Y-only, pitch-independent) | P1 | Done | [REQ-F-vertical-only](../1-spec/requirements/REQ-F-vertical-only.md) | TASK-create-data-records | 2026-03-28 | Implemented within HovercraftController.tick() |
+| TASK-implement-backward | Implement backward movement (moveForward accepts [-1..1]) | P1 | Done | [REQ-F-backward-movement](../1-spec/requirements/REQ-F-backward-movement.md) | TASK-implement-movement-vector | 2026-03-28 | moveForward accepts full [-1..1] range |
+| TASK-implement-deceleration | Implement friction deceleration (multiplier 0.7, snap below epsilon, 10-tick stop) | P1 | Done | [REQ-F-controlled-deceleration](../1-spec/requirements/REQ-F-controlled-deceleration.md) | TASK-create-data-records | 2026-03-28 | DEC-friction-multiplier applied: 0.7f + epsilon snap |
+| TASK-implement-no-drift | Ensure zero input produces zero acceleration and no velocity change | P1 | Done | [REQ-F-no-drift-neutral](../1-spec/requirements/REQ-F-no-drift-neutral.md) | TASK-implement-deceleration | 2026-03-28 | isZero() triggers friction path only |
+| TASK-implement-speed-cap | Implement speed capping by WeightCategory from HovercraftState | P2 | Done | [REQ-PERF-controller-tick-budget](../1-spec/requirements/REQ-PERF-controller-tick-budget.md) | TASK-implement-movement-vector | 2026-03-28 | maxSpeed from WeightCategory / 20 TPS |
+| TASK-test-neutral-input | Test A: zero input over 40 ticks → no movement, no yaw change | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-no-drift | 2026-03-28 | |
+| TASK-test-forward | Test B: moveForward=1 → movement along playerForwardXZ | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
+| TASK-test-backward | Test C: moveForward=-1 → movement opposite to playerForwardXZ | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-backward | 2026-03-28 | |
+| TASK-test-strafe | Test D: moveStrafe=±1 → orthogonal movement | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
+| TASK-test-vertical | Test E: moveVertical=±1 → only Y changes | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-vertical-axis | 2026-03-28 | |
+| TASK-test-combination | Test F: simultaneous multi-axis → correct vector sum, no axis dominance | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector, TASK-implement-vertical-axis | 2026-03-28 | |
+| TASK-test-deceleration | Test G: input release → stop within 10 ticks, monotonic decrease | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-deceleration | 2026-03-28 | Friction revised from 0.7 to 0.4 |
+| TASK-test-look-direction | Test J: same input, different yaw → movement follows yaw | P1 | Done | [REQ-MNT-flight-behavior-test-suite](../1-spec/requirements/REQ-MNT-flight-behavior-test-suite.md) | TASK-implement-movement-vector | 2026-03-28 | |
 
 ### Server Integration
 
@@ -74,7 +74,7 @@
 
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
-| TASK-phase-1-manual-testing | Verify all controller tests pass with ./gradlew test; document test commands | P1 | Todo | - | TASK-test-look-direction | 2026-03-28 | |
+| TASK-phase-1-manual-testing | Verify all controller tests pass with ./gradlew test; document test commands | P1 | Done | - | TASK-test-look-direction | 2026-03-28 | 23 tests pass: 9 records + 14 controller |
 | TASK-phase-2-manual-testing | Update runbook with server-side integration verification steps | P1 | Todo | - | TASK-verify-build | 2026-03-28 | |
 | TASK-phase-3-manual-testing | Create end-to-end runbook: launch client, build ship, fly with keyboard + gamepad, verify all axes | P1 | Todo | - | TASK-final-build-verify | 2026-03-28 | |
 

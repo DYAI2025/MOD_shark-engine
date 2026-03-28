@@ -1,4 +1,4 @@
-# DEC-friction-multiplier: Friction Multiplier 0.7 for Deceleration
+# DEC-friction-multiplier: Friction Multiplier 0.4 for Deceleration
 
 **Status**: Active
 
@@ -16,7 +16,7 @@ The hovercraft must stop within 10 ticks after all inputs are released. A fricti
 
 ## Decision
 
-Use a per-tick friction multiplier of **0.7** applied to all velocity components when input is zero. Velocities below 0.001 are snapped to zero.
+Use a per-tick friction multiplier of **0.4** applied to all velocity components when input is zero. Velocities below 0.001 are snapped to zero.
 
 ## Enforcement
 
@@ -27,13 +27,13 @@ Use a per-tick friction multiplier of **0.7** applied to all velocity components
 
 ### Required patterns
 
-- `FRICTION_MULTIPLIER = 0.7f` as a named constant in `HovercraftController`
+- `FRICTION_MULTIPLIER = 0.4f` as a named constant in `HovercraftController`
 - Applied as `vel *= FRICTION_MULTIPLIER` per axis per tick when all inputs are zero
 - Below `VELOCITY_EPSILON = 0.001f`, snap to zero
 
 ### Required checks
 
-1. Verify that max speed reaches < 0.001 within 10 ticks with friction 0.7
+1. Verify that max speed reaches < 0.001 within 10 ticks with friction 0.4
 2. Verify monotonic decrease — no oscillation
 
 ### Prohibited patterns

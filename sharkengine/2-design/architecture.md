@@ -146,7 +146,7 @@ sequenceDiagram
 When all inputs are zero, the controller applies a friction multiplier per tick to the existing velocity:
 
 ```
-friction = 0.7  (tuning constant — produces full stop in ~10 ticks)
+friction = 0.4  (tuning constant — produces full stop in ~8 ticks from max speed)
 newVel = currentVel * friction
 if |newVel| < 0.001: newVel = 0
 ```
