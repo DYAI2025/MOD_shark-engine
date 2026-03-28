@@ -113,7 +113,6 @@ public final class ShipEntity extends Entity {
     private float hcMoveStrafe = 0.0f;
     private float hcMoveVertical = 0.0f;
     private float hcPlayerYaw = 0.0f;
-    private boolean useHovercraftInput = false;
     private final HovercraftController hovercraftController = new HovercraftController();
 
     // ═══════════════════════════════════════════════════════════════════
@@ -298,7 +297,6 @@ public final class ShipEntity extends Entity {
         this.hcMoveStrafe = moveStrafe;
         this.hcMoveVertical = moveVertical;
         this.hcPlayerYaw = playerYaw;
-        this.useHovercraftInput = true;
     }
 
     public void setYawDeg(float yaw) {
