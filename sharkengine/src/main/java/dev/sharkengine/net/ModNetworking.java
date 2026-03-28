@@ -51,7 +51,7 @@ public final class ModNetworking {
                 float fwd = clamp(payload.moveForward(), -1.0f, 1.0f);
                 float strafe = clamp(payload.moveStrafe(), -1.0f, 1.0f);
                 float vert = clamp(payload.moveVertical(), -1.0f, 1.0f);
-                float yaw = payload.playerYaw() % 360.0f;
+                float yaw = ((payload.playerYaw() % 360.0f) + 360.0f) % 360.0f;
                 ship.setHovercraftInputs(fwd, strafe, vert, yaw);
             });
         });
