@@ -120,14 +120,6 @@ public final class ShipEntity extends Entity {
     private float bugYawDeg = 0.0f;
 
     // ═══════════════════════════════════════════════════════════════════
-    // BUG FIX 4: SMOOTH INTERPOLATION
-    // ═══════════════════════════════════════════════════════════════════
-
-    /** Previous tick position for client-side interpolation */
-    private double prevPosX, prevPosY, prevPosZ;
-    private float prevYaw;
-
-    // ═══════════════════════════════════════════════════════════════════
     // FEATURE 5: VEHICLE HEALTH
     // ═══════════════════════════════════════════════════════════════════
 
@@ -699,11 +691,28 @@ public final class ShipEntity extends Entity {
 
     @Override
     public void tick() {
-        // BUG FIX 4: Store previous position for interpolation
-        this.prevPosX = this.getX();
-        this.prevPosY = this.getY();
-        this.prevPosZ = this.getZ();
-        this.prevYaw = this.getYRot();
+        // P0 hotfix (2026-07-12, live playtest: "ruckelt extrem, die Grafik
+        // scheint immer hinterherzuziehen"): the previous "BUG FIX 4" here
+        // stored position/yaw into custom prevPosX/Y/Z/prevYaw fields that
+        // were never actually read anywhere (grep-verified — dead code).
+        // The renderer instead interpolates from vanilla's entity.yRotO
+        // (ShipEntityRenderer: Mth.lerp(partialTick, entity.yRotO,
+        // entity.getYRot())), and vanilla base position rendering likewise
+        // interpolates from xo/yo/zo. None of those vanilla fields are ever
+        // refreshed for this entity, because they're only updated by
+        // Entity.moveTo(...)/Entity.load(...) (confirmed via javap on the
+        // real Entity.class — Entity.tick()/baseTick() never touch them),
+        // and ShipEntity moves itself via this.move(MoverType.SELF, ...)
+        // instead of moveTo(). So yRotO/xo/yo/zo stayed frozen at spawn
+        // forever, and every frame's partialTick lerp swung between that
+        // ancient fixed value and the live position/yaw — exactly the
+        // reported drag/stutter. Fixed with vanilla's own intended
+        // mechanism: Entity.setOldPosAndRot() (public final, no-arg;
+        // verified via javap to set xo/yo/zo/xOld/yOld/zOld/yRotO/xRotO
+        // from the entity's current values) — call it once per tick,
+        // before this tick's movement/rotation changes are applied, so
+        // interpolation always has a fresh baseline.
+        this.setOldPosAndRot();
 
         super.tick();
 
