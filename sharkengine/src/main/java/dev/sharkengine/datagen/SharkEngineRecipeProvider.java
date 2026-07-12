@@ -218,6 +218,25 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "SMM"
         );
+
+        // ─── AIR-040: landing_skid (seventh and last core placeable part) ───────
+        // landing_skid: I=iron_ingot, M=metal_sheet — "I I" (iron, gap, iron) /
+        // "MMM", yield 2. Concept doc §4 recipe table gives this as "I I / MMM";
+        // the middle space in the top row is a genuine empty crafting-grid slot
+        // (ShapedRecipePattern.of treats an unmapped space character as empty, the
+        // same convention already used by steering_wheel's " P " / "PCP" / " P "
+        // and bug's " G " / "GRG" / " G " rows above), not a typo to collapse away.
+        shapedRecipe(
+                exporter,
+                "landing_skid",
+                ModBlocks.LANDING_SKID.asItem(),
+                2,
+                Map.of(
+                        'I', Ingredient.of(Items.IRON_INGOT),
+                        'M', Ingredient.of(ModItems.METAL_SHEET)
+                ),
+                "I I", "MMM"
+        );
     }
 
     private void shapedRecipe(

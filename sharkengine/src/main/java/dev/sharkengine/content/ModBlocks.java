@@ -4,6 +4,7 @@ import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.content.block.HelicopterEngineBlock;
+import dev.sharkengine.content.block.LandingSkidBlock;
 import dev.sharkengine.content.block.RotorBladeBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
@@ -133,6 +134,24 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * AIR-040: landing_skid (LANDING_GEAR role, concept §4 "Blockstate" column:
+     * {@code facing}, full six-direction — see {@link LandingSkidBlock}'s javadoc).
+     * Seventh AIR-040 core placeable part, following {@link #ROTOR_BLADE}. Strength/
+     * sound match {@link #AIRFRAME_PANEL}/{@link #FUSELAGE_FRAME}/{@link #ROTOR_HUB}/
+     * {@link #ROTOR_BLADE}'s (a light sheet-metal/mechanical part, not a heavy engine
+     * block) rather than {@link #HELICOPTER_ENGINE}'s industrial profile — a skid is
+     * stamped/welded undercarriage metal, not a solid engine casting.
+     */
+    public static final Block LANDING_SKID = registerBlock(
+            "landing_skid",
+            LandingSkidBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -146,6 +165,7 @@ public final class ModBlocks {
             entries.accept(HELICOPTER_ENGINE.asItem());
             entries.accept(ROTOR_HUB.asItem());
             entries.accept(ROTOR_BLADE.asItem());
+            entries.accept(LANDING_SKID.asItem());
         });
     }
 

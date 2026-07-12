@@ -68,6 +68,7 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         builder.add(key(ModBlocks.HELICOPTER_ENGINE));
         builder.add(key(ModBlocks.ROTOR_HUB));
         builder.add(key(ModBlocks.ROTOR_BLADE));
+        builder.add(key(ModBlocks.LANDING_SKID));
 
         // AIR-040 (concept doc §5.4): role tags, populated as each part lands.
         // airframe_panel's and fuselage_frame's own scope notes explicitly require
@@ -108,6 +109,13 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         // never tag-based — this tag is a content-classification convenience only, not
         // a gameplay-rule input.
         tag(ModTags.LIFT_SURFACES).add(key(ModBlocks.ROTOR_BLADE));
+
+        // landing_skid (LANDING_GEAR role) deliberately gets no role tag beyond
+        // ship_eligible above: concept §5.4 lists exactly five new role tags
+        // (aircraft_structure, lift_surfaces, propulsion, rotor_hubs, rotor_blades) and
+        // LANDING_GEAR is not one of them — landing gear is neither structure, lift,
+        // propulsion, nor rotor hardware, so it stays ship_eligible-only, same as
+        // steering_wheel/bug/thruster before AIR-040 introduced any role tags at all.
     }
 
     private static ResourceKey<Block> key(Block block) {

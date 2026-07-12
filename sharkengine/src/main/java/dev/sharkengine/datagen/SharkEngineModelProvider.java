@@ -59,6 +59,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "helicopter_engine", HELICOPTER_ENGINE_BLOCKSTATE),
                 writeBlockState(writer, ns, "rotor_hub", ROTOR_HUB_BLOCKSTATE),
                 writeBlockState(writer, ns, "rotor_blade", ROTOR_BLADE_BLOCKSTATE),
+                writeBlockState(writer, ns, "landing_skid", LANDING_SKID_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
@@ -68,6 +69,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, blockModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "rotor_hub"), ROTOR_HUB_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "rotor_blade"), ROTOR_BLADE_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "landing_skid"), LANDING_SKID_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
@@ -77,6 +79,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, itemModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "rotor_hub"), ROTOR_HUB_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "rotor_blade"), ROTOR_BLADE_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "landing_skid"), LANDING_SKID_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -281,6 +284,29 @@ final class SharkEngineModelProvider implements DataProvider {
                 "facing=east":  { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 90 },
                 "facing=south": { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 180 },
                 "facing=west":  { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 270 }
+              }
+            }
+            """;
+
+    /**
+     * AIR-040: {@code landing_skid} (LANDING_GEAR role, concept §4 "Blockstate"
+     * column: {@code facing}, full six-direction). Default model orientation is
+     * {@code facing=up}, reached by the exact same default-up + x/y-rotation-table
+     * idiom as {@link #AIRFRAME_PANEL_BLOCKSTATE}/{@link #HELICOPTER_ENGINE_BLOCKSTATE}/
+     * {@link #ROTOR_BLADE_BLOCKSTATE}. {@link
+     * dev.sharkengine.content.block.LandingSkidBlock}'s {@code VoxelShape} table is
+     * rigid-transform-consistent with this exact rotation set — see that class's
+     * javadoc.
+     */
+    private static final String LANDING_SKID_BLOCKSTATE = """
+            {
+              "variants": {
+                "facing=up":    { "model": "sharkengine:block/landing_skid" },
+                "facing=down":  { "model": "sharkengine:block/landing_skid", "x": 180 },
+                "facing=north": { "model": "sharkengine:block/landing_skid", "x": 90 },
+                "facing=east":  { "model": "sharkengine:block/landing_skid", "x": 90, "y": 90 },
+                "facing=south": { "model": "sharkengine:block/landing_skid", "x": 90, "y": 180 },
+                "facing=west":  { "model": "sharkengine:block/landing_skid", "x": 90, "y": 270 }
               }
             }
             """;
@@ -585,6 +611,39 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    /**
+     * AIR-040: {@code landing_skid} is a 4px skid rail (custom {@code elements}
+     * array, thicker than {@link #ROTOR_BLADE_BLOCK_MODEL}'s 3px blade — see
+     * {@link dev.sharkengine.content.block.LandingSkidBlock}'s javadoc for the
+     * "Kufenprofil" rationale), not a solid full cube — same reasoning as
+     * {@link #AIRFRAME_PANEL_BLOCK_MODEL}/{@link #ROTOR_BLADE_BLOCK_MODEL}'s own
+     * inline {@code elements}, just with a thicker {@code from}/{@code to} extent
+     * (12→16 instead of 13→16 or 14→16).
+     */
+    private static final String LANDING_SKID_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/block",
+              "textures": {
+                "all": "sharkengine:block/landing_skid"
+              },
+              "elements": [
+                {
+                  "comment": "4px skid rail, default orientation facing=up",
+                  "from": [0, 12, 0],
+                  "to": [16, 16, 16],
+                  "faces": {
+                    "north": { "uv": [0, 0, 16, 4], "texture": "#all" },
+                    "south": { "uv": [0, 0, 16, 4], "texture": "#all" },
+                    "east":  { "uv": [0, 0, 16, 4], "texture": "#all" },
+                    "west":  { "uv": [0, 0, 16, 4], "texture": "#all" },
+                    "up":    { "uv": [0, 0, 16, 16], "texture": "#all" },
+                    "down":  { "uv": [0, 0, 16, 16], "texture": "#all" }
+                  }
+                }
+              ]
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -630,6 +689,12 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String ROTOR_BLADE_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/rotor_blade"
+            }
+            """;
+
+    private static final String LANDING_SKID_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/landing_skid"
             }
             """;
 }
