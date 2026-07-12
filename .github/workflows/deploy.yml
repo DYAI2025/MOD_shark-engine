@@ -58,6 +58,6 @@ jobs:
 
       - name: Deploy to Railway
         if: ${{ steps.railway_token.outputs.available == 'true' }}
-        run: railway up --detach
+        run: railway up --detach --service sharkengine-mc-mod --environment production
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
