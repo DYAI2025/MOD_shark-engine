@@ -34,6 +34,16 @@ loom {
             sourceSet sourceSets.client
         }
     }
+
+    runs {
+        gametest {
+            inherit server
+            name "Game Test"
+            vmArg "-Dfabric-api.gametest"
+            vmArg "-Dfabric-api.gametest.report-file=${project.layout.buildDirectory.get()}/junit.xml"
+            runDir "build/gametest"
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -55,4 +65,19 @@ processResources {
     filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
+}
+
+// runGametest boots a real GameTestServer, which refuses to start without EULA
+// acceptance in its run dir. Auto-accept for this local/CI dev-tooling run only
+// (does not affect the mod's own deployed server config, e.g. server/server.properties).
+tasks.register("acceptGametestEula") {
+    doLast {
+        def eulaFile = layout.projectDirectory.file("build/gametest/eula.txt").asFile
+        eulaFile.parentFile.mkdirs()
+        eulaFile.text = "eula=true\n"
+    }
+}
+
+tasks.named("runGametest") {
+    dependsOn tasks.named("acceptGametestEula")
 }

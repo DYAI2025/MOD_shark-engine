@@ -15,6 +15,9 @@
         ],
         "client": [
             "dev.sharkengine.client.SharkEngineClient"
+        ],
+        "fabric-gametest": [
+            "dev.sharkengine.gametest.AssemblySmokeTest"
         ]
     },
     "depends": {
