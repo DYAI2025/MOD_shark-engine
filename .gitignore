@@ -5,3 +5,7 @@ run/
 *.log
 # Keep gradle-wrapper.jar tracked
 !gradle/wrapper/gradle-wrapper.jar
+
+# Node (tools/modrinth-mcp-server)
+node_modules/
+dist/
