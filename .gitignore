@@ -9,3 +9,5 @@ run/
 # Node (tools/modrinth-mcp-server)
 node_modules/
 dist/
+__pycache__/
+*.pyc
