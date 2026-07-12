@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "M": {
+      "item": "sharkengine:metal_sheet"
+    }
+  },
+  "pattern": [
+    "MIM"
+  ],
+  "result": {
+    "count": 4,
+    "id": "sharkengine:fuselage_frame"
+  }
+}

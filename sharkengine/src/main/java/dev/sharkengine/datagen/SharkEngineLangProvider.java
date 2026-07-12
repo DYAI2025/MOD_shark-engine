@@ -106,6 +106,9 @@ final class SharkEngineLangProvider {
             // AIR-040: airframe_panel (first core placeable part)
             b.add("block.sharkengine.airframe_panel", "Airframe Panel");
             b.add("item.sharkengine.airframe_panel", "Airframe Panel");
+            // AIR-040: fuselage_frame (second core placeable part)
+            b.add("block.sharkengine.fuselage_frame", "Fuselage Frame");
+            b.add("item.sharkengine.fuselage_frame", "Fuselage Frame");
         }
     }
 
@@ -193,6 +196,9 @@ final class SharkEngineLangProvider {
             // AIR-040: airframe_panel (first core placeable part)
             b.add("block.sharkengine.airframe_panel", "Außenhüllenplatte");
             b.add("item.sharkengine.airframe_panel", "Außenhüllenplatte");
+            // AIR-040: fuselage_frame (second core placeable part)
+            b.add("block.sharkengine.fuselage_frame", "Rumpfrahmen");
+            b.add("item.sharkengine.fuselage_frame", "Rumpfrahmen");
         }
     }
 }

@@ -55,16 +55,19 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "steering_wheel", STEERING_WHEEL_BLOCKSTATE),
                 writeBlockState(writer, ns, "bug", BUG_BLOCKSTATE),
                 writeBlockState(writer, ns, "airframe_panel", AIRFRAME_PANEL_BLOCKSTATE),
+                writeBlockState(writer, ns, "fuselage_frame", FUSELAGE_FRAME_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "bug"), BUG_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "airframe_panel"), AIRFRAME_PANEL_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "bug"), BUG_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "airframe_panel"), AIRFRAME_PANEL_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -177,6 +180,30 @@ final class SharkEngineModelProvider implements DataProvider {
                 "facing=east":  { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 90 },
                 "facing=south": { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 180 },
                 "facing=west":  { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 270 }
+              }
+            }
+            """;
+
+    /**
+     * AIR-040: {@code fuselage_frame} (STRUCTURE role, concept §4 "Blockstate" column:
+     * {@code axis}, "placed along X/Y/Z like a log/pillar"). Uses the exact same
+     * default-{@code axis=y} + rotation-table idiom vanilla itself uses for pillar
+     * blocks (e.g. {@code oak_log}'s blockstate: {@code axis=y} unrotated,
+     * {@code axis=x} → x:90/y:90, {@code axis=z} → x:90) — reproduced here verbatim
+     * rather than invented, since {@link net.minecraft.world.level.block.RotatedPillarBlock}
+     * (the vanilla base class {@link dev.sharkengine.content.ModBlocks#FUSELAGE_FRAME}
+     * is registered with) expects its {@code AXIS} property read the same way. The
+     * block's texture is uniform across all six faces (see
+     * {@link #FUSELAGE_FRAME_BLOCK_MODEL}), so the three variants are visually
+     * identical today — kept for blockstate correctness and forward-consistency with
+     * how every other pillar-shaped part in this mod will need to declare rotation.
+     */
+    private static final String FUSELAGE_FRAME_BLOCKSTATE = """
+            {
+              "variants": {
+                "axis=y": { "model": "sharkengine:block/fuselage_frame" },
+                "axis=x": { "model": "sharkengine:block/fuselage_frame", "x": 90, "y": 90 },
+                "axis=z": { "model": "sharkengine:block/fuselage_frame", "x": 90 }
               }
             }
             """;
@@ -398,6 +425,26 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    /**
+     * AIR-040: {@code fuselage_frame} is a solid structural block (full cube), unlike
+     * {@code airframe_panel}'s thin skin plate — its texture is a single uniform
+     * 16×16 image applied to all six faces, so this reuses vanilla's
+     * {@code minecraft:block/cube_all} parent directly instead of hand-writing an
+     * {@code elements} array (this provider's own class javadoc explains why other
+     * models here needed inline {@code elements}: no vanilla
+     * {@code BlockModelGenerators} entry point is reachable from mod code — that
+     * constraint is about the *generation API*, not about referencing an existing
+     * vanilla model file by name in raw JSON, which is what this does).
+     */
+    private static final String FUSELAGE_FRAME_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/cube_all",
+              "textures": {
+                "all": "sharkengine:block/fuselage_frame"
+              }
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -419,6 +466,12 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String AIRFRAME_PANEL_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/airframe_panel"
+            }
+            """;
+
+    private static final String FUSELAGE_FRAME_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/fuselage_frame"
             }
             """;
 }

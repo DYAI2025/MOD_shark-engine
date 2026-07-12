@@ -13,6 +13,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
@@ -54,6 +55,25 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * AIR-040: fuselage_frame (STRUCTURE role, concept §4 "Blockstate" column:
+     * {@code axis} — "placed along X/Y/Z like a log/pillar"). Vanilla's own
+     * {@link RotatedPillarBlock} already implements exactly this behavior
+     * ({@code AXIS} blockstate property, {@code getStateForPlacement} derived from
+     * the clicked face's axis, full-cube {@code VoxelShape}) — reused directly rather
+     * than hand-rolling a new {@code content.block} class, unlike {@link
+     * AirframePanelBlock} (which needed a custom thin-plate VoxelShape per facing
+     * that no vanilla base class provides).
+     */
+    public static final Block FUSELAGE_FRAME = registerBlock(
+            "fuselage_frame",
+            RotatedPillarBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -63,6 +83,7 @@ public final class ModBlocks {
             entries.accept(THRUSTER.asItem());
             entries.accept(BUG.asItem());
             entries.accept(AIRFRAME_PANEL.asItem());
+            entries.accept(FUSELAGE_FRAME.asItem());
         });
     }
 

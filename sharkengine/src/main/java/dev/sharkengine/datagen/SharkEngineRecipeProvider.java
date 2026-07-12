@@ -154,6 +154,26 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 Map.of('M', Ingredient.of(ModItems.METAL_SHEET)),
                 "MM"
         );
+
+        // ─── AIR-040: fuselage_frame (second core placeable part) ───────────────
+        // fuselage_frame: M=metal_sheet, I=iron_ingot — "MIM" (single row of 3),
+        // yield 4. Concept doc §4 recipe table gives the shorthand "MIM" with no
+        // row separators; unlike some other rows in that table (e.g. rotor_hub's
+        // "B / S", which references a bearing_assembly not spelled out in the row
+        // itself), both symbols here are already defined by the table's own legend
+        // (M=metal_sheet, I=iron_ingot) — nothing is missing or ambiguous, this is
+        // a plain 1x3 horizontal strip: metal_sheet, iron_ingot, metal_sheet.
+        shapedRecipe(
+                exporter,
+                "fuselage_frame",
+                ModBlocks.FUSELAGE_FRAME.asItem(),
+                4,
+                Map.of(
+                        'M', Ingredient.of(ModItems.METAL_SHEET),
+                        'I', Ingredient.of(Items.IRON_INGOT)
+                ),
+                "MIM"
+        );
     }
 
     private void shapedRecipe(

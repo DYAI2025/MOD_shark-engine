@@ -474,10 +474,12 @@ class ResourceValidationTest {
          * {@code ModBlocks} — same convention as the pre-existing {@code CRAFTABLE_BLOCK_IDS}
          * / {@code MIGRATED_BLOCK_IDS} arrays above and {@code VehiclePartRegistryTest}.</p>
          */
-        private static final String[] ALL_BLOCK_IDS = {"bug", "steering_wheel", "thruster", "airframe_panel"};
+        private static final String[] ALL_BLOCK_IDS =
+                {"bug", "steering_wheel", "thruster", "airframe_panel", "fuselage_frame"};
 
-        /** Subset of {@link #ALL_BLOCK_IDS} that has a crafting recipe. All four do today. */
-        private static final String[] CRAFTABLE_IDS = {"bug", "steering_wheel", "thruster", "airframe_panel"};
+        /** Subset of {@link #ALL_BLOCK_IDS} that has a crafting recipe. All five do today. */
+        private static final String[] CRAFTABLE_IDS =
+                {"bug", "steering_wheel", "thruster", "airframe_panel", "fuselage_frame"};
 
         private static final Path TEXTURES_ROOT = RESOURCES_ROOT.resolve("assets/sharkengine/textures");
 

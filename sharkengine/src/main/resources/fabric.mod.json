@@ -20,7 +20,8 @@
             "dev.sharkengine.gametest.AssemblySmokeTest",
             "dev.sharkengine.gametest.BlueprintPersistenceGameTest",
             "dev.sharkengine.gametest.BuilderPreviewPayloadGameTest",
-            "dev.sharkengine.gametest.AirframePanelGameTest"
+            "dev.sharkengine.gametest.AirframePanelGameTest",
+            "dev.sharkengine.gametest.FuselageFrameGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"
