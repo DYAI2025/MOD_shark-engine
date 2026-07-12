@@ -18,36 +18,71 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("ShipPhysics Tests")
 class ShipPhysicsTest {
     
+    // AIR-023: calculateMaxSpeed's parameter is now ship MASS (summed part
+    // masses, see ShipPartAnalyzer/ShipStats), not raw block count. Its
+    // thresholds are no longer hardcoded here — it derives them from
+    // WeightCategory.fromMass, the single authority also used by the HUD
+    // (FuelHudOverlay) and ShipEntity, so the two can never disagree.
+
     @Test
-    @DisplayName("calculateMaxSpeed: Light ships (1-20 blocks) get 30 blocks/sec")
+    @DisplayName("calculateMaxSpeed: Light ships (mass 1-30) get 30 blocks/sec")
     void testCalculateMaxSpeed_Light() {
         assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(1));
-        assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(10));
-        assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(20));
+        assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(15));
+        assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(30));
     }
-    
+
     @Test
-    @DisplayName("calculateMaxSpeed: Medium ships (21-40 blocks) get 20 blocks/sec")
+    @DisplayName("calculateMaxSpeed: Medium ships (mass 31-60) get 20 blocks/sec")
     void testCalculateMaxSpeed_Medium() {
-        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(21));
-        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(30));
-        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(40));
+        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(31));
+        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(45));
+        assertEquals(20.0f, ShipPhysics.calculateMaxSpeed(60));
     }
-    
+
     @Test
-    @DisplayName("calculateMaxSpeed: Heavy ships (41-60 blocks) get 10 blocks/sec")
+    @DisplayName("calculateMaxSpeed: Heavy ships (mass 61-90) get 10 blocks/sec")
     void testCalculateMaxSpeed_Heavy() {
-        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(41));
-        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(50));
-        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(60));
+        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(61));
+        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(75));
+        assertEquals(10.0f, ShipPhysics.calculateMaxSpeed(90));
     }
-    
+
     @Test
-    @DisplayName("calculateMaxSpeed: Overloaded ships (61+ blocks) cannot fly")
+    @DisplayName("calculateMaxSpeed: Overloaded ships (mass 91+) cannot fly")
     void testCalculateMaxSpeed_Overloaded() {
-        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(61));
-        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(100));
+        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(91));
+        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(200));
         assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(1000));
+    }
+
+    @Test
+    @DisplayName("calculateMaxSpeed: single authority — always matches WeightCategory.fromMass(mass).getMaxSpeed()")
+    void testCalculateMaxSpeed_SingleAuthorityWithWeightCategory() {
+        // No independently-hardcoded thresholds in ShipPhysics: for any
+        // positive mass, calculateMaxSpeed must equal what WeightCategory
+        // (the same authority FuelHudOverlay/ShipEntity read) says — this is
+        // exactly the invariant that keeps the HUD and real flight speed
+        // from disagreeing (AIR-023 consistency requirement).
+        for (int mass : new int[] {1, 15, 30, 31, 45, 60, 61, 75, 90, 91, 150, 5000}) {
+            assertEquals(WeightCategory.fromMass(mass).getMaxSpeed(), ShipPhysics.calculateMaxSpeed(mass),
+                    "calculateMaxSpeed(" + mass + ") must match WeightCategory.fromMass(" + mass + ").getMaxSpeed()");
+        }
+    }
+
+    @Test
+    @DisplayName("calculateMaxSpeed: legacy plain-block ship (all mass-1 parts) flies the same as before the mass refactor")
+    void testCalculateMaxSpeed_LegacyPlainBlockShipUnchanged() {
+        // A ship built entirely from generic ship_eligible blocks (mass=1
+        // each, VehiclePartRegistry.FALLBACK) has mass == blockCount. At the
+        // low end (well inside both the old block-based LIGHT range 1-20 and
+        // the new mass-based LIGHT range 1-30) and at the extreme heavy end
+        // (both old and new OVERLOADED), the resulting max speed is
+        // unchanged by the block-count -> mass switch.
+        assertEquals(30.0f, ShipPhysics.calculateMaxSpeed(20),
+                "20 mass-1 blocks: LIGHT under both the old (<=20) and new (<=30) thresholds");
+        assertEquals(0.0f, ShipPhysics.calculateMaxSpeed(200),
+                "200 mass-1 blocks: OVERLOADED under both the old (>60) and new (>90) thresholds");
     }
     
     @Test

@@ -80,8 +80,8 @@ public final class FuelHudOverlay {
         renderFuelBar(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT, fuel, FuelSystem.MAX_FUEL);
         
         // Render stats
-        renderStats(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 2, blocks, speed, height);
-        
+        renderStats(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 2, blocks, speed, height, weight);
+
         // Render warning if applicable
         if (weight.getWarning() != null) {
             renderWarning(graphics, mc, HUD_X, HUD_Y + LINE_HEIGHT * 4, weight);
@@ -136,26 +136,36 @@ public final class FuelHudOverlay {
     
     /**
      * Renders ship statistics (height, speed, weight).
-     * 
+     *
      * @param g GuiGraphics
      * @param mc Minecraft instance
      * @param x X position
      * @param y Y position
-     * @param blocks Number of blocks
+     * @param blocks Number of blocks (display only — see {@code category})
      * @param speed Current speed
      * @param height Current height (Y position)
+     * @param category Weight category, read from {@link ShipEntity#getWeightCategory()}
+     *                 (mass-based, server-synced via {@code SYNC_MASS} — AIR-023).
+     *                 Deliberately NOT recomputed here from {@code blocks} via
+     *                 {@code WeightCategory.fromBlockCount}: that method no longer
+     *                 exists, precisely because a client-side recompute from block
+     *                 count alone could disagree with the server's mass-based
+     *                 category for a mixed-mass ship (e.g. a handful of heavy
+     *                 {@code helicopter_engine} blocks reading as "light" by count
+     *                 but OVERLOADED by mass) — the exact HUD/flight desync this
+     *                 refactor exists to prevent.
      */
-    private static void renderStats(GuiGraphics g, Minecraft mc, int x, int y, int blocks, float speed, double height) {
+    private static void renderStats(GuiGraphics g, Minecraft mc, int x, int y, int blocks, float speed,
+                                     double height, WeightCategory category) {
         // Height
         String heightText = String.format("Höhe: Y=%.0f", height);
         g.drawString(mc.font, heightText, x, y, TEXT_COLOR);
-        
+
         // Speed
         String speedText = String.format("Geschwindigkeit: %.1f Blöcke/sec", speed);
         g.drawString(mc.font, speedText, x, y + LINE_HEIGHT, TEXT_COLOR);
-        
+
         // Weight
-        WeightCategory category = WeightCategory.fromBlockCount(blocks);
         String weightText = String.format("Gewicht: %d Blöcke → %.0f max", blocks, category.getMaxSpeed());
         g.drawString(mc.font, weightText, x, y + LINE_HEIGHT * 2, TEXT_COLOR);
     }

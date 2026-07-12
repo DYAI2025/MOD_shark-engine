@@ -14,7 +14,7 @@ import java.util.function.Predicate;
  * 
  * <p>This class handles:</p>
  * <ul>
- *   <li>Maximum speed calculation based on weight (block count)</li>
+ *   <li>Maximum speed calculation based on weight (total ship mass, AIR-023)</li>
  *   <li>Height penalty calculation (thinner air at high altitudes)</li>
  *   <li>Acceleration phase determination from tick count</li>
  *   <li>Fuel consumption calculation per phase</li>
@@ -36,31 +36,28 @@ public final class ShipPhysics {
     }
     
     /**
-     * Calculates the maximum speed based on the number of blocks in the ship.
-     * 
-     * <p>Weight categories:</p>
-     * <ul>
-     *   <li>1-20 blocks: 30 blocks/sec (LIGHT)</li>
-     *   <li>21-40 blocks: 20 blocks/sec (MEDIUM)</li>
-     *   <li>41-60 blocks: 10 blocks/sec (HEAVY)</li>
-     *   <li>61+ blocks: 0 blocks/sec (OVERLOADED - cannot fly)</li>
-     * </ul>
-     * 
-     * @param blockCount Number of blocks in the ship
-     * @return Maximum speed in blocks/sec, or 0 if too heavy
+     * Calculates the maximum speed based on the ship's total mass.
+     *
+     * <p>AIR-023: previously took a raw block count and independently
+     * hardcoded the 20/40/60 weight-category thresholds here, duplicating
+     * (and risking drift from) {@link WeightCategory}'s own thresholds. Now
+     * derives entirely from {@link WeightCategory#fromMass(int)} — one
+     * authority for the mass→speed mapping, consumed identically by physics
+     * here, {@code ShipEntity.getWeightCategory()}, and the client HUD
+     * ({@code FuelHudOverlay}), so they cannot disagree.</p>
+     *
+     * <p>Mass is the sum of every part's {@code VehiclePartDefinition.mass()}
+     * ({@link dev.sharkengine.ship.part.ShipPartAnalyzer}), not block count —
+     * see {@link WeightCategory} for the current mass thresholds.</p>
+     *
+     * @param mass Total mass of the ship (summed part masses)
+     * @return Maximum speed in blocks/sec, or 0 if there is no ship or it is too heavy
      */
-    public static float calculateMaxSpeed(int blockCount) {
-        if (blockCount <= 0) {
-            return 0.0f; // No blocks = no ship
-        } else if (blockCount <= 20) {
-            return 30.0f;
-        } else if (blockCount <= 40) {
-            return 20.0f;
-        } else if (blockCount <= 60) {
-            return 10.0f;
-        } else {
-            return 0.0f; // Too heavy to fly
+    public static float calculateMaxSpeed(int mass) {
+        if (mass <= 0) {
+            return 0.0f; // No mass = no ship
         }
+        return WeightCategory.fromMass(mass).getMaxSpeed();
     }
     
     /**

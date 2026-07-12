@@ -1,58 +1,65 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.ship.part.VehicleBalance;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Enum representing weight categories for air vehicles based on block count.
+ * Enum representing weight categories for air vehicles based on total mass
+ * (AIR-023: switched from block count to mass, per
+ * {@code docs/AIRCRAFT_CONCEPT_V2.md} §4 — different parts weigh different
+ * amounts, so a ship with few heavy parts and one with many light parts can
+ * carry the same block count but very different real weight).
  * Each category has a maximum speed limit and optional warning message.
- * 
- * <p>Weight categories affect flight capability:</p>
+ *
+ * <p>Weight categories affect flight capability. Thresholds are mass values,
+ * sourced from {@link VehicleBalance} (single authority — not duplicated here
+ * or in {@link dev.sharkengine.ship.ShipPhysics}):</p>
  * <ul>
- *   <li>LIGHT (1-20 blocks): Full speed (30 blocks/sec)</li>
- *   <li>MEDIUM (21-40 blocks): Reduced speed (20 blocks/sec)</li>
- *   <li>HEAVY (41-60 blocks): Slow speed (10 blocks/sec) + warning</li>
- *   <li>OVERLOADED (61+ blocks): Cannot fly (0 blocks/sec) + error</li>
+ *   <li>LIGHT (mass 0-30): Full speed (30 blocks/sec)</li>
+ *   <li>MEDIUM (mass 31-60): Reduced speed (20 blocks/sec)</li>
+ *   <li>HEAVY (mass 61-90): Slow speed (10 blocks/sec) + warning</li>
+ *   <li>OVERLOADED (mass 91+): Cannot fly (0 blocks/sec) + error</li>
  * </ul>
- * 
+ *
  * @author Shark Engine Team
- * @version 1.0
+ * @version 2.0 (AIR-023: mass-based thresholds)
  */
 public enum WeightCategory {
     /**
-     * Light vehicles: 1-20 blocks
+     * Light vehicles: mass 0-30
      * Maximum speed: 30 blocks/sec
      * No warning displayed
      */
-    LIGHT(0, 20, 30.0f, null),
-    
+    LIGHT(0, VehicleBalance.LIGHT_MAX_MASS, 30.0f, null),
+
     /**
-     * Medium vehicles: 21-40 blocks
+     * Medium vehicles: mass 31-60
      * Maximum speed: 20 blocks/sec
      * No warning displayed
      */
-    MEDIUM(21, 40, 20.0f, null),
-    
+    MEDIUM(VehicleBalance.LIGHT_MAX_MASS + 1, VehicleBalance.MEDIUM_MAX_MASS, 20.0f, null),
+
     /**
-     * Heavy vehicles: 41-60 blocks
+     * Heavy vehicles: mass 61-90
      * Maximum speed: 10 blocks/sec
      * Warning: "Achtung: Schiff wird langsam"
      */
-    HEAVY(41, 60, 10.0f, "§eAchtung: Schiff wird langsam"),
-    
+    HEAVY(VehicleBalance.MEDIUM_MAX_MASS + 1, VehicleBalance.HEAVY_MAX_MASS, 10.0f, "§eAchtung: Schiff wird langsam"),
+
     /**
-     * Overloaded vehicles: 61+ blocks
+     * Overloaded vehicles: mass 91+
      * Maximum speed: 0 blocks/sec (cannot fly)
      * Error: "⚠️ Zu schwer zum Fliegen!"
      */
-    OVERLOADED(61, Integer.MAX_VALUE, 0.0f, "§c⚠️ Zu schwer zum Fliegen!");
-    
+    OVERLOADED(VehicleBalance.HEAVY_MAX_MASS + 1, Integer.MAX_VALUE, 0.0f, "§c⚠️ Zu schwer zum Fliegen!");
+
     /**
-     * Minimum block count for this category
+     * Minimum mass for this category
      */
     private final int min;
-    
+
     /**
-     * Maximum block count for this category
+     * Maximum mass for this category
      */
     private final int max;
     
@@ -69,9 +76,9 @@ public enum WeightCategory {
     
     /**
      * Constructor for WeightCategory
-     * 
-     * @param min Minimum block count
-     * @param max Maximum block count
+     *
+     * @param min Minimum mass for this category
+     * @param max Maximum mass for this category
      * @param maxSpeed Maximum speed in blocks/sec
      * @param warning Warning message or null
      */
@@ -81,54 +88,59 @@ public enum WeightCategory {
         this.maxSpeed = maxSpeed;
         this.warning = warning;
     }
-    
+
     /**
-     * Returns the minimum block count for this category
-     * 
-     * @return Minimum blocks
+     * Returns the minimum mass for this category
+     *
+     * @return Minimum mass
      */
     public int getMin() {
         return min;
     }
-    
+
     /**
-     * Returns the maximum block count for this category
-     * 
-     * @return Maximum blocks
+     * Returns the maximum mass for this category
+     *
+     * @return Maximum mass
      */
     public int getMax() {
         return max;
     }
-    
+
     /**
      * Returns the maximum speed for this category
-     * 
+     *
      * @return Speed in blocks/sec
      */
     public float getMaxSpeed() {
         return maxSpeed;
     }
-    
+
     /**
      * Returns the warning message for this category
-     * 
+     *
      * @return Warning message or null if none
      */
     @Nullable
     public String getWarning() {
         return warning;
     }
-    
+
     /**
-     * Determines the weight category from the block count
-     * 
-     * @param blockCount Number of blocks in the ship
+     * Determines the weight category from total ship mass (AIR-023).
+     *
+     * <p>Mass is the sum of every part's {@code VehiclePartDefinition.mass()}
+     * (see {@link dev.sharkengine.ship.part.ShipPartAnalyzer}), not the raw
+     * block count — a ship built from a few heavy parts can be OVERLOADED
+     * with far fewer blocks than one built from many light parts.</p>
+     *
+     * @param mass Total mass of the ship (summed part masses)
      * @return The appropriate WeightCategory
      */
-    public static WeightCategory fromBlockCount(int blockCount) {
-        if (blockCount <= LIGHT.max) return LIGHT;
-        if (blockCount <= MEDIUM.max) return MEDIUM;
-        if (blockCount <= HEAVY.max) return HEAVY;
+    public static WeightCategory fromMass(int mass) {
+        if (mass <= LIGHT.max) return LIGHT;
+        if (mass <= MEDIUM.max) return MEDIUM;
+        if (mass <= HEAVY.max) return HEAVY;
         return OVERLOADED;
     }
     

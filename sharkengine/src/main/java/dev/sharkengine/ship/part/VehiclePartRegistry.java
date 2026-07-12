@@ -21,6 +21,12 @@ import java.util.Map;
  * (AIR-051), so a server-only registration path would make the renderer's lookups
  * fail. This class has no dependency on any Fabric bootstrap/registry — it is
  * resolvable in a plain unit test.</p>
+ *
+ * <p><b>AIR-023:</b> {@link #DEFINITIONS} is {@link VehicleBalance#PARTS} directly —
+ * no second, separately-maintained map of the same ids. {@code VehicleBalance} also
+ * carries rows for parts that have no registered block yet (the Slice 3/4/5
+ * helicopter/fixed-wing parts); {@link #resolve(String)} simply never gets asked for
+ * those ids until the corresponding {@code ModBlocks} entry exists (AIR-040+).</p>
  */
 public final class VehiclePartRegistry {
 
@@ -29,21 +35,7 @@ public final class VehiclePartRegistry {
             PartRole.STRUCTURE, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE
     );
 
-    private static final Map<String, VehiclePartDefinition> DEFINITIONS = Map.of(
-            SharkEngineMod.MOD_ID + ":thruster", new VehiclePartDefinition(
-                    PartRole.PROPULSION, 2, 0, 20, 0, 0, VehiclePartDefinition.LiftMode.DIRECT
-            ),
-            SharkEngineMod.MOD_ID + ":steering_wheel", new VehiclePartDefinition(
-                    PartRole.CONTROL, 2, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE
-            ),
-            // "bug" (Schiffsbug): recovered BUG-Frontsystem block (March 2026 work,
-            // restored after the main force-push incident) — required per AIR-031's
-            // resource contract, which demands a VehiclePartDefinition for every
-            // registered ModBlocks entry.
-            SharkEngineMod.MOD_ID + ":bug", new VehiclePartDefinition(
-                    PartRole.CONTROL, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE
-            )
-    );
+    private static final Map<String, VehiclePartDefinition> DEFINITIONS = VehicleBalance.PARTS;
 
     private VehiclePartRegistry() {}
 

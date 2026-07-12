@@ -8,82 +8,88 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for WeightCategory enum.
  * Covers all four weight categories, boundary values, canFly(), and warnings.
+ *
+ * <p>AIR-023: switched from block-count thresholds (20/40/60) to mass thresholds
+ * (30/60/90) per {@code docs/AIRCRAFT_CONCEPT_V2.md} §4 — {@code fromBlockCount} is
+ * gone, {@code fromMass} is the only entry point, sourcing its boundaries from
+ * {@link dev.sharkengine.ship.part.VehicleBalance} (single authority, no duplicated
+ * thresholds).</p>
  */
 @DisplayName("WeightCategory Tests")
 class WeightCategoryTest {
 
-    // ─── fromBlockCount ─────────────────────────────────────────────────────────
+    // ─── fromMass ───────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("fromBlockCount: 0 blocks → LIGHT (lower boundary)")
-    void zeroBlocks_isLight() {
-        assertEquals(WeightCategory.LIGHT, WeightCategory.fromBlockCount(0));
+    @DisplayName("fromMass: mass=0 → LIGHT (lower boundary)")
+    void zeroMass_isLight() {
+        assertEquals(WeightCategory.LIGHT, WeightCategory.fromMass(0));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 1 block → LIGHT")
-    void oneBlock_isLight() {
-        assertEquals(WeightCategory.LIGHT, WeightCategory.fromBlockCount(1));
+    @DisplayName("fromMass: mass=1 → LIGHT")
+    void oneMass_isLight() {
+        assertEquals(WeightCategory.LIGHT, WeightCategory.fromMass(1));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 20 blocks → LIGHT (upper boundary)")
-    void twentyBlocks_isLight() {
-        assertEquals(WeightCategory.LIGHT, WeightCategory.fromBlockCount(20));
+    @DisplayName("fromMass: mass=30 → LIGHT (upper boundary)")
+    void thirtyMass_isLight() {
+        assertEquals(WeightCategory.LIGHT, WeightCategory.fromMass(30));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 21 blocks → MEDIUM (lower boundary)")
-    void twentyOneBlocks_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromBlockCount(21));
+    @DisplayName("fromMass: mass=31 → MEDIUM (lower boundary)")
+    void thirtyOneMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(31));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 30 blocks → MEDIUM (midpoint)")
-    void thirtyBlocks_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromBlockCount(30));
+    @DisplayName("fromMass: mass=45 → MEDIUM (midpoint)")
+    void fortyFiveMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(45));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 40 blocks → MEDIUM (upper boundary)")
-    void fortyBlocks_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromBlockCount(40));
+    @DisplayName("fromMass: mass=60 → MEDIUM (upper boundary)")
+    void sixtyMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(60));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 41 blocks → HEAVY (lower boundary)")
-    void fortyOneBlocks_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromBlockCount(41));
+    @DisplayName("fromMass: mass=61 → HEAVY (lower boundary)")
+    void sixtyOneMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(61));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 50 blocks → HEAVY (midpoint)")
-    void fiftyBlocks_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromBlockCount(50));
+    @DisplayName("fromMass: mass=75 → HEAVY (midpoint)")
+    void seventyFiveMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(75));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 60 blocks → HEAVY (upper boundary)")
-    void sixtyBlocks_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromBlockCount(60));
+    @DisplayName("fromMass: mass=90 → HEAVY (upper boundary)")
+    void ninetyMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(90));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 61 blocks → OVERLOADED (lower boundary)")
-    void sixtyOneBlocks_isOverloaded() {
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromBlockCount(61));
+    @DisplayName("fromMass: mass=91 → OVERLOADED (lower boundary)")
+    void ninetyOneMass_isOverloaded() {
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(91));
     }
 
     @Test
-    @DisplayName("fromBlockCount: 512 blocks → OVERLOADED (max BFS limit)")
-    void maxBfsBlocks_isOverloaded() {
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromBlockCount(512));
+    @DisplayName("fromMass: mass=1536 (512 max-BFS blocks * mass 3 fuel_tank) → OVERLOADED")
+    void largeMass_isOverloaded() {
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(1536));
     }
 
     @Test
-    @DisplayName("fromBlockCount: Integer.MAX_VALUE → OVERLOADED")
+    @DisplayName("fromMass: Integer.MAX_VALUE → OVERLOADED")
     void maxInt_isOverloaded() {
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromBlockCount(Integer.MAX_VALUE));
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(Integer.MAX_VALUE));
     }
 
     // ─── maxSpeed ────────────────────────────────────────────────────────────────
@@ -171,14 +177,13 @@ class WeightCategoryTest {
     // ─── min/max range sanity ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Categories cover the full integer range without gaps")
+    @DisplayName("Categories cover the full integer range without gaps (mass thresholds 30/60/90)")
     void categoriesCoversFullRange_noGaps() {
-        // Boundaries: LIGHT 0-20, MEDIUM 21-40, HEAVY 41-60, OVERLOADED 61+
-        assertEquals(WeightCategory.LIGHT,     WeightCategory.fromBlockCount(20));
-        assertEquals(WeightCategory.MEDIUM,    WeightCategory.fromBlockCount(21));
-        assertEquals(WeightCategory.MEDIUM,    WeightCategory.fromBlockCount(40));
-        assertEquals(WeightCategory.HEAVY,     WeightCategory.fromBlockCount(41));
-        assertEquals(WeightCategory.HEAVY,     WeightCategory.fromBlockCount(60));
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromBlockCount(61));
+        assertEquals(WeightCategory.LIGHT,      WeightCategory.fromMass(30));
+        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(31));
+        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(60));
+        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(61));
+        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(90));
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(91));
     }
 }

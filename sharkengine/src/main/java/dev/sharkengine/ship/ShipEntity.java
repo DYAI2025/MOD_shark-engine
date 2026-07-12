@@ -2,6 +2,7 @@ package dev.sharkengine.ship;
 
 import dev.sharkengine.net.ShipBlueprintS2CPayload;
 import dev.sharkengine.ship.part.ShipPartAnalyzer;
+import dev.sharkengine.ship.part.ShipStats;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -54,6 +55,17 @@ public final class ShipEntity extends Entity {
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> SYNC_BLOCK_COUNT =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    /**
+     * Synced total ship mass (AIR-023), the same value the server uses to
+     * determine {@link WeightCategory}/max speed. Without this, a client-side
+     * HUD that recomputed WeightCategory from {@link #SYNC_BLOCK_COUNT} alone
+     * would disagree with the server for any mixed-mass ship — e.g. a
+     * handful of heavy {@code helicopter_engine} blocks reads as "light" by
+     * block count but is actually OVERLOADED by mass, so the HUD would show
+     * full speed on a ship the server refuses to fly at more than 0 b/s.
+     */
+    private static final EntityDataAccessor<Integer> SYNC_MASS =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> SYNC_ENGINE_OUT =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> SYNC_HEALTH =
@@ -88,6 +100,16 @@ public final class ShipEntity extends Entity {
 
     /** Number of blocks in the ship */
     private int blockCount = 0;
+
+    /**
+     * Total ship mass (AIR-023) — sum of every part's mass via
+     * {@link ShipPartAnalyzer}, the single source of truth for weight (no
+     * second, block-count-based aggregation). Drives {@link #weightCategory}
+     * and {@link #maxSpeed}; synced to the client via {@link #SYNC_MASS} so
+     * the HUD ({@code FuelHudOverlay}) reads the exact value the server used,
+     * instead of recomputing an approximation from block count.
+     */
+    private int mass = 0;
 
     /** Current weight category */
     private WeightCategory weightCategory = WeightCategory.LIGHT;
@@ -230,8 +252,19 @@ public final class ShipEntity extends Entity {
         return level().isClientSide ? this.entityData.get(SYNC_BLOCK_COUNT) : blockCount;
     }
 
+    /**
+     * Total ship mass (AIR-023). On the client this reads the server-synced
+     * value ({@link #SYNC_MASS}) rather than recomputing it locally — see
+     * that accessor's javadoc for why a client-local recomputation from
+     * block count would be able to disagree with the server for mixed-mass
+     * ships.
+     */
+    public int getMass() {
+        return level().isClientSide ? this.entityData.get(SYNC_MASS) : mass;
+    }
+
     public WeightCategory getWeightCategory() {
-        return WeightCategory.fromBlockCount(getBlockCount());
+        return WeightCategory.fromMass(getMass());
     }
 
     public int getFuelLevel() {
@@ -358,6 +391,7 @@ public final class ShipEntity extends Entity {
         builder.define(SYNC_FUEL, 100);
         builder.define(SYNC_SPEED, 0.0f);
         builder.define(SYNC_BLOCK_COUNT, 0);
+        builder.define(SYNC_MASS, 0);
         builder.define(SYNC_ENGINE_OUT, false);
         builder.define(SYNC_HEALTH, MAX_HEALTH);
     }
@@ -694,9 +728,9 @@ public final class ShipEntity extends Entity {
 
         phase = ShipPhysics.calculatePhase(accelerationTicks);
 
-        // ━━━ Weight ━━━
-        maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
-        weightCategory = WeightCategory.fromBlockCount(blockCount);
+        // ━━━ Weight (AIR-023: mass-based, not block-count-based) ━━━
+        maxSpeed = ShipPhysics.calculateMaxSpeed(mass);
+        weightCategory = WeightCategory.fromMass(mass);
 
         // ━━━ Height Penalty ━━━
         heightPenalty = ShipPhysics.calculateHeightPenalty((float) this.getY());
@@ -735,6 +769,7 @@ public final class ShipEntity extends Entity {
         this.entityData.set(SYNC_FUEL, fuelLevel);
         this.entityData.set(SYNC_SPEED, currentSpeed);
         this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
+        this.entityData.set(SYNC_MASS, mass);
         this.entityData.set(SYNC_ENGINE_OUT, engineOut);
         this.entityData.set(SYNC_HEALTH, health);
     }
@@ -934,28 +969,35 @@ public final class ShipEntity extends Entity {
     private void applyBlueprintStats() {
         if (blueprint == null) {
             blockCount = 0;
+            mass = 0;
             weightCategory = WeightCategory.LIGHT;
             maxSpeed = ShipPhysics.calculateMaxSpeed(0);
             hasThrusters = false;
             return;
         }
         blockCount = blueprint.blockCount();
-        weightCategory = WeightCategory.fromBlockCount(blockCount);
-        maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
 
-        // Check for propulsion parts (required for assembly, decorative for
-        // direction). Role-based via ShipPartAnalyzer/VehiclePartRegistry
-        // (AIR-021, REQ-S1) instead of a hardcoded ModBlocks.THRUSTER check
-        // (B4) — any future PROPULSION part (e.g. helicopter_engine) now
-        // correctly lights up thrust effects too, not just the legacy block.
+        // Role-based aggregation (AIR-021/AIR-023, REQ-S1/S2): mass,
+        // propulsion, etc. all come from ShipPartAnalyzer in a single pass —
+        // no second, block-count-based approximation of weight anywhere.
+        // Any future PROPULSION part (e.g. helicopter_engine) correctly
+        // lights up thrust effects too, not just the legacy thruster block
+        // (this used to be a hardcoded ModBlocks.THRUSTER check, B4).
         List<String> blockIds = blueprint.blocks().stream()
                 .map(block -> BuiltInRegistries.BLOCK.getKey(block.state().getBlock()).toString())
                 .toList();
-        hasThrusters = ShipPartAnalyzer.analyze(blockIds).hasPropulsion();
+        ShipStats stats = ShipPartAnalyzer.analyze(blockIds);
+        mass = stats.mass();
+        weightCategory = WeightCategory.fromMass(mass);
+        maxSpeed = ShipPhysics.calculateMaxSpeed(mass);
+        hasThrusters = stats.hasPropulsion();
 
-        // Sync blockCount to client
+        // Sync blockCount and mass to client. Syncing mass (not just block
+        // count) is what lets the HUD (FuelHudOverlay) show the exact same
+        // WeightCategory the server enforces for flight — see SYNC_MASS.
         if (!level().isClientSide) {
             this.entityData.set(SYNC_BLOCK_COUNT, blockCount);
+            this.entityData.set(SYNC_MASS, mass);
         }
     }
 }
