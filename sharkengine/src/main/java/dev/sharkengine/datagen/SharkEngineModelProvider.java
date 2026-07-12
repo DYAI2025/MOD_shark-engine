@@ -61,7 +61,16 @@ final class SharkEngineModelProvider implements DataProvider {
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
-                writeModel(writer, itemModelId(ns, "bug"), BUG_ITEM_MODEL)
+                writeModel(writer, itemModelId(ns, "bug"), BUG_ITEM_MODEL),
+
+                // AIR-040: crafting-intermediate items — item model only, no block/
+                // blockstate (they are plain Items, never placed). Texture already
+                // exists under textures/block/<id>.png from the AIR-032/AIR-040 asset
+                // commit; referenced directly rather than duplicated under textures/item/.
+                writeModel(writer, itemModelId(ns, "metal_sheet"), generatedItemModel("block/metal_sheet")),
+                writeModel(writer, itemModelId(ns, "rotor_shaft"), generatedItemModel("block/rotor_shaft")),
+                writeModel(writer, itemModelId(ns, "engine_core"), generatedItemModel("block/engine_core")),
+                writeModel(writer, itemModelId(ns, "bearing_assembly"), generatedItemModel("block/bearing_assembly"))
         );
 
         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
@@ -87,6 +96,23 @@ final class SharkEngineModelProvider implements DataProvider {
 
     private static JsonElement parse(String json) {
         return JsonParser.parseString(json);
+    }
+
+    /**
+     * AIR-040: standard vanilla flat-icon item model ({@code minecraft:item/generated}
+     * parent, single {@code layer0} texture) for the crafting-intermediate items —
+     * these have no block counterpart, so unlike thruster/steering_wheel/bug's item
+     * models above they don't parent to a {@code sharkengine:block/...} block model.
+     */
+    private static String generatedItemModel(String texturePath) {
+        return """
+                {
+                  "parent": "minecraft:item/generated",
+                  "textures": {
+                    "layer0": "sharkengine:%s"
+                  }
+                }
+                """.formatted(texturePath);
     }
 
     @Override

@@ -98,6 +98,11 @@ final class SharkEngineLangProvider {
             b.add("assembly_issue.sharkengine.no_bug", "No bow block found – place exactly one bow as front marker.");
             b.add("assembly_issue.sharkengine.multi_bug", "Configuration error: Multiple bow blocks found (%s). Only one allowed.");
             b.add("assembly_issue.sharkengine.bug_inside", "Bow must be on the outer edge – currently placed inside.");
+            // AIR-040: crafting-intermediate items
+            b.add("item.sharkengine.metal_sheet", "Metal Sheet");
+            b.add("item.sharkengine.rotor_shaft", "Rotor Shaft");
+            b.add("item.sharkengine.engine_core", "Engine Core");
+            b.add("item.sharkengine.bearing_assembly", "Bearing Assembly");
         }
     }
 
@@ -177,6 +182,11 @@ final class SharkEngineLangProvider {
             b.add("assembly_issue.sharkengine.no_bug", "Kein Bug-Block gefunden – platziere genau einen Bug als Frontmarker.");
             b.add("assembly_issue.sharkengine.multi_bug", "Konfigurationsfehler: Mehrere Bug-Blöcke gefunden (%s). Nur genau einer erlaubt.");
             b.add("assembly_issue.sharkengine.bug_inside", "Bug muss an der Außenkante platziert werden – aktuell im Inneren.");
+            // AIR-040: crafting-intermediate items
+            b.add("item.sharkengine.metal_sheet", "Blechplatte");
+            b.add("item.sharkengine.rotor_shaft", "Rotorwelle");
+            b.add("item.sharkengine.engine_core", "Triebwerkskern");
+            b.add("item.sharkengine.bearing_assembly", "Lagerbaugruppe");
         }
     }
 }

@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -695,6 +696,100 @@ class ResourceValidationTest {
                                 "Resource filename must be lowercase: " + p);
                     }
                 }
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("AIR-040: Item resource contract — crafting intermediates")
+    class CraftingIntermediateResourceContractTests {
+
+        /**
+         * The 4 crafting-intermediate items AIR-040 registers first (concept doc §4
+         * "Zwischenprodukte & Rezepte" — "intermediates FIRST" per the implementation
+         * plan's own AIR-040 ordering note). These are plain {@code Item}s registered
+         * via a new {@code ModItems}, NOT {@code ModBlocks} entries — so unlike
+         * {@link PerBlockResourceContractTests#ALL_BLOCK_IDS} they have no blockstate,
+         * no block model, no loot table, no {@code ship_eligible} tag membership, and
+         * no {@code VehiclePartDefinition} (they are never placed or flown; they exist
+         * only as crafting reagents for the real parts registered later in this task's
+         * follow-on scope).
+         */
+        private static final String[] INTERMEDIATE_ITEM_IDS =
+                {"metal_sheet", "rotor_shaft", "engine_core", "bearing_assembly"};
+
+        /** Exact yield per craft, locked from the concept doc's recipe table (§4). */
+        private static final Map<String, Integer> EXPECTED_YIELD = Map.of(
+                "metal_sheet", 4,
+                "rotor_shaft", 2,
+                "engine_core", 1,
+                "bearing_assembly", 2
+        );
+
+        private static final Path TEXTURES_ROOT = RESOURCES_ROOT.resolve("assets/sharkengine/textures");
+
+        @Test
+        @DisplayName("every intermediate has an item model")
+        void everyIntermediateHasItemModel() {
+            for (String id : INTERMEDIATE_ITEM_IDS) {
+                Path path = GENERATED_ROOT.resolve("assets/sharkengine/models/item/" + id + ".json");
+                assertTrue(Files.exists(path),
+                        "Missing item model for intermediate '" + id + "' at " + path + " — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every intermediate's item model resolves its texture reference to an existing file")
+        void everyIntermediateItemModelResolvesTexture() throws IOException {
+            for (String id : INTERMEDIATE_ITEM_IDS) {
+                Path modelFile = GENERATED_ROOT.resolve("assets/sharkengine/models/item/" + id + ".json");
+                assertTrue(Files.exists(modelFile), "Missing item model for '" + id + "'");
+                String modelJson = Files.readString(modelFile, StandardCharsets.UTF_8);
+                Matcher m = Pattern.compile("\"layer0\"\\s*:\\s*\"([^\"]+)\"").matcher(modelJson);
+                assertTrue(m.find(), "Item model for '" + id + "' declares no \"layer0\" texture: " + modelFile);
+                String textureRef = m.group(1);
+                assertTrue(textureRef.startsWith("sharkengine:"),
+                        "Texture reference '" + textureRef + "' for '" + id + "' must be sharkengine-namespaced");
+                String path = textureRef.substring("sharkengine:".length());
+                Path textureFile = TEXTURES_ROOT.resolve(path + ".png");
+                assertTrue(Files.exists(textureFile),
+                        "Item model for '" + id + "' references texture '" + textureRef
+                                + "' which does not exist at " + textureFile);
+            }
+        }
+
+        @Test
+        @DisplayName("every intermediate has a recipe producing the concept-doc yield")
+        void everyIntermediateHasRecipeWithExpectedYield() throws IOException {
+            for (String id : INTERMEDIATE_ITEM_IDS) {
+                Path recipeFile = GENERATED_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                assertTrue(Files.exists(recipeFile),
+                        "Missing recipe for intermediate '" + id + "' at " + recipeFile + " — run ./gradlew runDatagen");
+                String json = Files.readString(recipeFile, StandardCharsets.UTF_8);
+                assertTrue(json.contains("\"id\": \"sharkengine:" + id + "\""),
+                        "Recipe for '" + id + "' must produce result id 'sharkengine:" + id + "', found: " + json);
+                int expectedCount = EXPECTED_YIELD.get(id);
+                assertTrue(json.contains("\"count\": " + expectedCount),
+                        "Recipe for '" + id + "' must yield " + expectedCount
+                                + " per craft (concept doc §4 recipe table), found: " + json);
+            }
+        }
+
+        @Test
+        @DisplayName("every intermediate has non-blank English and German item translations")
+        void everyIntermediateHasTranslations() throws IOException {
+            String enContent = Files.readString(
+                    GENERATED_ROOT.resolve("assets/sharkengine/lang/en_us.json"), StandardCharsets.UTF_8);
+            String deContent = Files.readString(
+                    GENERATED_ROOT.resolve("assets/sharkengine/lang/de_de.json"), StandardCharsets.UTF_8);
+            for (String id : INTERMEDIATE_ITEM_IDS) {
+                String key = "item.sharkengine." + id;
+                String enVal = extractJsonValue(enContent, key);
+                String deVal = extractJsonValue(deContent, key);
+                assertNotNull(enVal, "Missing English translation key '" + key + "' in en_us.json");
+                assertFalse(enVal.isBlank(), "English translation for '" + key + "' must not be blank");
+                assertNotNull(deVal, "Missing German translation key '" + key + "' in de_de.json");
+                assertFalse(deVal.isBlank(), "German translation for '" + key + "' must not be blank");
             }
         }
     }

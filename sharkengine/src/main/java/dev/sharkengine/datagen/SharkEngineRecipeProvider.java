@@ -1,18 +1,22 @@
 package dev.sharkengine.datagen;
 
 import dev.sharkengine.content.ModBlocks;
+import dev.sharkengine.content.ModItems;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricRecipeProvider;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapedRecipePattern;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -82,12 +86,80 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 " G ", "GRG", " G "
         );
+
+        // ─── AIR-040: crafting intermediates (concept doc §4 recipe table) ─────
+        // Registered FIRST in this method's read order, matching the plan's own
+        // "intermediates FIRST" requirement — every downstream part recipe
+        // references one of these four ingredient ids.
+
+        // metal_sheet: I=iron_ingot, C=copper_ingot — "II" / "CC", yield 4
+        shapedRecipe(
+                exporter,
+                "metal_sheet",
+                ModItems.METAL_SHEET,
+                4,
+                Map.of(
+                        'I', Ingredient.of(Items.IRON_INGOT),
+                        'C', Ingredient.of(Items.COPPER_INGOT)
+                ),
+                "II", "CC"
+        );
+
+        // rotor_shaft: I=iron_ingot, C=copper_ingot — column "I" / "C" / "I", yield 2
+        shapedRecipe(
+                exporter,
+                "rotor_shaft",
+                ModItems.ROTOR_SHAFT,
+                2,
+                Map.of(
+                        'I', Ingredient.of(Items.IRON_INGOT),
+                        'C', Ingredient.of(Items.COPPER_INGOT)
+                ),
+                "I", "C", "I"
+        );
+
+        // engine_core: I=iron_ingot, C=copper_ingot, R=redstone_block —
+        // "ICI" / "CRC" / "ICI", yield 1
+        shapedRecipe(
+                exporter,
+                "engine_core",
+                ModItems.ENGINE_CORE,
+                1,
+                Map.of(
+                        'I', Ingredient.of(Items.IRON_INGOT),
+                        'C', Ingredient.of(Items.COPPER_INGOT),
+                        'R', Ingredient.of(Items.REDSTONE_BLOCK)
+                ),
+                "ICI", "CRC", "ICI"
+        );
+
+        // bearing_assembly: shapeless — 1 iron_ingot + 2 copper_ingot, yield 2
+        shapelessRecipe(
+                exporter,
+                "bearing_assembly",
+                ModItems.BEARING_ASSEMBLY,
+                2,
+                Ingredient.of(Items.IRON_INGOT),
+                Ingredient.of(Items.COPPER_INGOT),
+                Ingredient.of(Items.COPPER_INGOT)
+        );
     }
 
     private void shapedRecipe(
             RecipeOutput exporter,
             String path,
-            net.minecraft.world.item.Item result,
+            Item result,
+            Map<Character, Ingredient> key,
+            String... pattern
+    ) {
+        shapedRecipe(exporter, path, result, 1, key, pattern);
+    }
+
+    private void shapedRecipe(
+            RecipeOutput exporter,
+            String path,
+            Item result,
+            int count,
             Map<Character, Ingredient> key,
             String... pattern
     ) {
@@ -96,7 +168,23 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 "",
                 CraftingBookCategory.MISC,
                 shapedPattern,
-                new ItemStack(result, 1)
+                new ItemStack(result, count)
+        );
+        exporter.accept(ResourceLocation.fromNamespaceAndPath(output.getModId(), path), recipe, null);
+    }
+
+    private void shapelessRecipe(
+            RecipeOutput exporter,
+            String path,
+            Item result,
+            int count,
+            Ingredient... ingredients
+    ) {
+        ShapelessRecipe recipe = new ShapelessRecipe(
+                "",
+                CraftingBookCategory.MISC,
+                new ItemStack(result, count),
+                NonNullList.of(Ingredient.EMPTY, ingredients)
         );
         exporter.accept(ResourceLocation.fromNamespaceAndPath(output.getModId(), path), recipe, null);
     }
