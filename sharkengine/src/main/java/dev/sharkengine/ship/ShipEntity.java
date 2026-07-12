@@ -735,7 +735,21 @@ public final class ShipEntity extends Entity {
         // ━━━ BUG FIX 1+2: Turn (Rotation) ━━━
         // Steering modifies the entity yaw. The entity yaw IS the forward direction.
         // Smooth turning: 3 deg/tick (was 4, reduced for stability)
-        float yaw = this.getYRot() + (inputTurn * 3.0f);
+        //
+        // P0 hotfix (2026-07-12, live playtest: "Lenkung ist invertiert. Links
+        // ist rechts und rechts ist links."): proven via forward/right cross
+        // product (right = forward x up, with forward=(-sin(yaw),0,cos(yaw)),
+        // up=(0,1,0), giving right=(-cos(yaw),0,-sin(yaw))... concretely: at
+        // yaw=0 (facing South) the pilot's right side is West, and increasing
+        // yaw sweeps facing from South towards West — i.e. increasing yaw
+        // turns the ship RIGHT, not left. Both client input sources assumed
+        // the opposite: HelmInputClient maps keyLeft("A")->+1 expecting a
+        // left turn, and ControllerInput negates the stick specifically "so
+        // right stick right = turn right" (turn=-1 for a right push) — both
+        // self-consistent internally, both backwards relative to physics.
+        // Flipping the sign once here (rather than in either client file)
+        // corrects both input paths at their single point of consumption.
+        float yaw = this.getYRot() - (inputTurn * 3.0f);
         this.setYRot(yaw);
 
         // ━━━ Forward Movement ━━━
