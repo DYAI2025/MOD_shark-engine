@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "M": {
+      "item": "sharkengine:metal_sheet"
+    }
+  },
+  "pattern": [
+    "MM"
+  ],
+  "result": {
+    "count": 4,
+    "id": "sharkengine:airframe_panel"
+  }
+}

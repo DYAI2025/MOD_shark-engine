@@ -1,6 +1,7 @@
 package dev.sharkengine.content;
 
 import dev.sharkengine.SharkEngineMod;
+import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
@@ -44,6 +45,15 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    public static final Block AIRFRAME_PANEL = registerBlock(
+            "airframe_panel",
+            AirframePanelBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -52,6 +62,7 @@ public final class ModBlocks {
             entries.accept(STEERING_WHEEL.asItem());
             entries.accept(THRUSTER.asItem());
             entries.accept(BUG.asItem());
+            entries.accept(AIRFRAME_PANEL.asItem());
         });
     }
 

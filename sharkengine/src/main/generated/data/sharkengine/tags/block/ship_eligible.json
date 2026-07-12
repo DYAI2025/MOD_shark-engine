@@ -23,6 +23,7 @@
     },
     "minecraft:glass",
     "sharkengine:thruster",
-    "sharkengine:bug"
+    "sharkengine:bug",
+    "sharkengine:airframe_panel"
   ]
 }

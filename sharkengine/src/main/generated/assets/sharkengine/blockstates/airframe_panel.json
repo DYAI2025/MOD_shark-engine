@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "sharkengine:block/airframe_panel",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "sharkengine:block/airframe_panel",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "sharkengine:block/airframe_panel",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "sharkengine:block/airframe_panel",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "sharkengine:block/airframe_panel"
+    },
+    "facing=west": {
+      "model": "sharkengine:block/airframe_panel",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

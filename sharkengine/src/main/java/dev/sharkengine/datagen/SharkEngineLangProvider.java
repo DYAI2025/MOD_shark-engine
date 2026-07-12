@@ -103,6 +103,9 @@ final class SharkEngineLangProvider {
             b.add("item.sharkengine.rotor_shaft", "Rotor Shaft");
             b.add("item.sharkengine.engine_core", "Engine Core");
             b.add("item.sharkengine.bearing_assembly", "Bearing Assembly");
+            // AIR-040: airframe_panel (first core placeable part)
+            b.add("block.sharkengine.airframe_panel", "Airframe Panel");
+            b.add("item.sharkengine.airframe_panel", "Airframe Panel");
         }
     }
 
@@ -187,6 +190,9 @@ final class SharkEngineLangProvider {
             b.add("item.sharkengine.rotor_shaft", "Rotorwelle");
             b.add("item.sharkengine.engine_core", "Triebwerkskern");
             b.add("item.sharkengine.bearing_assembly", "Lagerbaugruppe");
+            // AIR-040: airframe_panel (first core placeable part)
+            b.add("block.sharkengine.airframe_panel", "Außenhüllenplatte");
+            b.add("item.sharkengine.airframe_panel", "Außenhüllenplatte");
         }
     }
 }

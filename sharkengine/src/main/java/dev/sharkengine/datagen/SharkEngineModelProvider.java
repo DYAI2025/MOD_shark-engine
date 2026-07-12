@@ -54,14 +54,17 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "thruster", THRUSTER_BLOCKSTATE),
                 writeBlockState(writer, ns, "steering_wheel", STEERING_WHEEL_BLOCKSTATE),
                 writeBlockState(writer, ns, "bug", BUG_BLOCKSTATE),
+                writeBlockState(writer, ns, "airframe_panel", AIRFRAME_PANEL_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "bug"), BUG_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "airframe_panel"), AIRFRAME_PANEL_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "bug"), BUG_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "airframe_panel"), AIRFRAME_PANEL_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -149,6 +152,31 @@ final class SharkEngineModelProvider implements DataProvider {
                 "facing=east":  { "model": "sharkengine:block/bug", "y": 90 },
                 "facing=south": { "model": "sharkengine:block/bug", "y": 180 },
                 "facing=west":  { "model": "sharkengine:block/bug", "y": 270 }
+              }
+            }
+            """;
+
+    /**
+     * AIR-040: {@code airframe_panel} (SKIN role, concept §4 "Blockstate" column:
+     * {@code facing}, full six-direction). Default model orientation is
+     * {@code facing=up} (a 2px-thick plate at the top of the block); every other
+     * facing is reached by rotating that default model rigidly — the same
+     * default-up + x/y-rotation-table idiom vanilla uses for {@code lightning_rod}
+     * (a model whose "business end" points in one direction, reused for all six
+     * facings via pure rotation, no per-direction model variants needed).
+     * {@link dev.sharkengine.content.block.AirframePanelBlock}'s {@code VoxelShape}
+     * table is rigid-transform-consistent with this exact rotation set — see that
+     * class's javadoc.
+     */
+    private static final String AIRFRAME_PANEL_BLOCKSTATE = """
+            {
+              "variants": {
+                "facing=up":    { "model": "sharkengine:block/airframe_panel" },
+                "facing=down":  { "model": "sharkengine:block/airframe_panel", "x": 180 },
+                "facing=north": { "model": "sharkengine:block/airframe_panel", "x": 90 },
+                "facing=east":  { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 90 },
+                "facing=south": { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 180 },
+                "facing=west":  { "model": "sharkengine:block/airframe_panel", "x": 90, "y": 270 }
               }
             }
             """;
@@ -346,6 +374,30 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    private static final String AIRFRAME_PANEL_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/block",
+              "textures": {
+                "all": "sharkengine:block/airframe_panel"
+              },
+              "elements": [
+                {
+                  "comment": "2px plate, default orientation facing=up",
+                  "from": [0, 14, 0],
+                  "to": [16, 16, 16],
+                  "faces": {
+                    "north": { "uv": [0, 0, 16, 2], "texture": "#all" },
+                    "south": { "uv": [0, 0, 16, 2], "texture": "#all" },
+                    "east":  { "uv": [0, 0, 16, 2], "texture": "#all" },
+                    "west":  { "uv": [0, 0, 16, 2], "texture": "#all" },
+                    "up":    { "uv": [0, 0, 16, 16], "texture": "#all" },
+                    "down":  { "uv": [0, 0, 16, 16], "texture": "#all" }
+                  }
+                }
+              ]
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -361,6 +413,12 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String BUG_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/bug"
+            }
+            """;
+
+    private static final String AIRFRAME_PANEL_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/airframe_panel"
             }
             """;
 }

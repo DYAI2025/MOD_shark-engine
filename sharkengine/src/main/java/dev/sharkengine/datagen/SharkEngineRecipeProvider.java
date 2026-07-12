@@ -143,6 +143,17 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 Ingredient.of(Items.COPPER_INGOT),
                 Ingredient.of(Items.COPPER_INGOT)
         );
+
+        // ─── AIR-040: airframe_panel (first core placeable part) ────────────────
+        // airframe_panel: M=metal_sheet — "MM" (single row), yield 4
+        shapedRecipe(
+                exporter,
+                "airframe_panel",
+                ModBlocks.AIRFRAME_PANEL.asItem(),
+                4,
+                Map.of('M', Ingredient.of(ModItems.METAL_SHEET)),
+                "MM"
+        );
     }
 
     private void shapedRecipe(
