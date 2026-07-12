@@ -19,7 +19,8 @@ cd sharkengine
 ./gradlew test           # Run JUnit 5 tests only — does NOT compile the client source set (see warning below)
 ./gradlew check          # Tests + static analysis — also does NOT compile the client source set
 ./gradlew runClient      # Launch Fabric dev client for in-game testing
-./gradlew clean          # Clean build artifacts
+./gradlew clean          # Clean build artifacts — ALSO deletes src/main/generated (see datagen gotcha below)
+./gradlew runDatagen     # Regenerate src/main/generated (recipes/loot/models/blockstates/tags/lang for datagen-migrated blocks)
 
 # Run a single test class or method
 ./gradlew test --tests "dev.sharkengine.ship.ShipPhysicsTest"
@@ -29,6 +30,8 @@ cd sharkengine
 Requires **Java 21** — Fabric Loom enforces the toolchain and fails on wrong JDK.
 
 **Client compile gotcha:** `splitEnvironmentSourceSets()` (below) means `test`/`check` never invoke `compileClientJava` — a client-only break can be fully green on `test`/`check` while the mod doesn't build. This happened for real (2026-03-17 to 2026-07-12, undetected): a package-private record used cross-package from client code. Always run `./gradlew build` before claiming client-side work (rendering, HUD, screens) is done; CI runs `build`, not `test`, specifically because of this.
+
+**Datagen/`clean` gotcha:** `fabricApi.configureDataGeneration()` (added 2026-07-12, AIR-030) wires `src/main/generated` deletion into the `clean` task, but *regenerating* it is not part of the normal build graph — running `./gradlew clean build` alone leaves `src/main/generated` missing and `test`/`runGametest` red (missing recipe/loot/blockstate/model/tag/lang files for datagen-migrated blocks: currently `bug`, `steering_wheel`, `thruster`). After `clean`, always run `./gradlew runDatagen` before `build`/`test`/`runGametest` — or just `./gradlew clean runDatagen build`. This does **not** affect CI (`.github/workflows/ci.yml` never runs `clean`; the generated output is committed to git, so it's present immediately after checkout) or normal incremental `./gradlew build` without a preceding `clean`.
 
 ## Architecture
 
