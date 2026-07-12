@@ -4,10 +4,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -273,6 +276,97 @@ class ResourceValidationTest {
             assertTrue(identicalCount < totalKeys / 2,
                     "Too many German translations identical to English (" +
                             identicalCount + "/" + totalKeys + "). Translations may be missing.");
+        }
+    }
+
+    @Nested
+    @DisplayName("Aircraft-Extension Texture Palette Conformance (AIR-032)")
+    class TexturePaletteTests {
+
+        /**
+         * tools/asset-gen/palette.json is the single source of truth (see that
+         * file's own header comment) — this reads the same file the Python
+         * generator does, not a duplicated copy of the hex values, so the two
+         * can never silently drift apart.
+         */
+        private static final Path PALETTE_JSON = Path.of("../tools/asset-gen/palette.json");
+        private static final Path TEXTURES_ROOT = RESOURCES_ROOT.resolve("assets/sharkengine/textures");
+        private static final int TEXTURE_SIZE = 16;
+
+        private Set<Integer> loadPaletteRgb() throws IOException {
+            String json = Files.readString(PALETTE_JSON, StandardCharsets.UTF_8);
+            Set<Integer> rgb = new TreeSet<>();
+            Matcher m = Pattern.compile("#([0-9a-fA-F]{6})").matcher(json);
+            while (m.find()) {
+                rgb.add(Integer.parseInt(m.group(1), 16));
+            }
+            return rgb;
+        }
+
+        private List<Path> discoverTextures() throws IOException {
+            if (!Files.isDirectory(TEXTURES_ROOT)) {
+                return List.of();
+            }
+            try (var stream = Files.walk(TEXTURES_ROOT)) {
+                return stream.filter(p -> p.toString().endsWith(".png")).sorted().toList();
+            }
+        }
+
+        @Test
+        @DisplayName("palette.json is readable and non-empty")
+        void paletteFileIsReadable() throws IOException {
+            assertTrue(Files.exists(PALETTE_JSON), "tools/asset-gen/palette.json must exist");
+            Set<Integer> rgb = loadPaletteRgb();
+            assertFalse(rgb.isEmpty(), "palette.json must define at least one #RRGGBB color");
+        }
+
+        @Test
+        @DisplayName("at least one aircraft-extension texture has been generated (AIR-032 GREEN gate)")
+        void atLeastOneTextureExists() throws IOException {
+            List<Path> textures = discoverTextures();
+            assertFalse(textures.isEmpty(),
+                    "No textures found under assets/sharkengine/textures/ — run "
+                            + "`python3 tools/asset-gen/generate.py` to generate at least airframe_panel");
+        }
+
+        @Test
+        @DisplayName("every generated texture is exactly 16x16")
+        void everyTextureIsCorrectSize() throws IOException {
+            for (Path texturePath : discoverTextures()) {
+                BufferedImage img = ImageIO.read(texturePath.toFile());
+                assertNotNull(img, texturePath + " could not be read as an image");
+                assertEquals(TEXTURE_SIZE, img.getWidth(),
+                        texturePath + " must be " + TEXTURE_SIZE + "px wide, was " + img.getWidth());
+                assertEquals(TEXTURE_SIZE, img.getHeight(),
+                        texturePath + " must be " + TEXTURE_SIZE + "px tall, was " + img.getHeight());
+            }
+        }
+
+        @Test
+        @DisplayName("every generated texture uses only palette.json colors (+ transparency)")
+        void everyTextureUsesOnlyPaletteColors() throws IOException {
+            Set<Integer> paletteRgb = loadPaletteRgb();
+
+            for (Path texturePath : discoverTextures()) {
+                BufferedImage img = ImageIO.read(texturePath.toFile());
+                assertNotNull(img, texturePath + " could not be read as an image");
+
+                for (int y = 0; y < img.getHeight(); y++) {
+                    for (int x = 0; x < img.getWidth(); x++) {
+                        int argb = img.getRGB(x, y);
+                        int alpha = (argb >>> 24) & 0xFF;
+                        if (alpha == 0) {
+                            continue; // fully transparent pixels are exempt — no color to check
+                        }
+                        int rgb = argb & 0xFFFFFF;
+                        assertTrue(paletteRgb.contains(rgb),
+                                texturePath + " pixel (" + x + "," + y + ") uses color #"
+                                        + String.format("%06x", rgb)
+                                        + " which is not in palette.json — add it there first, "
+                                        + "never hardcode a new color in a part script");
+                    }
+                }
+            }
         }
     }
 }

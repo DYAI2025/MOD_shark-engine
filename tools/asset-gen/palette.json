@@ -1,0 +1,37 @@
+{
+  "_comment": "Single source of truth for the Shark Engine aircraft-extension color palette (Industrial Kupfer-Stahl, AIRCRAFT_CONCEPT_V2.md §5.1). Change values ONLY here, never ad hoc in a part script or texture. Every generated texture must use exclusively colors drawn from this file (+ alpha 0).",
+  "families": {
+    "dark_steel": {
+      "light": "#7a8290",
+      "base": "#565e6a",
+      "shadow": "#3f4550",
+      "deep": "#2b303a",
+      "seam": "#1d2129"
+    },
+    "copper_brass": {
+      "light": "#e0a06a",
+      "base": "#c17f4a",
+      "shadow": "#96603a",
+      "deep": "#6f452c",
+      "seam": "#503121"
+    },
+    "light_alloy": {
+      "light": "#c3c9cf",
+      "base": "#a9b0b8",
+      "shadow": "#8d949d",
+      "deep": "#6e747d",
+      "seam": "#5a5f66"
+    },
+    "painted_accent": {
+      "light": "#d9764a",
+      "base": "#8c3b2e",
+      "shadow": "#63281f",
+      "deep": "#451a15"
+    }
+  },
+  "material_assignment": {
+    "hull_wing": ["dark_steel", "painted_accent"],
+    "mechanism": ["copper_brass", "dark_steel"],
+    "skid_frame": ["light_alloy"]
+  }
+}
