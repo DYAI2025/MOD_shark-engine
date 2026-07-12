@@ -120,6 +120,39 @@ public final class ShipEntity extends Entity {
     private float bugYawDeg = 0.0f;
 
     // ═══════════════════════════════════════════════════════════════════
+    // CLIENT-SIDE POSITION/ROTATION INTERPOLATION
+    //
+    // Recovered 2026-07-12 from a dangling commit (c240f80, 2026-07-03,
+    // "Fix: implement real client-side interpolation for ShipEntity (was a
+    // no-op)") orphaned by an earlier history-recovery reset in this same
+    // session — found via `git fsck --unreachable` after a live playtest
+    // ("ruckelt... wird mit steigender Geschwindigkeit immer doller") that
+    // this session's own setOldPosAndRot() fix (a real but insufficient fix
+    // for a *different* staleness bug) did not resolve.
+    //
+    // Root cause (ground-truthed by decompiling this project's own vanilla
+    // 1.21.1 jar, per that commit): Entity.lerpTo() — the base class
+    // ShipEntity extends directly — is just
+    // "this.setPos(x,y,z); this.setRot(yaw,pitch);", an immediate teleport
+    // that completely ignores its own "steps" parameter despite the name.
+    // Every server position/rotation sync (~20 times/sec) therefore snapped
+    // the client straight to the new value with zero smoothing — worse at
+    // higher speed because each sync covers proportionally more distance,
+    // exactly matching the reported "worse with increasing speed" pattern.
+    //
+    // Fixed using the same pattern vanilla's own AbstractMinecart uses:
+    // lerpTo() now stores the incoming target and a step count instead of
+    // teleporting; tick()'s client branch calls the inherited
+    // Entity.lerpPositionAndRotationStep() each tick to move 1/lerpSteps of
+    // the way there — gradual, multi-tick smoothing instead of instant
+    // snapping.
+    // ═══════════════════════════════════════════════════════════════════
+
+    private int lerpSteps;
+    private double lerpX, lerpY, lerpZ;
+    private double lerpYRot, lerpXRot;
+
+    // ═══════════════════════════════════════════════════════════════════
     // FEATURE 5: VEHICLE HEALTH
     // ═══════════════════════════════════════════════════════════════════
 
@@ -134,6 +167,25 @@ public final class ShipEntity extends Entity {
 
     public ShipEntity(EntityType<? extends ShipEntity> type, Level level) {
         super(type, level);
+        // P0 hotfix (2026-07-12, live playtest: "durchgehendes feines
+        // Zittern/Tearing", ship-specific, not present walking normally):
+        // ShipPhysics.checkCollision (tick()) is our own, purpose-built
+        // collision system, run BEFORE this.move() every tick. But
+        // Entity.move() ALSO runs vanilla's own collision resolution using
+        // this entity's small 2.5x1.5 hitbox (ModEntities.java) against
+        // world geometry whenever noPhysics is false (the default) —
+        // confirmed via javap on the real Entity.class: move() branches on
+        // noPhysics right at the top; false takes the full collide()/
+        // step-up/edge-backoff pipeline, true does a single unconditional
+        // setPos() with no collision math at all. A small hitbox grazing
+        // leaves/fences/any partial-collision block while flying makes that
+        // vanilla pipeline apply constant tiny corrective nudges — a real
+        // per-tick position jitter, independent of and invisible to our own
+        // collision system, and not fixable by any render-side
+        // interpolation change (which is why the earlier setOldPosAndRot
+        // fix had zero effect on it). Disabling it here hands movement
+        // entirely to our own already-existing collision check.
+        this.noPhysics = true;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -691,33 +743,23 @@ public final class ShipEntity extends Entity {
 
     @Override
     public void tick() {
-        // P0 hotfix (2026-07-12, live playtest: "ruckelt extrem, die Grafik
-        // scheint immer hinterherzuziehen"): the previous "BUG FIX 4" here
-        // stored position/yaw into custom prevPosX/Y/Z/prevYaw fields that
-        // were never actually read anywhere (grep-verified — dead code).
-        // The renderer instead interpolates from vanilla's entity.yRotO
-        // (ShipEntityRenderer: Mth.lerp(partialTick, entity.yRotO,
-        // entity.getYRot())), and vanilla base position rendering likewise
-        // interpolates from xo/yo/zo. None of those vanilla fields are ever
-        // refreshed for this entity, because they're only updated by
-        // Entity.moveTo(...)/Entity.load(...) (confirmed via javap on the
-        // real Entity.class — Entity.tick()/baseTick() never touch them),
-        // and ShipEntity moves itself via this.move(MoverType.SELF, ...)
-        // instead of moveTo(). So yRotO/xo/yo/zo stayed frozen at spawn
-        // forever, and every frame's partialTick lerp swung between that
-        // ancient fixed value and the live position/yaw — exactly the
-        // reported drag/stutter. Fixed with vanilla's own intended
-        // mechanism: Entity.setOldPosAndRot() (public final, no-arg;
-        // verified via javap to set xo/yo/zo/xOld/yOld/zOld/yRotO/xRotO
-        // from the entity's current values) — call it once per tick,
-        // before this tick's movement/rotation changes are applied, so
-        // interpolation always has a fresh baseline.
-        this.setOldPosAndRot();
-
         super.tick();
 
-        if (level().isClientSide)
+        if (level().isClientSide) {
+            // Consume the lerp target set by lerpTo() below, 1/lerpSteps of the
+            // way per tick — the exact pattern vanilla's own AbstractMinecart.tick()
+            // uses (recovered from dangling commit c240f80, see the field-block
+            // comment above). Without this, position/rotation updates from the
+            // server would just sit in lerpX/Y/Z/lerpYRot/lerpXRot and never
+            // actually move the entity, since lerpTo() no longer teleports
+            // directly.
+            if (this.lerpSteps > 0) {
+                this.lerpPositionAndRotationStep(this.lerpSteps, this.lerpX, this.lerpY, this.lerpZ,
+                        this.lerpYRot, this.lerpXRot);
+                this.lerpSteps--;
+            }
             return;
+        }
 
         // ━━━ Anchor ━━━
         if (isAnchored()) {
@@ -808,18 +850,26 @@ public final class ShipEntity extends Entity {
         this.move(MoverType.SELF, this.getDeltaMovement());
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // BUG FIX 4: CLIENT INTERPOLATION
-    // ═══════════════════════════════════════════════════════════════════
-
     /**
-     * Provides smooth client-side position interpolation.
-     * Overrides default to use our stored previous positions.
+     * Stores the incoming network position/rotation target for gradual
+     * client-side interpolation instead of teleporting to it immediately.
+     *
+     * <p>The base {@link net.minecraft.world.entity.Entity#lerpTo} does
+     * {@code setPos(x,y,z); setRot(yaw,pitch);} — an instant snap, not
+     * interpolation, despite the name (confirmed by decompiling vanilla —
+     * see the field-block comment above). {@code steps + 2} matches vanilla
+     * AbstractMinecart's own convention exactly (a small padding above
+     * whatever step count the network layer suggests, guaranteeing a
+     * minimum smoothing window).</p>
      */
     @Override
     public void lerpTo(double x, double y, double z, float yaw, float pitch, int steps) {
-        // Use shorter lerp steps for smoother movement at high speed
-        super.lerpTo(x, y, z, yaw, pitch, Math.min(steps, 3));
+        this.lerpX = x;
+        this.lerpY = y;
+        this.lerpZ = z;
+        this.lerpYRot = yaw;
+        this.lerpXRot = pitch;
+        this.lerpSteps = steps + 2;
     }
 
     @Override

@@ -65,10 +65,15 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         // snap-rotation the instant the ship launches. Uses
         // ShipTransform.effectiveYaw (AIR-010) rather than a bare subtraction
         // so this is the one rotation authority, not a second formula.
-        // Using Mth.lerp for smooth rotation between ticks (fixes jitter).
+        // Using the dispatcher-supplied entityYaw (already interpolated —
+        // see EntityRenderDispatcher, matches vanilla's own BoatRenderer
+        // pattern of using its received yaw parameter directly) instead of
+        // recomputing Mth.lerp(partialTick, entity.yRotO, entity.getYRot())
+        // by hand. The two are normally equal, but the manual recompute was
+        // redundant with what the engine already computed for us and is one
+        // fewer thing to keep in sync if that computation ever changes.
         // ═══════════════════════════════════════════════════════════════════
-        float rawYaw = Mth.lerp(partialTick, entity.yRotO, entity.getYRot());
-        float smoothYaw = ShipTransform.effectiveYaw(rawYaw, blueprint.assemblyYaw());
+        float smoothYaw = ShipTransform.effectiveYaw(entityYaw, blueprint.assemblyYaw());
         poseStack.mulPose(Axis.YN.rotationDegrees(smoothYaw));
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
