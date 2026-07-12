@@ -6,7 +6,7 @@ import net.minecraft.world.level.Level;
 
 import java.util.List;
 
-record PreviewState(BlockPos wheelPos,
+public record PreviewState(BlockPos wheelPos,
                     ResourceKey<Level> dimension,
                     List<BlockPos> validBlocks,
                     List<BlockPos> invalidBlocks,

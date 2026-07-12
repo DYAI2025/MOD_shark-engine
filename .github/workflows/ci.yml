@@ -34,9 +34,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Verify build
+      - name: Verify build (main + client + test)
         working-directory: sharkengine
-        run: ./gradlew --no-daemon test
+        run: ./gradlew --no-daemon build
+        # NOTE: was `test` until 2026-07-12. Loom's splitEnvironmentSourceSets means
+        # `test`/`check` do NOT depend on `compileClientJava` — a client-only compile
+        # break (package-private PreviewState used cross-package from
+        # TutorialPopupScreen, introduced 2026-03-17) went undetected by this CI for
+        # ~4 months because of that gap. `build` compiles both source sets.
 
   gametest:
     runs-on: ubuntu-latest

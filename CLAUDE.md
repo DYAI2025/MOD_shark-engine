@@ -15,9 +15,9 @@ All commands run from the `sharkengine/` subdirectory:
 ```bash
 cd sharkengine
 
-./gradlew build          # Compile, remap, run tests
-./gradlew test           # Run JUnit 5 tests only
-./gradlew check          # Tests + static analysis (mirrors CI)
+./gradlew build          # Compile main+client, remap, run tests — mirrors CI, use this to catch client-only compile breaks
+./gradlew test           # Run JUnit 5 tests only — does NOT compile the client source set (see warning below)
+./gradlew check          # Tests + static analysis — also does NOT compile the client source set
 ./gradlew runClient      # Launch Fabric dev client for in-game testing
 ./gradlew clean          # Clean build artifacts
 
@@ -27,6 +27,8 @@ cd sharkengine
 ```
 
 Requires **Java 21** — Fabric Loom enforces the toolchain and fails on wrong JDK.
+
+**Client compile gotcha:** `splitEnvironmentSourceSets()` (below) means `test`/`check` never invoke `compileClientJava` — a client-only break can be fully green on `test`/`check` while the mod doesn't build. This happened for real (2026-03-17 to 2026-07-12, undetected): a package-private record used cross-package from client code. Always run `./gradlew build` before claiming client-side work (rendering, HUD, screens) is done; CI runs `build`, not `test`, specifically because of this.
 
 ## Architecture
 
@@ -83,8 +85,8 @@ Tests use `@DisplayName` tied to gameplay behavior. Mock Fabric abstractions whe
 ## CI
 
 GitHub Actions:
-- `.github/workflows/ci.yml` — Runs `./gradlew test` with JDK 21 Temurin on push/PR to `main`, `develop`, `feature/**`.
-- `.github/workflows/deploy.yml` — On push to `main`: re-runs tests, then deploys to Railway (`railway up`) using the root `Dockerfile`. Requires `RAILWAY_TOKEN` secret.
+- `.github/workflows/ci.yml` — two parallel jobs: `build` runs `./gradlew build` (compiles main+client, runs unit tests — see client compile gotcha above), `gametest` runs `./gradlew runGametest` (Fabric GameTest smoke suite). JDK 21 Temurin, on push/PR to `main`, `develop`, `feature/**`.
+- `.github/workflows/deploy.yml` — On push to `main`: re-runs tests, then deploys to Railway (`railway up --service sharkengine-mc-mod --environment production`) using the root `Dockerfile`. Requires `RAILWAY_TOKEN` secret.
 
 ## Key Resources
 
