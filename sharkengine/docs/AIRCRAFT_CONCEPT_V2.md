@@ -102,8 +102,18 @@ Entity-Felds, siehe §11 REQ-M1). Alle Transformationen nutzen die **effektive R
 - **Kollision:** Offset-Vektor um θ rotieren, dann auf Blockpositionen runden (Set-Dedupe).
 - **Demontage:** θ auf das nächste Vielfache von 90° snappen; Blöcke via
   `BlockState.rotate(Rotation)` mitdrehen (FACING/AXIS bleiben konsistent).
-- **Legacy-Fallback (v1-NBT ohne `assemblyYaw`):** `assemblyYaw := gespeicherter Entity-Yaw`
-  beim Laden — v1-Schiffe rendern damit exakt wie bisher, kein visueller Bruch.
+- **Legacy-Fallback (v1-NBT ohne `assemblyYaw`):** `assemblyYaw := entity.bugYawDeg`
+  (das bereits existierende, unter dem NBT-Key `BugYaw` persistierte Feld —
+  **nicht** der live/aktuelle `getYRot()`-Wert, der sich durch Fliegen/Drehen
+  ändert und hier falsch wäre). `bugYawDeg` wird in `readAdditionalSaveData`
+  gelesen, **nachdem** `ShipBlueprint.fromNbt`/`applyBlueprintStats` gelaufen
+  sind (verifiziert: `ShipEntity.java` liest Blueprint zuerst, dann `BugYaw`/
+  `ThrustYaw` NBT-Keys) — v1-Schiffe rendern damit exakt wie bisher, kein
+  visueller Bruch. *(Präzisiert 2026-07-12 via ultrathink-craftsmanship: die
+  vorherige Formulierung „gespeicherter Entity-Yaw" war mit dem Plan-Dokument
+  nicht deckungsgleich und ließ offen, ob der live- oder der Montage-Yaw
+  gemeint war — das hätte bei der AIR-015-Implementierung zu genau der
+  falschen Wahl führen können.)*
   Der Fallback läuft **serverseitig** in `readAdditionalSaveData` direkt nach `fromNbt`
   (bevor Tracking startet) — jeder `ShipBlueprintS2CPayload` trägt damit bereits
   v2-NBT inkl. `AssemblyYaw`; einen clientseitigen v1-Pfad gibt es nie.
