@@ -57,5 +57,6 @@
     "hud.sharkengine.onboarding.movement": "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.",
     "hud.sharkengine.onboarding.vertical": "Vertikal: Leertaste steigt, Shift sinkt. Schwere Schiffe steigen langsamer.",
     "hud.sharkengine.onboarding.fuel": "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.",
-    "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden."
+    "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden.",
+    "message.sharkengine.not_pilot": "Du bist nicht der Pilot dieses Schiffs."
 }
