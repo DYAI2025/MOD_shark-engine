@@ -1,5 +1,7 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.ship.part.VehiclePartDefinition;
+import dev.sharkengine.ship.part.VehiclePartRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -443,6 +446,253 @@ class ResourceValidationTest {
                                         + String.format("%06x", rgb)
                                         + " which is not in palette.json — add it there first, "
                                         + "never hardcode a new color in a part script");
+                    }
+                }
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("AIR-031: Resource contract — every ModBlocks entry")
+    class PerBlockResourceContractTests {
+
+        /**
+         * Every block currently registered in {@code dev.sharkengine.content.ModBlocks}.
+         *
+         * <p>Kept as a hand-written literal, not derived by reflecting over {@code ModBlocks}
+         * itself: that class references un-stubbed Minecraft/Fabric types
+         * ({@code net.minecraft.world.level.block.Block}, {@code BuiltInRegistries},
+         * {@code Item}, {@code BlockItem}, {@code ItemGroupEvents}, ...) that do not exist on
+         * this {@code test} source set's compile/runtime classpath — only {@code main}/
+         * {@code client} pull in the Loom-mapped Minecraft jar (see {@code build.gradle}'s
+         * {@code testImplementation} block, which has no Minecraft dependency). Referencing —
+         * or reflectively {@code Class.forName}-loading — {@code ModBlocks} here fails at
+         * class-verification/link time, the same classpath constraint already documented for
+         * {@code ShipBlueprint} (AIR-015) and the network payload roundtrip (AIR-022). This
+         * list must therefore be kept in sync by hand whenever a block is added to
+         * {@code ModBlocks} — same convention as the pre-existing {@code CRAFTABLE_BLOCK_IDS}
+         * / {@code MIGRATED_BLOCK_IDS} arrays above and {@code VehiclePartRegistryTest}.</p>
+         */
+        private static final String[] ALL_BLOCK_IDS = {"bug", "steering_wheel", "thruster"};
+
+        /** Subset of {@link #ALL_BLOCK_IDS} that has a crafting recipe. All three do today. */
+        private static final String[] CRAFTABLE_IDS = {"bug", "steering_wheel", "thruster"};
+
+        private static final Path TEXTURES_ROOT = RESOURCES_ROOT.resolve("assets/sharkengine/textures");
+
+        private String readGenerated(String relativePath) throws IOException {
+            return Files.readString(GENERATED_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+        }
+
+        /** Extracts every value of a {@code "model": "..."} field from a blockstate JSON. */
+        private static Set<String> extractModelRefs(String blockstateJson) {
+            Set<String> models = new TreeSet<>();
+            Matcher m = Pattern.compile("\"model\"\\s*:\\s*\"([^\"]+)\"").matcher(blockstateJson);
+            while (m.find()) {
+                models.add(m.group(1));
+            }
+            return models;
+        }
+
+        /**
+         * Extracts the values of the top-level {@code "textures": { ... }} object from a
+         * block model JSON (brace-matched, so it doesn't accidentally pick up unrelated
+         * quoted strings elsewhere in the file, e.g. inside {@code "elements"}).
+         */
+        private static Set<String> extractTextureRefs(String modelJson) {
+            int keyIdx = modelJson.indexOf("\"textures\"");
+            if (keyIdx < 0) {
+                return Set.of();
+            }
+            int braceStart = modelJson.indexOf('{', keyIdx);
+            int depth = 0;
+            int i = braceStart;
+            for (; i < modelJson.length(); i++) {
+                char c = modelJson.charAt(i);
+                if (c == '{') {
+                    depth++;
+                } else if (c == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        break;
+                    }
+                }
+            }
+            String texturesBlock = modelJson.substring(braceStart, i + 1);
+            Set<String> refs = new TreeSet<>();
+            Matcher m = Pattern.compile("\"[^\"]+\"\\s*:\\s*\"([^\"]+)\"").matcher(texturesBlock);
+            while (m.find()) {
+                refs.add(m.group(1));
+            }
+            return refs;
+        }
+
+        @Test
+        @DisplayName("every registered block has a blockstate")
+        void everyBlockHasBlockstate() {
+            for (String id : ALL_BLOCK_IDS) {
+                Path path = GENERATED_ROOT.resolve("assets/sharkengine/blockstates/" + id + ".json");
+                assertTrue(Files.exists(path),
+                        "Missing blockstate for '" + id + "' at " + path + " — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block's blockstate resolves to an existing block model")
+        void everyBlockModelResolves() throws IOException {
+            for (String id : ALL_BLOCK_IDS) {
+                Path blockstatePath = GENERATED_ROOT.resolve("assets/sharkengine/blockstates/" + id + ".json");
+                assertTrue(Files.exists(blockstatePath),
+                        "Missing blockstate for '" + id + "' — cannot resolve its block model");
+                String blockstateJson = Files.readString(blockstatePath, StandardCharsets.UTF_8);
+                Set<String> modelRefs = extractModelRefs(blockstateJson);
+                assertFalse(modelRefs.isEmpty(),
+                        "Blockstate for '" + id + "' declares no \"model\" references at all: " + blockstatePath);
+                for (String modelRef : modelRefs) {
+                    assertTrue(modelRef.startsWith("sharkengine:"),
+                            "Block model reference '" + modelRef + "' for '" + id
+                                    + "' must be sharkengine-namespaced");
+                    String modelPath = modelRef.substring("sharkengine:".length());
+                    Path modelFile = GENERATED_ROOT.resolve("assets/sharkengine/models/" + modelPath + ".json");
+                    assertTrue(Files.exists(modelFile),
+                            "Blockstate for '" + id + "' references model '" + modelRef
+                                    + "' which does not exist at " + modelFile);
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block has an item model")
+        void everyBlockHasItemModel() {
+            for (String id : ALL_BLOCK_IDS) {
+                Path path = GENERATED_ROOT.resolve("assets/sharkengine/models/item/" + id + ".json");
+                assertTrue(Files.exists(path),
+                        "Missing item model for '" + id + "' at " + path + " — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block has a loot table")
+        void everyBlockHasLootTable() {
+            for (String id : ALL_BLOCK_IDS) {
+                Path path = GENERATED_ROOT.resolve("data/sharkengine/loot_table/blocks/" + id + ".json");
+                assertTrue(Files.exists(path),
+                        "Missing loot table for '" + id + "' at " + path + " — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every craftable block has a recipe")
+        void everyCraftableBlockHasRecipe() {
+            for (String id : CRAFTABLE_IDS) {
+                Path path = GENERATED_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                assertTrue(Files.exists(path),
+                        "Missing recipe for craftable block '" + id + "' at " + path + " — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block has non-blank English and German block translations")
+        void everyBlockHasTranslations() throws IOException {
+            String enContent = readGenerated("assets/sharkengine/lang/en_us.json");
+            String deContent = readGenerated("assets/sharkengine/lang/de_de.json");
+            for (String id : ALL_BLOCK_IDS) {
+                String key = "block.sharkengine." + id;
+                String enVal = extractJsonValue(enContent, key);
+                String deVal = extractJsonValue(deContent, key);
+                assertNotNull(enVal, "Missing English translation key '" + key + "' in en_us.json");
+                assertFalse(enVal.isBlank(), "English translation for '" + key + "' must not be blank");
+                assertNotNull(deVal, "Missing German translation key '" + key + "' in de_de.json");
+                assertFalse(deVal.isBlank(), "German translation for '" + key + "' must not be blank");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block resolves a non-fallback VehiclePartDefinition")
+        void everyBlockResolvesAVehiclePartDefinition() {
+            for (String id : ALL_BLOCK_IDS) {
+                String fullId = "sharkengine:" + id;
+                VehiclePartDefinition def = VehiclePartRegistry.resolve(fullId);
+                assertNotEquals(VehiclePartRegistry.FALLBACK, def,
+                        "Block '" + fullId + "' resolves to the generic STRUCTURE fallback — every "
+                                + "ModBlocks entry needs its own VehiclePartDefinition (AIR-020/AIR-031)");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block is a member of the ship_eligible tag")
+        void everyBlockIsShipEligible() throws IOException {
+            String tagJson = readGenerated("data/sharkengine/tags/block/ship_eligible.json");
+            for (String id : ALL_BLOCK_IDS) {
+                assertTrue(tagJson.contains("\"sharkengine:" + id + "\""),
+                        "Block 'sharkengine:" + id + "' is not a member of the ship_eligible tag");
+            }
+        }
+
+        @Test
+        @DisplayName("every texture reference in a block model resolves to a real file (sharkengine) "
+                + "or a recognized namespace (minecraft)")
+        void everyTextureReferenceResolves() throws IOException {
+            for (String id : ALL_BLOCK_IDS) {
+                Path modelFile = GENERATED_ROOT.resolve("assets/sharkengine/models/block/" + id + ".json");
+                assertTrue(Files.exists(modelFile), "Missing block model for '" + id + "'");
+                String modelJson = Files.readString(modelFile, StandardCharsets.UTF_8);
+                Set<String> textureRefs = extractTextureRefs(modelJson);
+                assertFalse(textureRefs.isEmpty(),
+                        "Block model for '" + id + "' declares no textures at all: " + modelFile);
+                for (String textureRef : textureRefs) {
+                    assertTrue(textureRef.contains(":"),
+                            "Texture reference '" + textureRef + "' in '" + id + "' model must be namespace:path");
+                    String namespace = textureRef.substring(0, textureRef.indexOf(':'));
+                    String path = textureRef.substring(textureRef.indexOf(':') + 1);
+                    assertEquals(path.toLowerCase(Locale.ROOT), path,
+                            "Texture reference '" + textureRef + "' in '" + id + "' model must be lowercase");
+                    if (namespace.equals("sharkengine")) {
+                        Path textureFile = TEXTURES_ROOT.resolve(path + ".png");
+                        assertTrue(Files.exists(textureFile),
+                                "Block model for '" + id + "' references texture '" + textureRef
+                                        + "' which does not exist at " + textureFile);
+                    } else {
+                        // Vanilla-namespaced textures (e.g. minecraft:block/iron_block) live inside
+                        // the Minecraft client jar, which this test suite deliberately does not open
+                        // (no such jar is a committed repo resource) — only the reference *format* is
+                        // checked here, not on-disk existence.
+                        assertEquals("minecraft", namespace,
+                                "Texture reference '" + textureRef + "' in '" + id
+                                        + "' model uses an unexpected namespace — expected 'sharkengine' "
+                                        + "or 'minecraft'");
+                    }
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("all generated and hand-written resource filenames are lowercase")
+        void allResourceFilenamesAreLowercase() throws IOException {
+            // MC's resource loader is case-sensitive on some platforms (Linux/macOS servers) —
+            // an uppercase-letter filename that happens to work on a case-insensitive dev
+            // machine (Windows/default macOS) can silently 404 in production. Scoped to actual
+            // game resources: .cache/ is datagen's own hash cache (not a resource), and *.md
+            // is human documentation that ships alongside resources (e.g. sounds/.../README.md)
+            // but is never loaded by the game — neither is a "resource filename" in scope here.
+            List<Path> roots = List.of(
+                    GENERATED_ROOT,
+                    RESOURCES_ROOT.resolve("assets"),
+                    RESOURCES_ROOT.resolve("data"));
+            for (Path root : roots) {
+                if (!Files.isDirectory(root)) {
+                    continue;
+                }
+                try (var stream = Files.walk(root)) {
+                    List<Path> files = stream
+                            .filter(Files::isRegularFile)
+                            .filter(p -> !p.toString().contains(".cache"))
+                            .filter(p -> !p.toString().endsWith(".md"))
+                            .toList();
+                    for (Path p : files) {
+                        String filename = p.getFileName().toString();
+                        assertEquals(filename.toLowerCase(Locale.ROOT), filename,
+                                "Resource filename must be lowercase: " + p);
                     }
                 }
             }
