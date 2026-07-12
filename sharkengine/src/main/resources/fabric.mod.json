@@ -20,6 +20,9 @@
             "dev.sharkengine.gametest.AssemblySmokeTest",
             "dev.sharkengine.gametest.BlueprintPersistenceGameTest",
             "dev.sharkengine.gametest.BuilderPreviewPayloadGameTest"
+        ],
+        "fabric-datagen": [
+            "dev.sharkengine.datagen.SharkEngineDataGenerator"
         ]
     },
     "depends": {

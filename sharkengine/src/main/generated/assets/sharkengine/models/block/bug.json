@@ -1,0 +1,148 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "comment": "Main wedge body",
+      "faces": {
+        "down": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            12,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            10
+          ]
+        },
+        "north": {
+          "texture": "#front",
+          "uv": [
+            0,
+            0,
+            12,
+            10
+          ]
+        },
+        "south": {
+          "texture": "#back",
+          "uv": [
+            0,
+            0,
+            12,
+            10
+          ]
+        },
+        "up": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            12,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            10
+          ]
+        }
+      },
+      "from": [
+        2,
+        0,
+        0
+      ],
+      "to": [
+        14,
+        10,
+        16
+      ]
+    },
+    {
+      "comment": "Pointed tip (arrow shape pointing north = forward)",
+      "faces": {
+        "down": {
+          "texture": "#side",
+          "uv": [
+            4,
+            0,
+            10,
+            3
+          ]
+        },
+        "east": {
+          "texture": "#side",
+          "uv": [
+            0,
+            4,
+            3,
+            10
+          ]
+        },
+        "north": {
+          "texture": "#front",
+          "uv": [
+            4,
+            4,
+            10,
+            10
+          ]
+        },
+        "south": {
+          "texture": "#front",
+          "uv": [
+            4,
+            4,
+            10,
+            10
+          ]
+        },
+        "up": {
+          "texture": "#side",
+          "uv": [
+            4,
+            0,
+            10,
+            3
+          ]
+        },
+        "west": {
+          "texture": "#side",
+          "uv": [
+            0,
+            4,
+            3,
+            10
+          ]
+        }
+      },
+      "from": [
+        5,
+        2,
+        -3
+      ],
+      "to": [
+        11,
+        8,
+        0
+      ]
+    }
+  ],
+  "textures": {
+    "back": "minecraft:block/stripped_oak_log",
+    "front": "minecraft:block/target_top",
+    "side": "minecraft:block/gold_block"
+  }
+}

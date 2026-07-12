@@ -27,6 +27,20 @@ class ResourceValidationTest {
 
     private static final Path RESOURCES_ROOT = Path.of("src/main/resources");
 
+    /**
+     * AIR-030: recipe/loot table/blockstate/model/tag/lang data for
+     * thruster/steering_wheel/bug now comes from
+     * {@code dev.sharkengine.datagen.SharkEngineDataGenerator} (run via
+     * {@code ./gradlew runDatagen}) instead of being hand-written. Fabric
+     * Loom's {@code fabricApi.configureDataGeneration()} default output dir
+     * — verified against the pinned Loom 1.7-SNAPSHOT plugin — and adds it
+     * as an extra {@code main} resources source directory automatically, so
+     * this is a real (committed) resource root the packaged jar reads from,
+     * not a build/ scratch directory. Textures (AIR-032) are NOT part of
+     * this migration and stay under {@link #RESOURCES_ROOT}.
+     */
+    private static final Path GENERATED_ROOT = Path.of("src/main/generated");
+
     /** Extract all JSON string keys from a simple flat JSON object. */
     private static Set<String> extractJsonKeys(String json) {
         Set<String> keys = new TreeSet<>();
@@ -54,17 +68,18 @@ class ResourceValidationTest {
         void tagUseSingularBlockDirectory() {
             // MC 1.21.1 requires data/<namespace>/tags/block/ (singular)
             // Bug #2 was caused by using the plural 'blocks' directory
-            Path correctPath = RESOURCES_ROOT.resolve(
+            Path correctPath = GENERATED_ROOT.resolve(
                     "data/sharkengine/tags/block/ship_eligible.json");
             assertTrue(Files.exists(correctPath),
-                    "Tag file must exist at data/sharkengine/tags/block/ship_eligible.json (singular 'block')");
+                    "Tag file must exist at src/main/generated/data/sharkengine/tags/block/ship_eligible.json "
+                            + "(singular 'block') — run ./gradlew runDatagen");
         }
 
         @Test
         @DisplayName("REGRESSION: plural 'blocks' directory must NOT exist")
         void noPluralBlocksDirectory() {
             // Ensure the old buggy path is gone
-            Path wrongPath = RESOURCES_ROOT.resolve(
+            Path wrongPath = GENERATED_ROOT.resolve(
                     "data/sharkengine/tags/blocks");
             assertFalse(Files.exists(wrongPath),
                     "Plural 'blocks' directory must not exist — MC 1.21.1 uses singular 'block'");
@@ -73,7 +88,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("ship_eligible.json contains steering_wheel")
         void tagContainsSteeringWheel() throws IOException {
-            Path tagFile = RESOURCES_ROOT.resolve(
+            Path tagFile = GENERATED_ROOT.resolve(
                     "data/sharkengine/tags/block/ship_eligible.json");
             String content = Files.readString(tagFile, StandardCharsets.UTF_8);
             assertTrue(content.contains("sharkengine:steering_wheel"),
@@ -83,7 +98,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("ship_eligible.json contains thruster")
         void tagContainsThruster() throws IOException {
-            Path tagFile = RESOURCES_ROOT.resolve(
+            Path tagFile = GENERATED_ROOT.resolve(
                     "data/sharkengine/tags/block/ship_eligible.json");
             String content = Files.readString(tagFile, StandardCharsets.UTF_8);
             assertTrue(content.contains("sharkengine:thruster"),
@@ -93,7 +108,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("ship_eligible.json contains building material tags")
         void tagContainsBuildingMaterials() throws IOException {
-            Path tagFile = RESOURCES_ROOT.resolve(
+            Path tagFile = GENERATED_ROOT.resolve(
                     "data/sharkengine/tags/block/ship_eligible.json");
             String content = Files.readString(tagFile, StandardCharsets.UTF_8);
             assertTrue(content.contains("#minecraft:planks"),
@@ -113,15 +128,15 @@ class ResourceValidationTest {
         @DisplayName("REGRESSION: recipe directory uses singular 'recipe' (MC 1.21.1)")
         void recipeUsesSingularDirectory() {
             // MC 1.21 renamed data/<ns>/recipes/ to data/<ns>/recipe/ (singular)
-            Path correctPath = RESOURCES_ROOT.resolve("data/sharkengine/recipe");
+            Path correctPath = GENERATED_ROOT.resolve("data/sharkengine/recipe");
             assertTrue(Files.isDirectory(correctPath),
-                    "Recipes must live under data/sharkengine/recipe/ (singular)");
+                    "Recipes must live under data/sharkengine/recipe/ (singular) — run ./gradlew runDatagen");
         }
 
         @Test
         @DisplayName("REGRESSION: plural 'recipes' directory must NOT exist")
         void noPluralRecipesDirectory() {
-            Path wrongPath = RESOURCES_ROOT.resolve("data/sharkengine/recipes");
+            Path wrongPath = GENERATED_ROOT.resolve("data/sharkengine/recipes");
             assertFalse(Files.exists(wrongPath),
                     "Plural 'recipes' directory must not exist — MC 1.21.1 silently ignores it");
         }
@@ -130,15 +145,15 @@ class ResourceValidationTest {
         @DisplayName("REGRESSION: loot table directory uses singular 'loot_table' (MC 1.21.1)")
         void lootTableUsesSingularDirectory() {
             // MC 1.21 renamed data/<ns>/loot_tables/ to data/<ns>/loot_table/ (singular)
-            Path correctPath = RESOURCES_ROOT.resolve("data/sharkengine/loot_table");
+            Path correctPath = GENERATED_ROOT.resolve("data/sharkengine/loot_table");
             assertTrue(Files.isDirectory(correctPath),
-                    "Loot tables must live under data/sharkengine/loot_table/ (singular)");
+                    "Loot tables must live under data/sharkengine/loot_table/ (singular) — run ./gradlew runDatagen");
         }
 
         @Test
         @DisplayName("REGRESSION: plural 'loot_tables' directory must NOT exist")
         void noPluralLootTablesDirectory() {
-            Path wrongPath = RESOURCES_ROOT.resolve("data/sharkengine/loot_tables");
+            Path wrongPath = GENERATED_ROOT.resolve("data/sharkengine/loot_tables");
             assertFalse(Files.exists(wrongPath),
                     "Plural 'loot_tables' directory must not exist — MC 1.21.1 silently ignores it");
         }
@@ -147,9 +162,10 @@ class ResourceValidationTest {
         @DisplayName("every craftable block has a recipe file")
         void everyCraftableBlockHasRecipe() {
             for (String id : CRAFTABLE_BLOCK_IDS) {
-                Path recipeFile = RESOURCES_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                Path recipeFile = GENERATED_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
                 assertTrue(Files.exists(recipeFile),
-                        "Missing recipe for '" + id + "' at data/sharkengine/recipe/" + id + ".json");
+                        "Missing recipe for '" + id + "' at src/main/generated/data/sharkengine/recipe/"
+                                + id + ".json — run ./gradlew runDatagen");
             }
         }
 
@@ -157,9 +173,10 @@ class ResourceValidationTest {
         @DisplayName("every registered block has a loot table")
         void everyBlockHasLootTable() {
             for (String id : CRAFTABLE_BLOCK_IDS) {
-                Path lootFile = RESOURCES_ROOT.resolve("data/sharkengine/loot_table/blocks/" + id + ".json");
+                Path lootFile = GENERATED_ROOT.resolve("data/sharkengine/loot_table/blocks/" + id + ".json");
                 assertTrue(Files.exists(lootFile),
-                        "Missing loot table for '" + id + "' at data/sharkengine/loot_table/blocks/" + id + ".json");
+                        "Missing loot table for '" + id + "' at src/main/generated/data/sharkengine/loot_table/blocks/"
+                                + id + ".json — run ./gradlew runDatagen");
             }
         }
 
@@ -167,7 +184,7 @@ class ResourceValidationTest {
         @DisplayName("REGRESSION: recipe result uses 'id' not 'item' (MC 1.20.5+ format)")
         void recipeResultUsesIdField() throws IOException {
             for (String id : CRAFTABLE_BLOCK_IDS) {
-                Path recipeFile = RESOURCES_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                Path recipeFile = GENERATED_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
                 if (!Files.exists(recipeFile)) {
                     continue; // covered by everyCraftableBlockHasRecipe
                 }
@@ -191,6 +208,68 @@ class ResourceValidationTest {
             Path wrongPath = RESOURCES_ROOT.resolve("assets/sharkengine/items");
             assertFalse(Files.exists(wrongPath),
                     "assets/sharkengine/items/ is a 1.21.2+ path not used on MC 1.21.1 — must not exist");
+            Path wrongGeneratedPath = GENERATED_ROOT.resolve("assets/sharkengine/items");
+            assertFalse(Files.exists(wrongGeneratedPath),
+                    "assets/sharkengine/items/ must not exist in generated output either");
+        }
+    }
+
+    @Nested
+    @DisplayName("AIR-030 datagen migration (hand-written resources fully retired)")
+    class DatagenMigrationTests {
+
+        private static final String[] MIGRATED_BLOCK_IDS = {"steering_wheel", "thruster", "bug"};
+
+        @Test
+        @DisplayName("every migrated block has a generated blockstate")
+        void everyMigratedBlockHasBlockState() {
+            for (String id : MIGRATED_BLOCK_IDS) {
+                Path blockState = GENERATED_ROOT.resolve("assets/sharkengine/blockstates/" + id + ".json");
+                assertTrue(Files.exists(blockState),
+                        "Missing generated blockstate for '" + id + "' — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every migrated block has a generated block model")
+        void everyMigratedBlockHasBlockModel() {
+            for (String id : MIGRATED_BLOCK_IDS) {
+                Path blockModel = GENERATED_ROOT.resolve("assets/sharkengine/models/block/" + id + ".json");
+                assertTrue(Files.exists(blockModel),
+                        "Missing generated block model for '" + id + "' — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("every migrated block has a generated item model")
+        void everyMigratedBlockHasItemModel() {
+            for (String id : MIGRATED_BLOCK_IDS) {
+                Path itemModel = GENERATED_ROOT.resolve("assets/sharkengine/models/item/" + id + ".json");
+                assertTrue(Files.exists(itemModel),
+                        "Missing generated item model for '" + id + "' — run ./gradlew runDatagen");
+            }
+        }
+
+        @Test
+        @DisplayName("hand-written recipe/loot_table/tags directories no longer exist under src/main/resources")
+        void handWrittenDataDirectoriesRemoved() {
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("data/sharkengine/recipe")),
+                    "data/sharkengine/recipe/ must no longer be hand-written — it is now datagen output");
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("data/sharkengine/loot_table")),
+                    "data/sharkengine/loot_table/ must no longer be hand-written — it is now datagen output");
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("data/sharkengine/tags")),
+                    "data/sharkengine/tags/ must no longer be hand-written — it is now datagen output");
+        }
+
+        @Test
+        @DisplayName("hand-written blockstates/models/lang no longer exist under src/main/resources")
+        void handWrittenAssetDirectoriesRemoved() {
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("assets/sharkengine/blockstates")),
+                    "assets/sharkengine/blockstates/ must no longer be hand-written — it is now datagen output");
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("assets/sharkengine/models")),
+                    "assets/sharkengine/models/ must no longer be hand-written — it is now datagen output");
+            assertFalse(Files.exists(RESOURCES_ROOT.resolve("assets/sharkengine/lang")),
+                    "assets/sharkengine/lang/ must no longer be hand-written — it is now datagen output");
         }
     }
 
@@ -201,7 +280,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("English localization file exists")
         void englishLocalizationExists() {
-            Path enFile = RESOURCES_ROOT.resolve(
+            Path enFile = GENERATED_ROOT.resolve(
                     "assets/sharkengine/lang/en_us.json");
             assertTrue(Files.exists(enFile),
                     "English localization file must exist");
@@ -210,7 +289,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("German localization file exists")
         void germanLocalizationExists() {
-            Path deFile = RESOURCES_ROOT.resolve(
+            Path deFile = GENERATED_ROOT.resolve(
                     "assets/sharkengine/lang/de_de.json");
             assertTrue(Files.exists(deFile),
                     "German localization file must exist");
@@ -219,8 +298,8 @@ class ResourceValidationTest {
         @Test
         @DisplayName("German localization has all keys from English")
         void germanHasAllEnglishKeys() throws IOException {
-            Path enFile = RESOURCES_ROOT.resolve("assets/sharkengine/lang/en_us.json");
-            Path deFile = RESOURCES_ROOT.resolve("assets/sharkengine/lang/de_de.json");
+            Path enFile = GENERATED_ROOT.resolve("assets/sharkengine/lang/en_us.json");
+            Path deFile = GENERATED_ROOT.resolve("assets/sharkengine/lang/de_de.json");
 
             String enContent = Files.readString(enFile, StandardCharsets.UTF_8);
             String deContent = Files.readString(deFile, StandardCharsets.UTF_8);
@@ -238,7 +317,7 @@ class ResourceValidationTest {
         @Test
         @DisplayName("German localization values are not empty")
         void germanValuesNotEmpty() throws IOException {
-            Path deFile = RESOURCES_ROOT.resolve("assets/sharkengine/lang/de_de.json");
+            Path deFile = GENERATED_ROOT.resolve("assets/sharkengine/lang/de_de.json");
             String deContent = Files.readString(deFile, StandardCharsets.UTF_8);
             Set<String> deKeys = extractJsonKeys(deContent);
 
@@ -253,8 +332,8 @@ class ResourceValidationTest {
         @Test
         @DisplayName("German localization values differ from English (actually translated)")
         void germanValuesAreTranslated() throws IOException {
-            Path enFile = RESOURCES_ROOT.resolve("assets/sharkengine/lang/en_us.json");
-            Path deFile = RESOURCES_ROOT.resolve("assets/sharkengine/lang/de_de.json");
+            Path enFile = GENERATED_ROOT.resolve("assets/sharkengine/lang/en_us.json");
+            Path deFile = GENERATED_ROOT.resolve("assets/sharkengine/lang/de_de.json");
 
             String enContent = Files.readString(enFile, StandardCharsets.UTF_8);
             String deContent = Files.readString(deFile, StandardCharsets.UTF_8);

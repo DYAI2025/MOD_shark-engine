@@ -46,6 +46,23 @@ loom {
     }
 }
 
+// AIR-030: generates src/main/generated/{data,assets}/sharkengine/** via the
+// dev.sharkengine.datagen.SharkEngineDataGenerator fabric-datagen entrypoint.
+// Ground-truthed against the pinned Loom 1.7-SNAPSHOT plugin (decompiled
+// FabricApiExtension.configureDataGeneration): output dir defaults to
+// "src/main/generated" and is auto-registered as an extra `main` resources
+// source dir; the run config is named "datagen" so the CLI task is
+// `runDatagen` (Loom's run-task naming: "run" + capitalize(configName), same
+// convention as this project's existing `runGametest`). No "client" flag
+// exists on DataGenerationSettings in this Loom version — datagen always
+// inherits the `server` run (main source set only), which is fine here
+// because net.minecraft.data.models.* (BlockModelGenerators/ModelProvider,
+// used for block/item models) lives in the merged "common" Minecraft jar,
+// not the client-only one.
+fabricApi {
+    configureDataGeneration()
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = "UTF-8"

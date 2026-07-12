@@ -8,6 +8,11 @@ build/
 .gradle/
 logs/
 
+# AIR-030: datagen incremental hash cache (Fabric Loom excludes this from the
+# jar itself via `jar.exclude(".cache/**")`) — the actual generated
+# data/assets under src/main/generated ARE committed, this metadata isn't.
+src/main/generated/.cache/
+
 # IDE
 .idea/
 *.iml
