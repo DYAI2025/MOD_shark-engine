@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Shark Engine is a Minecraft 1.21.1 Fabric mod that lets players build, assemble, and pilot flying vehicles. Players place a Steering Wheel, attach blocks (including Thrusters), and launch controllable airships with physics-based flight. Currently at MVP stage (v0.0.1) with the AIR vehicle class functional.
 
+The repo root also holds deployment and publishing tooling around the mod itself — see [Root-Level Tooling](#root-level-tooling).
+
 ## Build & Development Commands
 
 All commands run from the `sharkengine/` subdirectory:
@@ -18,6 +20,10 @@ cd sharkengine
 ./gradlew check          # Tests + static analysis (mirrors CI)
 ./gradlew runClient      # Launch Fabric dev client for in-game testing
 ./gradlew clean          # Clean build artifacts
+
+# Run a single test class or method
+./gradlew test --tests "dev.sharkengine.ship.ShipPhysicsTest"
+./gradlew test --tests "dev.sharkengine.ship.ShipPhysicsTest.methodName"
 ```
 
 Requires **Java 21** — Fabric Loom enforces the toolchain and fails on wrong JDK.
@@ -69,20 +75,25 @@ JUnit 5 tests in `src/test/java/dev/sharkengine/ship/`:
 - `ShipPhysicsTest` — Speed calculation, height penalty, acceleration phases
 - `ShipAssemblyServiceTest` — BFS assembly, validation, contact detection
 - `FuelSystemTest` — Fuel conversions, flight time, display formatting
+- `BuilderValidationTest` — Build-mode/assembly validation conditions
+- `ResourceValidationTest` — Validates resource files (lang, tags) against expected content
 
 Tests use `@DisplayName` tied to gameplay behavior. Mock Fabric abstractions where needed.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`): Runs `./gradlew test` with JDK 21 Temurin on push/PR to `main`, `develop`, `feature/**`.
+GitHub Actions:
+- `.github/workflows/ci.yml` — Runs `./gradlew test` with JDK 21 Temurin on push/PR to `main`, `develop`, `feature/**`.
+- `.github/workflows/deploy.yml` — On push to `main`: re-runs tests, then deploys to Railway (`railway up`) using the root `Dockerfile`. Requires `RAILWAY_TOKEN` secret.
 
 ## Key Resources
 
 - `src/main/resources/fabric.mod.json` — Mod metadata, entrypoints, dependencies
-- `src/main/resources/data/sharkengine/tags/blocks/ship_eligible.json` — Blocks allowed in ship structures
+- `src/main/resources/data/sharkengine/tags/block/ship_eligible.json` — Blocks allowed in ship structures (note: singular `block`, not `blocks`)
 - `src/main/resources/assets/sharkengine/lang/en_us.json` — All translatable strings
-- `MSP-1.md` — Current milestone plan (guided builder + flight loop)
-- `docs/PRODUCTION_MVP_TASKS.md` — Full production backlog and gap analysis
+- `MSP-1.md` (repo root) — Current milestone plan (guided builder + flight loop)
+- `docs/PRODUCTION_MVP_TASKS.md` (repo root) — Full production backlog and gap analysis; flags that flight is still 2D-ish (no true 6DoF), block-count-only weight model (no per-block mass), and no persistent vehicle-class buffs
+- `sharkengine/specs/001-vertikale-bewegung/` — Feature spec for the AIR flight-physics system (acceleration phases, weight/speed categories, fuel, height penalty). Its own `state.yaml`/`README.md` status tracker is stale (marks itself pending/in-progress) — don't trust it over the actual code in `src/main/java/dev/sharkengine/ship/`, which has these systems implemented.
 
 ## Coding Conventions
 
@@ -91,4 +102,16 @@ GitHub Actions (`.github/workflows/ci.yml`): Runs `./gradlew test` with JDK 21 T
 - Resource IDs use `lowercase_with_underscores`
 - Registry helpers go in `dev.sharkengine.content` (`ModBlocks`, `ModEntities`, etc.)
 - Commits: imperative scope format (`Fix: ...`, `Feat: ...`)
-- Read `specs/001-vertikale-bewegung/` before modifying flight mechanics
+- Read `sharkengine/specs/001-vertikale-bewegung/` before modifying flight mechanics
+
+## Root-Level Tooling
+
+The repo root contains mod-deployment and publishing tooling outside the Gradle build, exposed as project slash commands (`.claude/commands/`):
+
+- **`/mc-bugtest`** — Full manual bug-test cycle: `gradlew build`, verify JAR contents, deploy to Prism Launcher, re-enable disabled companion mods, generate an in-game test checklist from the recent git diff.
+- **`/mod-deploy`** — Builds the mod JAR and copies it into Prism Launcher's Flatpak mods folder, re-enabling `.disabled` companion mods (fabric-api, controlify, yacl).
+- **`/test-server`** — Rebuilds and restarts the Dockerized Minecraft test server (container `sharkengine-server`, host port 25566), using the root `Dockerfile` and `server/server.properties`.
+
+**Modrinth publishing**: `tools/modrinth-mcp-server/` is a Node/TypeScript MCP server (registered in root `.mcp.json` as `modrinth`) exposing search/version/publish tools against the Modrinth API — used to search Modrinth and publish mod releases. Requires `MODRINTH_TOKEN` env var for write operations (create version, modify project).
+
+**Note on `sharkengine/CLAUDE.md`**: that file and `sharkengine/.claude/` are a vendored generic "Spec-Flow" agent-workflow scaffold (unrelated `/feature`, `/epic`, `/ship` slash-command SDLC tooling), not documentation of this mod. Don't confuse its instructions with this file's.
