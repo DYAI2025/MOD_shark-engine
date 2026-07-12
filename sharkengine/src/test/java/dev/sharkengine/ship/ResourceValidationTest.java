@@ -101,6 +101,97 @@ class ResourceValidationTest {
     }
 
     @Nested
+    @DisplayName("Recipe & Loot Table Paths (AIR-002 regression guard)")
+    class RecipeAndLootTableTests {
+
+        private static final String[] CRAFTABLE_BLOCK_IDS = {"steering_wheel", "thruster", "bug"};
+
+        @Test
+        @DisplayName("REGRESSION: recipe directory uses singular 'recipe' (MC 1.21.1)")
+        void recipeUsesSingularDirectory() {
+            // MC 1.21 renamed data/<ns>/recipes/ to data/<ns>/recipe/ (singular)
+            Path correctPath = RESOURCES_ROOT.resolve("data/sharkengine/recipe");
+            assertTrue(Files.isDirectory(correctPath),
+                    "Recipes must live under data/sharkengine/recipe/ (singular)");
+        }
+
+        @Test
+        @DisplayName("REGRESSION: plural 'recipes' directory must NOT exist")
+        void noPluralRecipesDirectory() {
+            Path wrongPath = RESOURCES_ROOT.resolve("data/sharkengine/recipes");
+            assertFalse(Files.exists(wrongPath),
+                    "Plural 'recipes' directory must not exist — MC 1.21.1 silently ignores it");
+        }
+
+        @Test
+        @DisplayName("REGRESSION: loot table directory uses singular 'loot_table' (MC 1.21.1)")
+        void lootTableUsesSingularDirectory() {
+            // MC 1.21 renamed data/<ns>/loot_tables/ to data/<ns>/loot_table/ (singular)
+            Path correctPath = RESOURCES_ROOT.resolve("data/sharkengine/loot_table");
+            assertTrue(Files.isDirectory(correctPath),
+                    "Loot tables must live under data/sharkengine/loot_table/ (singular)");
+        }
+
+        @Test
+        @DisplayName("REGRESSION: plural 'loot_tables' directory must NOT exist")
+        void noPluralLootTablesDirectory() {
+            Path wrongPath = RESOURCES_ROOT.resolve("data/sharkengine/loot_tables");
+            assertFalse(Files.exists(wrongPath),
+                    "Plural 'loot_tables' directory must not exist — MC 1.21.1 silently ignores it");
+        }
+
+        @Test
+        @DisplayName("every craftable block has a recipe file")
+        void everyCraftableBlockHasRecipe() {
+            for (String id : CRAFTABLE_BLOCK_IDS) {
+                Path recipeFile = RESOURCES_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                assertTrue(Files.exists(recipeFile),
+                        "Missing recipe for '" + id + "' at data/sharkengine/recipe/" + id + ".json");
+            }
+        }
+
+        @Test
+        @DisplayName("every registered block has a loot table")
+        void everyBlockHasLootTable() {
+            for (String id : CRAFTABLE_BLOCK_IDS) {
+                Path lootFile = RESOURCES_ROOT.resolve("data/sharkengine/loot_table/blocks/" + id + ".json");
+                assertTrue(Files.exists(lootFile),
+                        "Missing loot table for '" + id + "' at data/sharkengine/loot_table/blocks/" + id + ".json");
+            }
+        }
+
+        @Test
+        @DisplayName("REGRESSION: recipe result uses 'id' not 'item' (MC 1.20.5+ format)")
+        void recipeResultUsesIdField() throws IOException {
+            for (String id : CRAFTABLE_BLOCK_IDS) {
+                Path recipeFile = RESOURCES_ROOT.resolve("data/sharkengine/recipe/" + id + ".json");
+                if (!Files.exists(recipeFile)) {
+                    continue; // covered by everyCraftableBlockHasRecipe
+                }
+                String content = Files.readString(recipeFile, StandardCharsets.UTF_8);
+                int resultIdx = content.indexOf("\"result\"");
+                assertTrue(resultIdx >= 0, "Recipe for '" + id + "' must declare a \"result\"");
+                String afterResult = content.substring(resultIdx);
+                int closeIdx = afterResult.indexOf('}');
+                String resultBlock = afterResult.substring(0, closeIdx + 1);
+                assertTrue(resultBlock.contains("\"id\""),
+                        "Recipe result for '" + id + "' must use \"id\" (MC 1.20.5+ format), found: " + resultBlock);
+                assertFalse(resultBlock.contains("\"item\""),
+                        "Recipe result for '" + id + "' must not use pre-1.20.5 \"item\" key, found: " + resultBlock);
+            }
+        }
+
+        @Test
+        @DisplayName("REGRESSION: stale 1.21.2+ assets/items/ directory must NOT exist")
+        void noVersionedItemsDirectory() {
+            // assets/<ns>/items/ is a 1.21.2+ item-model-definition path; ignored on our 1.21.1 target
+            Path wrongPath = RESOURCES_ROOT.resolve("assets/sharkengine/items");
+            assertFalse(Files.exists(wrongPath),
+                    "assets/sharkengine/items/ is a 1.21.2+ path not used on MC 1.21.1 — must not exist");
+        }
+    }
+
+    @Nested
     @DisplayName("Localization Completeness")
     class LocalizationTests {
 

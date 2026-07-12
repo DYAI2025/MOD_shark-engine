@@ -10,7 +10,7 @@
     "R": { "item": "minecraft:redstone"   }
   },
   "result": {
-    "item": "sharkengine:bug",
+    "id": "sharkengine:bug",
     "count": 1
   }
 }

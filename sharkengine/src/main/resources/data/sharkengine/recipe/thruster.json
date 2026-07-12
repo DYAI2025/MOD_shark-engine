@@ -12,7 +12,7 @@
     "R": { "item": "minecraft:redstone" }
   },
   "result": {
-    "item": "sharkengine:thruster",
+    "id": "sharkengine:thruster",
     "count": 1
   }
 }
