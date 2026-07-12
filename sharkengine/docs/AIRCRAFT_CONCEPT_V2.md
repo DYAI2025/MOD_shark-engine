@@ -1,8 +1,15 @@
 # Shark Engine — Aircraft-Extension Konzept V2
 
-**Status:** Verifiziert gegen Repo-Stand `100b639` (2026-07-11). Ersetzt/erweitert
-`minecraft_aircraft_extension_plan.md` (Audit-Pack). Alle Code-Referenzen wurden
+**Status:** Verifiziert gegen Repo-Stand `33c3deb` (2026-07-12, Branch `feature/aircraft-extension`).
+Ersetzt/erweitert `minecraft_aircraft_extension_plan.md` (Audit-Pack). Alle Code-Referenzen wurden
 gegen den aktuellen Quellcode geprüft, nicht gegen den Audit-Snapshot.
+
+**Wichtiger Nachtrag (2026-07-12):** Zwischen der ersten Fassung dieses Dokuments und jetzt wurde
+entdeckt, dass `main` durch einen versehentlichen Force-Push ~2 Wochen gemergter Arbeit verloren
+hatte (PRs #4–#10, März 2026: BUG-Frontsystem/„Schiffsbug"-Block, Vehicle-Health, Fuel-Tick-Fix,
+Controller-Support, Yaw-Rendering). Diese Arbeit wurde wiederhergestellt (`main` auf `3c0cc2b`
+zurückgeführt) und in diesen Branch eingerebast. **Der Bug-Ledger unten ist entsprechend
+aktualisiert** — mehrere B-Nummern sind jetzt (teilweise) behoben, siehe Statusspalte.
 
 Zugehöriger Implementierungsplan: `docs/plans/aircraft-extension-implementation.md`
 
@@ -25,24 +32,40 @@ Shark Engine bleibt eine **aus Blöcken gebaute Fahrzeug-Mod**. Die Erweiterung 
 
 ## 2. Verifizierter Ist-Zustand (Bug-Ledger)
 
-Alle sechs Audit-Findings wurden am aktuellen Stand bestätigt; dazu kommen im
-Review neu entdeckte Defekte. Diese Liste ist die verbindliche Fundament-Arbeitsliste:
+Legende: ✅ **FIXED** (bestätigt gelöst) · 🟡 **TEILWEISE** (Kernproblem bleibt, Randfall neu) ·
+❌ **OFFEN** (unverändert).
 
-| # | Defekt | Beleg (aktuell) | Wirkung |
-|---|---|---|---|
-| B1 | Renderer rotiert Blueprint nicht mit Yaw | `ShipEntityRenderer.java:56-65` — kein `mulPose` im Mod | Schiff „strafet“ seitwärts statt zu drehen |
-| B2 | Kollision & Demontage nutzen unrotierte Offsets | `ShipPhysics.java:169-179`, `ShipEntity.java:353` | 90°-gedrehtes Schiff kollidiert/demontiert im alten Footprint |
-| B3 | Fuel 20× zu schnell (per-second-Wert pro Tick abgezogen) | `ShipEntity.java:421-423`, Doku `ShipPhysics.java:102-121` | Voller Tank in 5 s statt dokumentierter Rate (Phase-1-Rate: 100 s; bei gehaltenem Vollschub über alle Phasen ≈ 37 s); HUD-Restzeit 20× zu optimistisch (`FuelSystem.java:65-71`) |
-| B4 | Antrieb hart auf `sharkengine:thruster` codiert | `ThrusterRequirements.java:8,18`, `ShipEntity.java:555` | Neue Motoren/Rotoren ohne Codeänderung bedeutungslos |
-| B5 | Entity-Bounds fix 2.5×1.5 bei bis zu 512 Blöcken | `ModEntities.java:15-17` vs. `ShipAssemblyService.java:25-26` | Culling/Pick/Interaktion decken nur Mini-Footprint ab |
-| B6 | Blueprint ohne Schema-Version & ohne BlockEntity-NBT | `ShipBlueprint.java:52-70` | Kein Migrationspfad; stateful Teile unmöglich |
-| B7 | **Tote Ressourcen:** `recipes/` und `loot_tables/` (Plural) werden auf 1.21.1 nicht geladen; Thruster-Rezept zusätzlich im Prä-1.20.5-Format (`result.item` statt `result.id`) | `data/sharkengine/recipes/thruster.json`, `data/sharkengine/loot_tables/blocks/thruster.json` | Thruster nicht craftbar, droppt nichts |
-| B8 | Steering Wheel hat **kein** Rezept und **keine** Loot-Table | find über `src/main/resources` | In Survival nicht erhältlich, droppt nichts |
-| B9 | `assets/sharkengine/items/steering_wheel.json` ist 1.21.2+-Format | wird auf 1.21.1 ignoriert | Versionsinkonsistente Leiche |
-| B10 | Dismount ignoriert Blueprint | `ShipEntity.java:508-514` | Spieler kann in Hüllenblöcken landen |
-| B11 | Partikel am Schiffszentrum statt an Thruster-Positionen | `ShipEntityRenderer.java:106-122` | Wird bei Rotation sichtbar falsch |
-| B12 | Kollisionsprobe testet aktuelle statt nächste Position; nur Velocity-Zeroing | `ShipEntity.java:499-504` | Clipping-Risiko bei hoher Geschwindigkeit |
-| B13 | **Stiller Blockverlust bei Demontage:** blockierte Zielpositionen werden übersprungen und nur gezählt, die Blöcke verschwinden | `ShipEntity.java:352-361,381` | Spieler verliert Material; verschärft sich mit rotierter Demontage (B2-Fix) |
+| # | Status | Defekt | Beleg (aktuell, Stand `33c3deb`) | Wirkung |
+|---|---|---|---|---|
+| B1 | 🟡 | Renderer rotiert Blueprint jetzt zwar mit Yaw (`ShipEntityRenderer.java:61-62`, `poseStack.mulPose(Axis.YN.rotationDegrees(smoothYaw))` mit Partial-Tick-Interpolation), **aber**: Blueprint-Offsets werden in `ShipAssemblyService.java:202-207` roh in Welt-Koordinaten erfasst (`dx = current.getX() - wheelPos.getX()`, unrotiert), und die Entity startet mit `yRot = bugYawDeg` (`ShipAssemblyService.java:137-138`). Für ein Schiff mit BUG-Block Richtung SÜD (`directionToYaw()`: SOUTH=0) ist das korrekt — für WEST/NORD/OST verdreht sich die Hülle im Moment der Montage sichtbar um `bugYawDeg`, obwohl physisch nichts passiert ist. | Genau das in §3.1 (V1) vorhergesagte Problem — nur jetzt mit konkretem, verifiziertem Ursprung: `bugYawDeg` statt „Pilot-Yaw" |
+| B2 | ❌ | Kollision & Demontage nutzen weiterhin unrotierte Offsets | `ShipPhysics.java:171-181` (`collectOffsets()` baut Offsets direkt aus `block.dx()/dy()/dz()`), `ShipEntity.java:473` (Demontage: `base.offset(block.dx(), block.dy(), block.dz())`) — keine Rotation, keine Orientierungs-Metadaten in `ShipBlueprint` | 90°-gedrehtes/nicht-SÜD-montiertes Schiff kollidiert/demontiert im Bau-Footprint, nicht im sichtbaren |
+| B3 | ✅ **FIXED** | ~~Fuel 20× zu schnell~~ — behoben via Tick-Akkumulator | `ShipEntity.java:654-670`: `fuelConsumptionTick++; if (>= 20) { ...; fuelLevel -= consumption; }` — Verbrauch nur noch 1×/Sekunde | — |
+| B4 | 🟡 | Antrieb/Richtung nicht mehr hart auf `thruster` codiert für die **Richtung** (neuer BUG-Block, sauber implementiert — s. u.), **aber** die Antriebs-*Pflicht* bleibt hartcodiert | `ThrusterRequirements.java:8,18` — `THRUSTER_ID.equals(id)`, unverändert seit `eee4bc8` | Neue Motoren/Rotoren als Antriebsquelle weiterhin nur per Codeänderung |
+| B5 | ❌ | Entity-Bounds fix 2.5×1.5 bei bis zu 512 Blöcken | `ModEntities.java:16` (`.sized(2.5f, 1.5f)`) vs. `ShipAssemblyService.java:37-38` (`MAX_BLOCKS=512`, `MAX_RADIUS=32`) | Culling/Pick/Interaktion decken nur Mini-Footprint ab |
+| B6 | ❌ | Blueprint ohne Schema-Version & ohne BlockEntity-NBT | `ShipBlueprint.java` (`ShipBlock`-Record: nur `dx,dy,dz,state`) | Kein Migrationspfad; stateful Teile unmöglich; **kein** Orientierungsfeld — genau das, was B1/B2 fehlt |
+| B7 | ✅ **FIXED** | ~~Tote Ressourcen (Plural-Pfade, `result.item`)~~ — behoben für Thruster, Lenkrad **und** den neu entdeckten dritten Fall `bug.json` (dieselbe Bug-Klasse, unabhängig im BUG-Frontsystem-Commit eingeschleppt) | `data/sharkengine/recipe/{thruster,steering_wheel,bug}.json`, `data/sharkengine/loot_table/blocks/{thruster,steering_wheel,bug}.json` | — |
+| B8 | ✅ **FIXED** | ~~Steering Wheel ohne Rezept/Loot-Table~~ | s. o. | — |
+| B9 | ✅ **FIXED** | ~~1.21.2+-Format-Leichen in `assets/items/`~~ — für `steering_wheel.json` **und** `bug.json` (dritter Fund, gleiche Ursache) entfernt | — | — |
+| B10 | ❌ | Dismount ignoriert Blueprint | `ShipEntity.java:780-786` (`getDismountLocationForPassenger`) — fixer 1,5-Block-Versatz relativ zu `getYRot()`, kein Blueprint-Bezug | Spieler kann bei großen Schiffen in Hüllenblöcken landen |
+| B11 | ❌ | Partikel am Schiffszentrum statt an Thruster-Positionen | `ShipEntityRenderer.java` `spawnThrusterParticles()` | Wird bei Rotation sichtbar falsch |
+| B12 | 🟡 | Kollisionsprobe testet weiterhin aktuelle statt nächste Position, **aber**: reine Velocity-Zeroing ist behoben — echte Konsequenz via Vehicle-Health-System | `ShipEntity.java` tick(): `ShipPhysics.checkCollision(..., blockPosition(), ...)` läuft vor `this.move(...)`; bei Kollision jetzt zusätzlich `applyCollisionDamage()`, `currentSpeed *= 0.3f` | Clipping-Risiko bei hoher Geschwindigkeit bleibt; Kollision hat jetzt aber Spielkonsequenz statt nur Stopp |
+| B13 | 🟡 | Stiller Blockverlust ist nicht mehr *still* — Spieler wird gewarnt (`message.sharkengine.disassembly_partial`) —, **aber** die Blöcke sind weiterhin dauerhaft verloren (kein Drop/Refund) | `ShipEntity.java:472-498` | Materialverlust bleibt; verschärft sich weiterhin mit rotierter Demontage (B2) |
+
+### Neue Architektur-Tatsache: der BUG-Block (Schiffsbug)
+
+Der wiederhergestellte Commit führt einen dritten eigenen Block ein: **`bug`** (deutsch:
+„Schiffsbug" — Frontmarker, nicht zu verwechseln mit „Bug" = Fehler). Sauber verifiziert
+(`ShipAssemblyService.java`, `BugBlock.java`):
+
+- Genau 1 BUG-Block pro Fahrzeug ist Pflicht (`bugCount == 1`, sonst `assembly_fail_no_bug`/`assembly_fail_multi_bug`).
+- Muss am Strukturrand sitzen (`isOnEdge()` — mindestens eine der 6 Nachbarzellen liegt außerhalb der gescannten Blockmenge; das ist eine reine Oberflächen-Definition, bei einer hohlen Hülle erfüllen die meisten Randblöcke das automatisch — schwächer als „an der Spitze").
+- `FACING` bestimmt **exklusiv** die Vorwärtsrichtung (`directionToYaw()`: SOUTH=0, WEST=90, NORTH=180, EAST=-90 — Standard-Minecraft-Yaw-Konvention), angewendet als Start-Yaw der Entity bei Montage.
+- Thruster sind dadurch **nicht mehr richtungsgebend**, nur noch Schubquelle (Kommentar im Code: „Thrusters are decorative thrust indicators only... no directional authority").
+
+**Für unsere Planung wichtig:** `bugYawDeg` ist bereits genau das, was Abschnitt 3.1 als
+„AssemblyYaw" vorschlägt — nur unter anderem Namen und bereits in Entity-NBT persistiert
+(`ShipEntity.java:354,378`, Key `BugYaw`). AIR-011/AIR-015 im Implementierungsplan **bauen
+darauf auf**, statt ein Konzept neu zu erfinden — siehe aktualisierte Task-Beschreibungen.
 
 **Konsequenz (bestätigt):** „Erst Texturen, dann Fundament“ ist die falsche Reihenfolge.
 Lange Flügel und Rotoren machen B1/B2/B5 drastisch sichtbarer. Aber: Das Fundament ist
@@ -55,14 +78,25 @@ Die Hybrid-Architektur aus dem V1-Konzept bleibt: Blöcke im Bauzustand, `ShipBl
 als Geometrie, statischer Renderpass + animierter Rotor-Pass, Server autoritativ,
 kein Rotorwinkel-Paket pro Tick.
 
-### 3.1 Neu: Das Assembly-Yaw-Referenzproblem (im V1-Konzept fehlend)
+### 3.1 Das Assembly-Yaw-Referenzproblem — jetzt am realen Code verifiziert (B1)
 
-Blueprint-Offsets werden bei der Montage in **Welt-Achsen** erfasst, die Entity startet
-aber mit dem Yaw des Piloten (`ShipAssemblyService.java:94`). Würde der Renderer naiv um
-`entityYaw` rotieren, erschiene das Schiff im Moment der Montage sofort verdreht.
+**Dies ist kein hypothetisches Risiko mehr, sondern ein bestätigter Bug (B1, Status 🟡).**
+Blueprint-Offsets werden bei der Montage in **Welt-Achsen** erfasst
+(`ShipAssemblyService.java:202-207`, `dx = current.getX() - wheelPos.getX()`, roh, unrotiert).
+Die Entity startet aber mit `yRot = bugYawDeg` — dem Yaw, der aus der `FACING`-Property des
+BUG-Blocks abgeleitet wird (`ShipAssemblyService.java:137-138,246,270-278`). Der Renderer
+rotiert bereits (`ShipEntityRenderer.java:61-62`, `poseStack.mulPose(...)`) — aber **ohne
+Kompensation**: Für BUG-Richtung SÜD (`directionToYaw()`-Konvention: SOUTH=0) ist `bugYawDeg=0`
+und alles passt zufällig. Für WEST/NORD/OST verdreht sich die Hülle im Moment der Montage
+sichtbar um `bugYawDeg`, obwohl physisch nichts passiert ist — exakt das hier vorhergesagte
+Muster, nur mit `bugYawDeg` statt „Pilot-Yaw" als Ursache.
 
-**Lösung:** Blueprint v2 speichert `assemblyYaw` (Entity-Yaw zum Scan-Zeitpunkt).
-Alle Transformationen nutzen die **effektive Rotation** `θ = wrapDegrees(entityYaw − assemblyYaw)`:
+**Lösung (unverändert gültig, jetzt mit realer Datenquelle):** Blueprint v2 speichert
+`assemblyYaw`, das **direkt aus dem bereits vorhandenen `bugYawDeg`** übernommen wird
+(kein neues Konzept — `bugYawDeg` ist schon in Entity-NBT persistiert, Key `BugYaw`,
+`ShipEntity.java:354,378`; v2 macht daraus ein Blueprint-Feld statt eines reinen
+Entity-Felds, siehe §11 REQ-M1). Alle Transformationen nutzen die **effektive Rotation**
+`θ = wrapDegrees(entityYaw − assemblyYaw)`:
 
 - **Rendering:** kontinuierlich um θ rotieren (ein `mulPose` um den Entity-Ursprung).
 - **Kollision:** Offset-Vektor um θ rotieren, dann auf Blockpositionen runden (Set-Dedupe).
@@ -124,7 +158,14 @@ bewusst einfach und nachvollziehbar:
 | `fuel_tank` | Kraftstofftank | FUEL_STORAGE | 3 | – | – | – | +100 | `axis` |
 | `thruster` (Legacy) | Triebwerk | PROPULSION (liftMode `DIRECT`) | 2 | – | 20 | – | – | bestehend |
 | `steering_wheel` (Legacy) | Lenkrad | CONTROL | 2 | – | – | – | – | bestehend |
+| `bug` (wiederhergestellt) | Schiffsbug | CONTROL | 1 | – | – | – | – | `facing` (bestehend) |
 | *(generischer `ship_eligible`-Block)* | — | STRUCTURE | 1 | – | – | – | – | — |
+
+`bug` ist **nicht** Teil des V1-Plans, sondern kam mit der wiederhergestellten März-Arbeit
+(§2) dazu: exakt 1 Pflicht pro Fahrzeug, muss am Strukturrand sitzen, `FACING` bestimmt die
+Vorwärtsrichtung exklusiv. Ersetzt die früher geplante „Pilot-Yaw-bei-Montage"-Herleitung
+vollständig — assemblyYaw (§3.1) kommt jetzt aus `bugYawDeg`, nicht aus dem Blickwinkel des
+Spielers.
 
 PROPULSION-Definitionen tragen zusätzlich ein `liftMode`: **`DIRECT`** (Triebwerk hebt
 selbst — Legacy-Thruster) oder **`ROTOR`** (`helicopter_engine` — treibt nur Rotoren,
