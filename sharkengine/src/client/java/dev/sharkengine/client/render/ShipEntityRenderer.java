@@ -5,6 +5,7 @@ import com.mojang.math.Axis;
 import dev.sharkengine.ship.AccelerationPhase;
 import dev.sharkengine.ship.ShipBlueprint;
 import dev.sharkengine.ship.ShipEntity;
+import dev.sharkengine.ship.ShipTransform;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -54,11 +55,20 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         poseStack.pushPose();
 
         // ═══════════════════════════════════════════════════════════════════
-        // BUG FIX 1+4: Rotate entire ship structure with interpolated yaw
-        // This ensures the visual ship orientation matches movement direction.
+        // BUG FIX 1+4 (AIR-011, 2026-07-12): Rotate entire ship structure with
+        // interpolated yaw, MINUS the yaw the BUG block resolved to at
+        // assembly time (blueprint.assemblyYaw(), AIR-015). Blueprint offsets
+        // are captured in raw world-space, and the entity spawns with
+        // yRot == assemblyYaw — rotating by raw entity yaw alone (the
+        // pre-AIR-011 behavior) double-counts that initial orientation for
+        // any BUG facing other than SOUTH (assemblyYaw=0), causing a visible
+        // snap-rotation the instant the ship launches. Uses
+        // ShipTransform.effectiveYaw (AIR-010) rather than a bare subtraction
+        // so this is the one rotation authority, not a second formula.
         // Using Mth.lerp for smooth rotation between ticks (fixes jitter).
         // ═══════════════════════════════════════════════════════════════════
-        float smoothYaw = Mth.lerp(partialTick, entity.yRotO, entity.getYRot());
+        float rawYaw = Mth.lerp(partialTick, entity.yRotO, entity.getYRot());
+        float smoothYaw = ShipTransform.effectiveYaw(rawYaw, blueprint.assemblyYaw());
         poseStack.mulPose(Axis.YN.rotationDegrees(smoothYaw));
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {

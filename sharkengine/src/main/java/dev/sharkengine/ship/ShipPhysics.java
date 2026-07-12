@@ -124,29 +124,61 @@ public final class ShipPhysics {
     
     /**
      * Checks if the ship is colliding with any solid blocks at the given position.
-     * 
+     *
      * @param level The world/level the ship is in
      * @param pos The position to check
      * @return true if collision detected, false otherwise
      */
     public static boolean checkCollision(Level level, BlockPos pos) {
-        return checkCollision(level, pos, null);
+        return checkCollision(level, pos, null, 0f);
     }
 
     /**
-     * Checks collisions for the full blueprint footprint.
-     * Falls back to a single-block probe when the blueprint is null.
+     * Checks collisions for the full blueprint footprint at yaw 0 (no rotation).
+     * Kept for callers that don't track an effective yaw; prefer the 4-arg
+     * overload for anything that can turn.
      */
     public static boolean checkCollision(Level level, BlockPos pos, ShipBlueprint blueprint) {
+        return checkCollision(level, pos, blueprint, 0f);
+    }
+
+    /**
+     * Checks collisions for the full blueprint footprint, rotated by the
+     * ship's current effective yaw.
+     *
+     * <p>P0 hotfix (2026-07-12, live playtest of AIR-011 found the mod
+     * effectively unflyable): two independent bugs made this check both
+     * over- and under-sensitive. (1) The old solidity test was
+     * {@code !isAir()}, which is true for grass, flowers, torches, signs,
+     * carpets — none of which have a real hitbox — so a freshly-launched
+     * ship near ground level (guaranteed to be near such decoration)
+     * false-triggered a "collision" almost immediately, and the response
+     * ({@code setDeltaMovement(Vec3.ZERO)}, no escape) left it permanently
+     * stuck. Fixed: test the block's actual collision shape.
+     * (2) Offsets were never rotated by the ship's live yaw, only by its
+     * frozen build-time orientation — so the probed volume silently
+     * diverged from the ship's real, visually-rotated shape (B2) the
+     * moment it turned, which the "GTA-style" continuous A/D turning makes
+     * happen almost immediately after launch. Fixed: rotate every offset
+     * via {@link ShipTransform#rotateOffset} before testing it, using the
+     * same {@link ShipTransform#effectiveYaw} the renderer (AIR-011) uses,
+     * so collision finally matches what the player sees.
+     *
+     * @param effectiveYawDeg {@code ShipTransform.effectiveYaw(entity yaw, blueprint.assemblyYaw())}
+     */
+    public static boolean checkCollision(Level level, BlockPos pos, ShipBlueprint blueprint, float effectiveYawDeg) {
         if (level == null || pos == null) {
             return false;
         }
 
-        List<BlockVector> offsets = collectOffsets(blueprint);
+        List<BlockVector> offsets = collectRotatedOffsets(blueprint, effectiveYawDeg);
         return hasCollision(
                 BlockVector.from(pos),
                 offsets,
-                vector -> !level.getBlockState(vector.toBlockPos()).isAir()
+                vector -> {
+                    BlockPos blockPos = vector.toBlockPos();
+                    return !level.getBlockState(blockPos).getCollisionShape(level, blockPos).isEmpty();
+                }
         );
     }
 
@@ -168,14 +200,17 @@ public final class ShipPhysics {
         return false;
     }
     
-    private static List<BlockVector> collectOffsets(ShipBlueprint blueprint) {
+    private static List<BlockVector> collectRotatedOffsets(ShipBlueprint blueprint, float effectiveYawDeg) {
         if (blueprint == null || blueprint.blocks().isEmpty()) {
             return Collections.emptyList();
         }
 
         List<BlockVector> offsets = new ArrayList<>(blueprint.blocks().size());
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
-            offsets.add(new BlockVector(block.dx(), block.dy(), block.dz()));
+            double[] rotated = ShipTransform.rotateOffset(block.dx(), block.dz(), effectiveYawDeg);
+            int rx = (int) Math.round(rotated[0]);
+            int rz = (int) Math.round(rotated[1]);
+            offsets.add(new BlockVector(rx, block.dy(), rz));
         }
         return offsets;
     }

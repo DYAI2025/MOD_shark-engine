@@ -762,10 +762,21 @@ public final class ShipEntity extends Entity {
         this.setDeltaMovement(vel);
 
         // ━━━ Collision Check ━━━
-        if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint)) {
+        // P0 hotfix (2026-07-12): pass the effective yaw (ShipTransform,
+        // AIR-010/011) so the probed volume matches the ship's actual
+        // rotated shape, not its frozen build-time orientation (B2).
+        float effectiveYaw = ShipTransform.effectiveYaw(yaw, blueprint.assemblyYaw());
+        if (ShipPhysics.checkCollision(level(), blockPosition(), blueprint, effectiveYaw)) {
             // Feature 5: Collision damage
             applyCollisionDamage();
-            setDeltaMovement(Vec3.ZERO);
+            // P0 hotfix: only zero the HORIZONTAL component. Zeroing the
+            // whole vector (previous behavior) trapped the ship permanently
+            // once any collision fired near the ground — it could not even
+            // climb away, since vertical input was wiped along with
+            // forward motion every single tick the (possibly false)
+            // collision persisted. Preserving vertical always leaves an
+            // escape route.
+            setDeltaMovement(new Vec3(0, vel.y, 0));
             currentSpeed *= 0.3f; // Lose most speed on collision
             accelerationTicks = Math.max(0, accelerationTicks - 40);
         }
@@ -799,6 +810,35 @@ public final class ShipEntity extends Entity {
     @Override
     public boolean isPickable() {
         return true;
+    }
+
+    /**
+     * P0 hotfix (2026-07-12, live playtest): keeps the pilot's camera loosely
+     * locked to the ship's heading, matching the reported expectation ("wie
+     * GTA Steuerung" — direction should keep following look direction).
+     * Before this fix {@link dev.sharkengine.client.FlightCameraHandler}
+     * forced a third-person-back camera type but never touched rotation, so
+     * the camera tracked the pilot's own free mouse-look — completely
+     * decoupled from the A/D turning that DOES actively rotate the ship
+     * (see the "BUG FIX 1+2: Turn" block in {@link #tick()}) — making
+     * working steering invisible/disorienting.
+     *
+     * <p>Reimplements vanilla {@code Boat.onPassengerTurned}/
+     * {@code clampRotation} verbatim (decompiled from the pinned MC 1.21.1
+     * jar, not guessed) rather than a full hard lock: the body always faces
+     * the ship's heading, but the head/camera may swivel up to 105° either
+     * side of it — the same proven cone vanilla boats use, so the pilot
+     * keeps some free-look instead of being welded to dead-ahead.</p>
+     */
+    @Override
+    public void onPassengerTurned(Entity passenger) {
+        passenger.setYBodyRot(this.getYRot());
+        float relativeYaw = Mth.wrapDegrees(passenger.getYRot() - this.getYRot());
+        float clampedRelativeYaw = Mth.clamp(relativeYaw, -105.0f, 105.0f);
+        float delta = clampedRelativeYaw - relativeYaw;
+        passenger.yRotO += delta;
+        passenger.setYRot(passenger.getYRot() + delta);
+        passenger.setYHeadRot(passenger.getYRot());
     }
 
     private static float clamp(float v, float a, float b) {
