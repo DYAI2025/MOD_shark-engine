@@ -322,11 +322,28 @@ public final class ShipEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag compound) {
+        // AIR-015: read BugYaw/ThrustYaw BEFORE the blueprint, so it's
+        // available as the legacy-save fallback for blueprints written
+        // before AssemblyYaw existed (schema v1). Order matters here.
+        if (compound.contains("BugYaw")) {
+            this.bugYawDeg = compound.getFloat("BugYaw");
+        } else if (compound.contains("ThrustYaw")) {
+            // Migration: alte Fahrzeuge ohne BugYaw
+            this.bugYawDeg = compound.getFloat("ThrustYaw");
+        }
         if (compound.contains("Blueprint")) {
-            this.blueprint = ShipBlueprint.fromNbt(
-                    compound.getCompound("Blueprint"),
-                    level().registryAccess()
-            );
+            CompoundTag blueprintTag = compound.getCompound("Blueprint");
+            ShipBlueprint loaded = ShipBlueprint.fromNbt(blueprintTag, level().registryAccess());
+            if (!blueprintTag.contains("AssemblyYaw")) {
+                // v1 blueprint NBT: no AssemblyYaw was ever written. Fall
+                // back to the entity's own persisted BUG-facing yaw
+                // (bugYawDeg, just read above) — NOT the live getYRot(),
+                // which drifts as the ship turns and would reintroduce the
+                // exact visual-snap bug this schema exists to fix. See
+                // ShipBlueprint.withAssemblyYaw's design note.
+                loaded = loaded.withAssemblyYaw(bugYawDeg);
+            }
+            this.blueprint = loaded;
             applyBlueprintStats();
         }
         if (compound.contains("Anchored")) {
@@ -349,12 +366,6 @@ public final class ShipEntity extends Entity {
         }
         if (compound.contains("BlockCount")) {
             this.blockCount = compound.getInt("BlockCount");
-        }
-        if (compound.contains("BugYaw")) {
-            this.bugYawDeg = compound.getFloat("BugYaw");
-        } else if (compound.contains("ThrustYaw")) {
-            // Migration: alte Fahrzeuge ohne BugYaw
-            this.bugYawDeg = compound.getFloat("ThrustYaw");
         }
         if (compound.contains("Health")) {
             this.health = compound.getInt("Health");

@@ -74,7 +74,10 @@ public final class ShipAssemblyService {
         }
 
         public ShipBlueprint toBlueprint() {
-            return new ShipBlueprint(origin, blocks, blockCount());
+            // AIR-015: carry the BUG block's resolved yaw into the blueprint
+            // so rendering/collision/disassembly (which only see the
+            // blueprint, not this scan) can compute effective rotation.
+            return new ShipBlueprint(origin, blocks, blockCount()).withAssemblyYaw(bugYawDeg);
         }
     }
 
@@ -147,7 +150,8 @@ public final class ShipAssemblyService {
 
     public static void openBuilderPreview(ServerLevel level, BlockPos wheelPos, ServerPlayer player) {
         StructureScan scan = scanStructure(level, wheelPos);
-        ShipBlueprint blueprint = new ShipBlueprint(wheelPos, scan.blocks(), scan.blockCount());
+        ShipBlueprint blueprint = new ShipBlueprint(wheelPos, scan.blocks(), scan.blockCount())
+                .withAssemblyYaw(scan.bugYawDeg());
 
         BuilderPreviewS2CPayload payload = BuilderPreviewS2CPayload.open(
                 wheelPos,
