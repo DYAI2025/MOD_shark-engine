@@ -67,6 +67,7 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         builder.add(key(ModBlocks.FUSELAGE_FRAME));
         builder.add(key(ModBlocks.HELICOPTER_ENGINE));
         builder.add(key(ModBlocks.ROTOR_HUB));
+        builder.add(key(ModBlocks.ROTOR_BLADE));
 
         // AIR-040 (concept doc §5.4): role tags, populated as each part lands.
         // airframe_panel's and fuselage_frame's own scope notes explicitly require
@@ -81,6 +82,32 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         // rotor_hub's own scope note explicitly requires
         // "ship_eligible + rotor_hubs tags" — added here.
         tag(ModTags.ROTOR_HUBS).add(key(ModBlocks.ROTOR_HUB));
+
+        // rotor_blade's own scope note explicitly requires "ship_eligible +
+        // rotor_blades + lift_surfaces tags" — added here.
+        tag(ModTags.ROTOR_BLADES).add(key(ModBlocks.ROTOR_BLADE));
+
+        // Deliberate choice, documented: LIFT_SURFACES membership is lift>0-based,
+        // not strictly PartRole==LIFT_SURFACE-based. rotor_blade's own PartRole is
+        // ROTOR_BLADE (concept §3.3's PartRole enum), a distinct role from
+        // LIFT_SURFACE (wing_root/wing_panel/wing_tip, AIR-041) — but concept §4's
+        // balance table gives it lift=8, the single highest per-block lift figure in
+        // the entire table, strictly greater than any dedicated LIFT_SURFACE part
+        // (wing_panel's 4 is the next highest). A content/data-file tag meant to let
+        // players and future tooling ("what generates lift in this mod?") discover
+        // every lift-contributing block by tag would be actively misleading if it
+        // silently excluded the single biggest lift contributor. The concept doc's §4
+        // dash ("–") cells mean "no contribution" for every non-lift part; rotor_blade
+        // is unambiguously NOT a dash cell. Tag membership here is therefore driven by
+        // "does this block have lift > 0 in VehicleBalance.PARTS", not by a strict
+        // PartRole match — unlike AIRCRAFT_STRUCTURE/PROPULSION/ROTOR_HUBS above,
+        // which line up 1:1 with their PartRole today because no part yet has a
+        // nonzero value in one of those columns under a *different* role.
+        // Flight-rule *logic* (AIR-054/AIR-060) is unaffected by this: those rules are
+        // required (REQ-S1) to be role-based via VehiclePartRegistry/ShipPartAnalyzer,
+        // never tag-based — this tag is a content-classification convenience only, not
+        // a gameplay-rule input.
+        tag(ModTags.LIFT_SURFACES).add(key(ModBlocks.ROTOR_BLADE));
     }
 
     private static ResourceKey<Block> key(Block block) {

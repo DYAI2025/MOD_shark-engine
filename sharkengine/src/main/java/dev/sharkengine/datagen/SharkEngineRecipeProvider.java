@@ -204,6 +204,20 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "B", "S"
         );
+
+        // ─── AIR-040: rotor_blade (sixth and last core placeable part) ──────────
+        // rotor_blade: S=rotor_shaft, M=metal_sheet — single row "SMM", yield 2.
+        shapedRecipe(
+                exporter,
+                "rotor_blade",
+                ModBlocks.ROTOR_BLADE.asItem(),
+                2,
+                Map.of(
+                        'S', Ingredient.of(ModItems.ROTOR_SHAFT),
+                        'M', Ingredient.of(ModItems.METAL_SHEET)
+                ),
+                "SMM"
+        );
     }
 
     private void shapedRecipe(

@@ -4,6 +4,7 @@ import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.content.block.HelicopterEngineBlock;
+import dev.sharkengine.content.block.RotorBladeBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -113,6 +114,25 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * AIR-040: rotor_blade (ROTOR_BLADE role, concept §4 "Blockstate" column:
+     * {@code facing}, full six-direction — see {@link RotorBladeBlock}'s javadoc for
+     * why full six-direction rather than {@link dev.sharkengine.content.block.BugBlock}'s
+     * horizontal-only variant was chosen). Sixth and last of the six AIR-040 core
+     * placeable parts. Strength/sound match {@link #AIRFRAME_PANEL}/{@link
+     * #FUSELAGE_FRAME}/{@link #ROTOR_HUB}'s (a light sheet-metal/mechanical part, not
+     * a heavy engine block) rather than {@link #HELICOPTER_ENGINE}'s industrial
+     * profile — a blade is thin stamped metal, not a solid engine casting.
+     */
+    public static final Block ROTOR_BLADE = registerBlock(
+            "rotor_blade",
+            RotorBladeBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -125,6 +145,7 @@ public final class ModBlocks {
             entries.accept(FUSELAGE_FRAME.asItem());
             entries.accept(HELICOPTER_ENGINE.asItem());
             entries.accept(ROTOR_HUB.asItem());
+            entries.accept(ROTOR_BLADE.asItem());
         });
     }
 

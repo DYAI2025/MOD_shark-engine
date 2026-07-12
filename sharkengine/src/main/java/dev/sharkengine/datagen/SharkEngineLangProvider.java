@@ -115,6 +115,9 @@ final class SharkEngineLangProvider {
             // AIR-040: rotor_hub (fifth core placeable part)
             b.add("block.sharkengine.rotor_hub", "Rotor Hub");
             b.add("item.sharkengine.rotor_hub", "Rotor Hub");
+            // AIR-040: rotor_blade (sixth and last core placeable part)
+            b.add("block.sharkengine.rotor_blade", "Rotor Blade");
+            b.add("item.sharkengine.rotor_blade", "Rotor Blade");
         }
     }
 
@@ -211,6 +214,9 @@ final class SharkEngineLangProvider {
             // AIR-040: rotor_hub (fifth core placeable part)
             b.add("block.sharkengine.rotor_hub", "Rotor-Hub");
             b.add("item.sharkengine.rotor_hub", "Rotor-Hub");
+            // AIR-040: rotor_blade (sixth and last core placeable part)
+            b.add("block.sharkengine.rotor_blade", "Rotorblatt");
+            b.add("item.sharkengine.rotor_blade", "Rotorblatt");
         }
     }
 }

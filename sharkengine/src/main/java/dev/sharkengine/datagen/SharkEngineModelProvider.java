@@ -58,6 +58,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "fuselage_frame", FUSELAGE_FRAME_BLOCKSTATE),
                 writeBlockState(writer, ns, "helicopter_engine", HELICOPTER_ENGINE_BLOCKSTATE),
                 writeBlockState(writer, ns, "rotor_hub", ROTOR_HUB_BLOCKSTATE),
+                writeBlockState(writer, ns, "rotor_blade", ROTOR_BLADE_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
@@ -66,6 +67,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, blockModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "rotor_hub"), ROTOR_HUB_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "rotor_blade"), ROTOR_BLADE_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
@@ -74,6 +76,7 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, itemModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "rotor_hub"), ROTOR_HUB_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "rotor_blade"), ROTOR_BLADE_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -256,6 +259,28 @@ final class SharkEngineModelProvider implements DataProvider {
                 "axis=y": { "model": "sharkengine:block/rotor_hub" },
                 "axis=x": { "model": "sharkengine:block/rotor_hub", "x": 90, "y": 90 },
                 "axis=z": { "model": "sharkengine:block/rotor_hub", "x": 90 }
+              }
+            }
+            """;
+
+    /**
+     * AIR-040: {@code rotor_blade} (ROTOR_BLADE role, concept §4 "Blockstate" column:
+     * {@code facing}, full six-direction). Default model orientation is
+     * {@code facing=up}, reached by the exact same default-up + x/y-rotation-table
+     * idiom as {@link #AIRFRAME_PANEL_BLOCKSTATE}/{@link #HELICOPTER_ENGINE_BLOCKSTATE}.
+     * {@link dev.sharkengine.content.block.RotorBladeBlock}'s {@code VoxelShape} table
+     * is rigid-transform-consistent with this exact rotation set — see that class's
+     * javadoc.
+     */
+    private static final String ROTOR_BLADE_BLOCKSTATE = """
+            {
+              "variants": {
+                "facing=up":    { "model": "sharkengine:block/rotor_blade" },
+                "facing=down":  { "model": "sharkengine:block/rotor_blade", "x": 180 },
+                "facing=north": { "model": "sharkengine:block/rotor_blade", "x": 90 },
+                "facing=east":  { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 90 },
+                "facing=south": { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 180 },
+                "facing=west":  { "model": "sharkengine:block/rotor_blade", "x": 90, "y": 270 }
               }
             }
             """;
@@ -529,6 +554,37 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    /**
+     * AIR-040: {@code rotor_blade} is a thin blade plate (custom {@code elements}
+     * array, 3px thick — see {@link dev.sharkengine.content.block.RotorBladeBlock}'s
+     * javadoc), not a solid full cube — same reasoning as
+     * {@link #AIRFRAME_PANEL_BLOCK_MODEL}'s own inline {@code elements}, just with a
+     * thinner {@code from}/{@code to} extent (13→16 instead of 14→16).
+     */
+    private static final String ROTOR_BLADE_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/block",
+              "textures": {
+                "all": "sharkengine:block/rotor_blade"
+              },
+              "elements": [
+                {
+                  "comment": "3px blade, default orientation facing=up",
+                  "from": [0, 13, 0],
+                  "to": [16, 16, 16],
+                  "faces": {
+                    "north": { "uv": [0, 0, 16, 3], "texture": "#all" },
+                    "south": { "uv": [0, 0, 16, 3], "texture": "#all" },
+                    "east":  { "uv": [0, 0, 16, 3], "texture": "#all" },
+                    "west":  { "uv": [0, 0, 16, 3], "texture": "#all" },
+                    "up":    { "uv": [0, 0, 16, 16], "texture": "#all" },
+                    "down":  { "uv": [0, 0, 16, 16], "texture": "#all" }
+                  }
+                }
+              ]
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -568,6 +624,12 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String ROTOR_HUB_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/rotor_hub"
+            }
+            """;
+
+    private static final String ROTOR_BLADE_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/rotor_blade"
             }
             """;
 }
