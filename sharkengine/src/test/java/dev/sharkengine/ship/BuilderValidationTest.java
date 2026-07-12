@@ -1,5 +1,6 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -143,13 +144,21 @@ class BuilderValidationTest {
         }
     }
 
+    /**
+     * AIR-021: propulsion detection moved from the ID-comparison
+     * {@code ThrusterRequirements} (deleted, B4) to role-based
+     * {@code ShipPartAnalyzer}/{@code ShipStats} aggregation via
+     * {@code VehiclePartRegistry}. These tests port the same scenarios to the
+     * new API — "thruster" is now just one PROPULSION-role part among
+     * potentially several (e.g. the later helicopter_engine).
+     */
     @Nested
-    @DisplayName("ThrusterRequirements")
-    class ThrusterTests {
+    @DisplayName("ShipPartAnalyzer (role-based propulsion detection)")
+    class PropulsionDetectionTests {
 
         @Test
-        @DisplayName("countThrusters counts correctly with mixed blocks")
-        void countThrustersWithMixedBlocks() {
+        @DisplayName("propulsionCount counts correctly with mixed blocks")
+        void propulsionCountWithMixedBlocks() {
             List<String> ids = List.of(
                     "minecraft:oak_planks",
                     "sharkengine:thruster",
@@ -157,55 +166,55 @@ class BuilderValidationTest {
                     "sharkengine:thruster",
                     "sharkengine:steering_wheel"
             );
-            assertEquals(2, ThrusterRequirements.countThrusters(ids),
-                    "Should count exactly 2 thrusters");
+            assertEquals(2, ShipPartAnalyzer.analyze(ids).propulsionCount(),
+                    "Should count exactly 2 PROPULSION parts");
         }
 
         @Test
-        @DisplayName("countThrusters returns 0 for empty list")
-        void countThrustersEmptyList() {
-            assertEquals(0, ThrusterRequirements.countThrusters(List.of()),
-                    "Empty block list should have 0 thrusters");
+        @DisplayName("propulsionCount returns 0 for empty list")
+        void propulsionCountEmptyList() {
+            assertEquals(0, ShipPartAnalyzer.analyze(List.of()).propulsionCount(),
+                    "Empty block list should have 0 propulsion parts");
         }
 
         @Test
-        @DisplayName("countThrusters handles null safely")
-        void countThrustersNull() {
-            assertEquals(0, ThrusterRequirements.countThrusters(null),
-                    "null block list should return 0 thrusters");
+        @DisplayName("propulsionCount handles null safely")
+        void propulsionCountNull() {
+            assertEquals(0, ShipPartAnalyzer.analyze(null).propulsionCount(),
+                    "null block list should return 0 propulsion parts");
         }
 
         @Test
-        @DisplayName("countThrusters ignores partial matches")
-        void countThrustersIgnoresPartialMatches() {
+        @DisplayName("propulsionCount ignores unregistered near-miss IDs (fallback is STRUCTURE, not PROPULSION)")
+        void propulsionCountIgnoresPartialMatches() {
             List<String> ids = List.of(
                     "sharkengine:thruster_advanced",
                     "other:thruster",
                     "sharkengine:thruster_base"
             );
-            assertEquals(0, ThrusterRequirements.countThrusters(ids),
-                    "Partial thruster ID matches should not be counted");
+            assertEquals(0, ShipPartAnalyzer.analyze(ids).propulsionCount(),
+                    "Unregistered near-miss IDs should resolve to the STRUCTURE fallback, not PROPULSION");
         }
 
         @Test
-        @DisplayName("hasThruster returns true with at least one thruster")
-        void hasThrusterWithOne() {
-            assertTrue(ThrusterRequirements.hasThruster(
-                    List.of("minecraft:stone", "sharkengine:thruster")),
-                    "hasThruster should return true when thruster exists");
+        @DisplayName("hasPropulsion returns true with at least one PROPULSION part")
+        void hasPropulsionWithOne() {
+            assertTrue(ShipPartAnalyzer.analyze(
+                    List.of("minecraft:stone", "sharkengine:thruster")).hasPropulsion(),
+                    "hasPropulsion should return true when a PROPULSION part exists");
         }
 
         @Test
-        @DisplayName("hasThruster returns false without any thrusters")
-        void hasThrusterWithNone() {
-            assertFalse(ThrusterRequirements.hasThruster(
-                    List.of("minecraft:stone", "minecraft:oak_planks")),
-                    "hasThruster should return false without thrusters");
+        @DisplayName("hasPropulsion returns false without any PROPULSION parts")
+        void hasPropulsionWithNone() {
+            assertFalse(ShipPartAnalyzer.analyze(
+                    List.of("minecraft:stone", "minecraft:oak_planks")).hasPropulsion(),
+                    "hasPropulsion should return false without any PROPULSION parts");
         }
 
         @Test
-        @DisplayName("countThrusters with single thruster in large list")
-        void countThrustersOnInLargeList() {
+        @DisplayName("propulsionCount with single thruster in large list")
+        void propulsionCountOnInLargeList() {
             List<String> ids = List.of(
                     "minecraft:oak_planks", "minecraft:oak_planks",
                     "minecraft:oak_log", "minecraft:oak_log",
@@ -213,8 +222,8 @@ class BuilderValidationTest {
                     "sharkengine:thruster",
                     "minecraft:white_wool", "minecraft:white_wool"
             );
-            assertEquals(1, ThrusterRequirements.countThrusters(ids),
-                    "Should find exactly 1 thruster in a large block list");
+            assertEquals(1, ShipPartAnalyzer.analyze(ids).propulsionCount(),
+                    "Should find exactly 1 PROPULSION part in a large block list");
         }
     }
 }

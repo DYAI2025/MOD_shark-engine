@@ -5,6 +5,8 @@ import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.ModTags;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.net.BuilderPreviewS2CPayload;
+import dev.sharkengine.ship.part.ShipPartAnalyzer;
+import dev.sharkengine.ship.part.ShipStats;
 import dev.sharkengine.tutorial.TutorialService;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -45,8 +47,7 @@ public final class ShipAssemblyService {
                                 List<ShipBlueprint.ShipBlock> blocks,
                                 List<BlockPos> invalidAttachments,
                                 int contactPoints,
-                                boolean hasThruster,
-                                int thrusterCount,
+                                ShipStats stats,
                                 int coreNeighbors,
                                 int bugCount,
                                 boolean bugOnEdge,
@@ -63,11 +64,21 @@ public final class ShipAssemblyService {
             return bugCount == 1;
         }
 
+        /** Role-based replacement for the old ID-comparison {@code hasThruster} (B4). */
+        public boolean hasThruster() {
+            return stats.hasPropulsion();
+        }
+
+        /** Role-based replacement for the old ID-comparison {@code thrusterCount} (B4). */
+        public int thrusterCount() {
+            return stats.propulsionCount();
+        }
+
         public boolean canAssemble() {
             return !isEmpty()
                     && invalidAttachments.isEmpty()
                     && contactPoints == 0
-                    && hasThruster
+                    && stats.hasPropulsion()
                     && coreNeighbors >= 4
                     && bugCount == 1
                     && bugOnEdge;
@@ -228,7 +239,7 @@ public final class ShipAssemblyService {
         }
 
         int contactPoints = countWorldContacts(level, ship);
-        int thrusterCount = ThrusterRequirements.countThrusters(blockIds);
+        ShipStats stats = ShipPartAnalyzer.analyze(blockIds);
         int coreNeighbors = countCoreNeighbors(wheelPos, ship);
 
         // ═══════════════════════════════════════════════════════════════════
@@ -250,7 +261,7 @@ public final class ShipAssemblyService {
         float bugYawDeg = directionToYaw(bugFacing);
 
         return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints,
-                thrusterCount > 0, thrusterCount, coreNeighbors,
+                stats, coreNeighbors,
                 bugCount, bugOnEdge, bugYawDeg);
     }
 

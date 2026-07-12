@@ -1,9 +1,10 @@
 package dev.sharkengine.ship;
 
-import dev.sharkengine.content.ModBlocks;
 import dev.sharkengine.net.ShipBlueprintS2CPayload;
+import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -29,6 +30,7 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -941,9 +943,15 @@ public final class ShipEntity extends Entity {
         weightCategory = WeightCategory.fromBlockCount(blockCount);
         maxSpeed = ShipPhysics.calculateMaxSpeed(blockCount);
 
-        // Check for thrusters (required for assembly, decorative for direction)
-        hasThrusters = blueprint.blocks().stream()
-                .anyMatch(block -> block.state().is(ModBlocks.THRUSTER));
+        // Check for propulsion parts (required for assembly, decorative for
+        // direction). Role-based via ShipPartAnalyzer/VehiclePartRegistry
+        // (AIR-021, REQ-S1) instead of a hardcoded ModBlocks.THRUSTER check
+        // (B4) — any future PROPULSION part (e.g. helicopter_engine) now
+        // correctly lights up thrust effects too, not just the legacy block.
+        List<String> blockIds = blueprint.blocks().stream()
+                .map(block -> BuiltInRegistries.BLOCK.getKey(block.state().getBlock()).toString())
+                .toList();
+        hasThrusters = ShipPartAnalyzer.analyze(blockIds).hasPropulsion();
 
         // Sync blockCount to client
         if (!level().isClientSide) {
