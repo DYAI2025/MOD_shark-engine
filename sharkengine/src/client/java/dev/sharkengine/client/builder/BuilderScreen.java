@@ -1,6 +1,7 @@
 package dev.sharkengine.client.builder;
 
 import dev.sharkengine.net.BuilderAssembleC2SPayload;
+import dev.sharkengine.ship.part.AssemblyIssue;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -108,6 +109,27 @@ public final class BuilderScreen extends Screen {
                 centerX,
                 y,
                 bugColor);
+        y += 15;
+
+        // AIR-022: list every currently-blocking issue at once, structured (REQ-S3),
+        // instead of the player having to fix one condition at a time to discover the next.
+        if (!state.issues().isEmpty()) {
+            y += 5;
+            graphics.drawCenteredString(font,
+                    Component.translatable("screen.sharkengine.builder.issues_header"),
+                    centerX,
+                    y,
+                    0xFFAA00);
+            y += 12;
+            for (AssemblyIssue issue : state.issues()) {
+                graphics.drawCenteredString(font,
+                        Component.translatable(issue.translationKey(), issue.translationArgs()),
+                        centerX,
+                        y,
+                        0xFF5555);
+                y += 12;
+            }
+        }
     }
 
     @Override

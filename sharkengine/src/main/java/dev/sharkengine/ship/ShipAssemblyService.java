@@ -5,6 +5,7 @@ import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.ModTags;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.net.BuilderPreviewS2CPayload;
+import dev.sharkengine.ship.part.AssemblyIssue;
 import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import dev.sharkengine.ship.part.ShipStats;
 import dev.sharkengine.tutorial.TutorialService;
@@ -90,6 +91,41 @@ public final class ShipAssemblyService {
             // blueprint, not this scan) can compute effective rotation.
             return new ShipBlueprint(origin, blocks, blockCount()).withAssemblyYaw(bugYawDeg);
         }
+
+        /**
+         * Every currently-failing assembly condition, structured (REQ-S3) — unlike
+         * {@code tryAssemble()}'s chat-message chain, which stops at the first failing
+         * condition, this reports ALL of them at once so the builder preview can list every
+         * blocker simultaneously. Mirrors {@link #canAssemble()}'s conditions one-to-one;
+         * {@code issues().isEmpty()} iff {@code canAssemble()} is {@code true}.
+         */
+        public List<AssemblyIssue> issues() {
+            List<AssemblyIssue> issues = new ArrayList<>();
+            if (isEmpty()) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.EMPTY_STRUCTURE));
+                return issues;
+            }
+            if (!invalidAttachments.isEmpty()) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.INVALID_ATTACHMENTS, invalidAttachments.size()));
+            }
+            if (contactPoints > 0) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.TERRAIN_CONTACT, contactPoints));
+            }
+            if (!stats.hasPropulsion()) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.NO_PROPULSION));
+            }
+            if (coreNeighbors < 4) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.TOO_FEW_CORE_NEIGHBORS, coreNeighbors));
+            }
+            if (bugCount == 0) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.NO_BUG));
+            } else if (bugCount > 1) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.MULTI_BUG, bugCount));
+            } else if (!bugOnEdge) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE));
+            }
+            return issues;
+        }
     }
 
     public static AssembleResult tryAssemble(ServerLevel level, BlockPos wheelPos, ServerPlayer pilot) {
@@ -172,7 +208,8 @@ public final class ShipAssemblyService {
                 scan.canAssemble(),
                 scan.thrusterCount(),
                 scan.coreNeighbors(),
-                scan.bugCount()
+                scan.bugCount(),
+                scan.issues()
         );
         ServerPlayNetworking.send(player, payload);
 

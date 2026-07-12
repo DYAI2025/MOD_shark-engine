@@ -58,5 +58,14 @@
     "hud.sharkengine.onboarding.vertical": "Vertical: Space rises, Shift descends. Heavy ships climb slower.",
     "hud.sharkengine.onboarding.fuel": "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.",
     "hud.sharkengine.onboarding.dismiss": "Press X to dismiss this card.",
-    "message.sharkengine.not_pilot": "You are not the pilot of this ship."
+    "message.sharkengine.not_pilot": "You are not the pilot of this ship.",
+    "screen.sharkengine.builder.issues_header": "Blocking issues:",
+    "assembly_issue.sharkengine.empty_structure": "Nothing to assemble (check eligible tag).",
+    "assembly_issue.sharkengine.invalid_attachments": "Remove highlighted blocks (%s invalid parts).",
+    "assembly_issue.sharkengine.terrain_contact": "Assembly blocked: world contact at %s points.",
+    "assembly_issue.sharkengine.no_propulsion": "No thrusters detected – add at least one to launch.",
+    "assembly_issue.sharkengine.too_few_core_neighbors": "Connect four blocks around the wheel (%s/4).",
+    "assembly_issue.sharkengine.no_bug": "No bow block found – place exactly one bow as front marker.",
+    "assembly_issue.sharkengine.multi_bug": "Configuration error: Multiple bow blocks found (%s). Only one allowed.",
+    "assembly_issue.sharkengine.bug_inside": "Bow must be on the outer edge – currently placed inside."
 }

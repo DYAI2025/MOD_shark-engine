@@ -58,5 +58,14 @@
     "hud.sharkengine.onboarding.vertical": "Vertikal: Leertaste steigt, Shift sinkt. Schwere Schiffe steigen langsamer.",
     "hud.sharkengine.onboarding.fuel": "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.",
     "hud.sharkengine.onboarding.dismiss": "Drücke X, um diese Karte auszublenden.",
-    "message.sharkengine.not_pilot": "Du bist nicht der Pilot dieses Schiffs."
+    "message.sharkengine.not_pilot": "Du bist nicht der Pilot dieses Schiffs.",
+    "screen.sharkengine.builder.issues_header": "Blockierende Probleme:",
+    "assembly_issue.sharkengine.empty_structure": "Nichts zu montieren (prüfe erlaubte Blöcke).",
+    "assembly_issue.sharkengine.invalid_attachments": "Markierte Blöcke entfernen (%s ungültige Teile).",
+    "assembly_issue.sharkengine.terrain_contact": "Montage blockiert: Bodenkontakt an %s Punkten.",
+    "assembly_issue.sharkengine.no_propulsion": "Kein Triebwerk erkannt – mindestens eines anbringen.",
+    "assembly_issue.sharkengine.too_few_core_neighbors": "Vier Blöcke um das Steuerrad anbauen (%s/4).",
+    "assembly_issue.sharkengine.no_bug": "Kein Bug-Block gefunden – platziere genau einen Bug als Frontmarker.",
+    "assembly_issue.sharkengine.multi_bug": "Konfigurationsfehler: Mehrere Bug-Blöcke gefunden (%s). Nur genau einer erlaubt.",
+    "assembly_issue.sharkengine.bug_inside": "Bug muss an der Außenkante platziert werden – aktuell im Inneren."
 }

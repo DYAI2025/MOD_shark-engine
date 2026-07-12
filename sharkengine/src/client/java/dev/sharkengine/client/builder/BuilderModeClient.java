@@ -79,7 +79,8 @@ public final class BuilderModeClient {
                 payload.contactPoints(),
                 payload.thrusterCount(),
                 payload.coreNeighbors(),
-                payload.bugCount()
+                payload.bugCount(),
+                List.copyOf(payload.issues())
         );
         preview = state;
         mc.setScreen(new BuilderScreen(state));

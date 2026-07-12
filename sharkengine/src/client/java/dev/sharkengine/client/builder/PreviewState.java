@@ -1,5 +1,6 @@
 package dev.sharkengine.client.builder;
 
+import dev.sharkengine.ship.part.AssemblyIssue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -14,5 +15,6 @@ public record PreviewState(BlockPos wheelPos,
                     int contactPoints,
                     int thrusterCount,
                     int coreNeighbors,
-                    int bugCount) {
+                    int bugCount,
+                    List<AssemblyIssue> issues) {
 }

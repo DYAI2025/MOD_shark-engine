@@ -18,7 +18,8 @@
         ],
         "fabric-gametest": [
             "dev.sharkengine.gametest.AssemblySmokeTest",
-            "dev.sharkengine.gametest.BlueprintPersistenceGameTest"
+            "dev.sharkengine.gametest.BlueprintPersistenceGameTest",
+            "dev.sharkengine.gametest.BuilderPreviewPayloadGameTest"
         ]
     },
     "depends": {
