@@ -76,6 +76,30 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         float smoothYaw = ShipTransform.effectiveYaw(entityYaw, blueprint.assemblyYaw());
         poseStack.mulPose(Axis.YN.rotationDegrees(smoothYaw));
 
+        // ═══════════════════════════════════════════════════════════════════
+        // FLR-003 (flight-feel bank/roll, docs/plans/flight-bank-roll.md):
+        // second rotation, composed AFTER yaw so it turns around the ship's
+        // own local forward axis (Z, per how blueprint offsets place blocks
+        // via dz) in the already-yaw-rotated frame, not world-space Z.
+        // entity.getClientRoll() is a smoothed, client-only value (never
+        // synced itself — derived every client tick from the synced
+        // SYNC_TURN, see ShipEntity.tick()'s client branch) so this stays
+        // purely cosmetic and identical for every observer.
+        //
+        // Axis.ZP below is a first guess, NOT yet empirically confirmed —
+        // ShipTransform.rollFromTurnInput's contract only guarantees
+        // "positive return value = bank in the direction that turns the
+        // ship left"; it does NOT decide which PoseStack axis/sign that
+        // corresponds to visually. Verify in runClient (turn left, confirm
+        // the hull actually banks left — left wing/edge dips) and flip to
+        // Axis.ZN here if it rolls the wrong way. Do not "fix" this by
+        // flipping the sign in rollFromTurnInput instead — that function's
+        // sign convention is deliberately anchored to the already-proven
+        // turn-direction physics (see its javadoc), this axis choice is the
+        // only thing that should change.
+        // ═══════════════════════════════════════════════════════════════════
+        poseStack.mulPose(Axis.ZP.rotationDegrees(entity.getClientRoll()));
+
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockState blockState = block.state();
             if (blockState.getRenderShape() != RenderShape.MODEL) continue;

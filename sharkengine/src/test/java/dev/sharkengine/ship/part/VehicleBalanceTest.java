@@ -101,6 +101,17 @@ class VehicleBalanceTest {
         assertEquals(40, VehicleBalance.ROTOR_SPOOL_TICKS);
     }
 
+    // ─── flight-feel bank/roll constants (FLR-004, docs/plans/flight-bank-roll.md) ──
+
+    @Test
+    @DisplayName("bank/roll: max 25deg, smoothing factor in (0,1]")
+    void bankRollConstantsAreSane() {
+        assertEquals(25.0f, VehicleBalance.MAX_BANK_DEG);
+        assertEquals(0.15f, VehicleBalance.BANK_SMOOTHING_FACTOR);
+        assertTrue(VehicleBalance.BANK_SMOOTHING_FACTOR > 0.0f && VehicleBalance.BANK_SMOOTHING_FACTOR <= 1.0f,
+                "smoothing factor must be a valid lerp fraction");
+    }
+
     @Test
     @DisplayName("2-blade rotor lift (16) and 4-blade rotor lift (32) derive from rotor_blade lift=8, per concept §4")
     void rotorBladeLiftDerivesTwoAndFourBladeTotals() {

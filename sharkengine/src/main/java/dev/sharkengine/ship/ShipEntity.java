@@ -70,6 +70,16 @@ public final class ShipEntity extends Entity {
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> SYNC_HEALTH =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    /**
+     * Synced current turn input (FLR-001, docs/plans/flight-bank-roll.md). The
+     * server-side {@link #inputTurn} field this mirrors is never itself
+     * synced — rendering runs for every observer (including a third party
+     * watching someone else's ship), not just the local pilot whose own
+     * {@code HelmInputClient} already knows its own last-sent value, so the
+     * renderer needs a server-authoritative copy to compute bank angle from.
+     */
+    private static final EntityDataAccessor<Float> SYNC_TURN =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
 
     // ═══════════════════════════════════════════════════════════════════
     // FIELDS
@@ -176,6 +186,19 @@ public final class ShipEntity extends Entity {
     private double lerpX, lerpY, lerpZ;
     private double lerpYRot, lerpXRot;
 
+    /**
+     * Client-only smoothed bank/roll angle (FLR-003,
+     * docs/plans/flight-bank-roll.md). Deliberately NOT an EntityData sync
+     * field — this is pure rendering-interpolation state, derived every
+     * client tick from the already-synced {@link #SYNC_TURN} via
+     * {@link ShipTransform#rollFromTurnInput}, the same way vanilla entities
+     * keep purely-cosmetic animation state as plain client-side fields
+     * rather than syncing it. Read by {@code ShipEntityRenderer}.
+     */
+    private float clientRoll = 0.0f;
+
+    public float getClientRoll() { return clientRoll; }
+
     // ═══════════════════════════════════════════════════════════════════
     // FEATURE 5: VEHICLE HEALTH
     // ═══════════════════════════════════════════════════════════════════
@@ -273,6 +296,15 @@ public final class ShipEntity extends Entity {
 
     public boolean isEngineOut() {
         return level().isClientSide ? this.entityData.get(SYNC_ENGINE_OUT) : engineOut;
+    }
+
+    /**
+     * Synced current turn input, -1..+1 (FLR-001). Client-side consumer:
+     * {@code ShipEntityRenderer}'s bank/roll rendering (FLR-003) — see that
+     * class for the sign convention this value feeds into.
+     */
+    public float getSyncedTurn() {
+        return level().isClientSide ? this.entityData.get(SYNC_TURN) : inputTurn;
     }
 
     public boolean hasThrusters() { return hasThrusters; }
@@ -394,6 +426,7 @@ public final class ShipEntity extends Entity {
         builder.define(SYNC_MASS, 0);
         builder.define(SYNC_ENGINE_OUT, false);
         builder.define(SYNC_HEALTH, MAX_HEALTH);
+        builder.define(SYNC_TURN, 0.0f);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -772,6 +805,7 @@ public final class ShipEntity extends Entity {
         this.entityData.set(SYNC_MASS, mass);
         this.entityData.set(SYNC_ENGINE_OUT, engineOut);
         this.entityData.set(SYNC_HEALTH, health);
+        this.entityData.set(SYNC_TURN, inputTurn);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -795,6 +829,11 @@ public final class ShipEntity extends Entity {
                         this.lerpYRot, this.lerpXRot);
                 this.lerpSteps--;
             }
+            // FLR-003: smoothly chase the current bank/roll target every
+            // client tick so releasing/reversing turn input rolls back
+            // level gradually instead of snapping.
+            float targetRoll = ShipTransform.rollFromTurnInput(getSyncedTurn(), dev.sharkengine.ship.part.VehicleBalance.MAX_BANK_DEG);
+            this.clientRoll = Mth.lerp(dev.sharkengine.ship.part.VehicleBalance.BANK_SMOOTHING_FACTOR, this.clientRoll, targetRoll);
             return;
         }
 

@@ -106,4 +106,32 @@ public final class ShipTransform {
         result |= (z & 0x3FFFFFFL) << 12;
         return result;
     }
+
+    /**
+     * Bank/roll angle for the flight-feel feature (FLR-002,
+     * docs/plans/flight-bank-roll.md) — a pure, deterministic mapping from
+     * turn input to a visual roll angle. Linear and clamped: {@code turnInput}
+     * is expected in {@code [-1, 1]} (callers should already clamp, e.g.
+     * {@code ShipEntity.setInputs}) but out-of-range input is defensively
+     * clamped here too rather than trusted.
+     *
+     * <p><b>Sign convention:</b> the return value has the SAME sign as
+     * {@code turnInput}. Positive {@code turnInput} is the value that turns
+     * the ship left (the P0-verified convention in {@code ShipEntity.tick()}:
+     * {@code yaw = getYRot() - inputTurn * 3.0f} — proven via forward/right
+     * cross product, see that method's own javadoc), so a positive return
+     * here means "bank left". This function does NOT decide which
+     * {@code PoseStack} rotation axis/direction corresponds to a left bank —
+     * that mapping is empirically verified in {@code ShipEntityRenderer}
+     * (FLR-003) against a real {@code runClient} render, not assumed here.</p>
+     *
+     * @param turnInput  current turn input, expected {@code [-1, 1]}
+     * @param maxBankDeg maximum bank angle in degrees at full turn input
+     * @return bank angle in degrees, same sign as {@code turnInput}, clamped
+     *         to {@code [-maxBankDeg, maxBankDeg]}
+     */
+    public static float rollFromTurnInput(float turnInput, float maxBankDeg) {
+        float clamped = Math.max(-1.0f, Math.min(1.0f, turnInput));
+        return clamped * maxBankDeg;
+    }
 }

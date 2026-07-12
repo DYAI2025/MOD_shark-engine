@@ -61,6 +61,25 @@ public final class VehicleBalance {
     public static final int ROTOR_SPOOL_TICKS = 40;
 
     // ═══════════════════════════════════════════════════════════════════
+    // FLIGHT-FEEL: BANK/ROLL (FLR-004, docs/plans/flight-bank-roll.md)
+    //
+    // Purely cosmetic (ShipEntityRenderer only) — see that plan doc's
+    // Non-goals for why this deliberately does not touch collision/physics.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Maximum visual bank angle at full turn input, in degrees. */
+    public static final float MAX_BANK_DEG = 25.0f;
+
+    /**
+     * Per-tick interpolation fraction the renderer's smoothed roll state
+     * moves toward its target each tick (0..1 — higher is snappier, lower is
+     * floatier). Not a duration; matches the {@code Mth.lerp}-style factor
+     * convention already used elsewhere in this codebase (e.g.
+     * {@code ShipEntity.updatePhysics}'s speed lerp).
+     */
+    public static final float BANK_SMOOTHING_FACTOR = 0.15f;
+
+    // ═══════════════════════════════════════════════════════════════════
     // PART BALANCE TABLE (concept §4)
     //
     // The concept table's dash ("–") cells mean "no contribution" (0), and

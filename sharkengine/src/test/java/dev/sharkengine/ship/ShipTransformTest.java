@@ -178,4 +178,54 @@ class ShipTransformTest {
             assertEquals(expected, packed);
         }
     }
+
+    @Nested
+    @DisplayName("rollFromTurnInput (FLR-002, docs/plans/flight-bank-roll.md)")
+    class RollFromTurnInputTests {
+
+        private static final float MAX_BANK = 25.0f;
+
+        @Test
+        @DisplayName("zero input produces zero roll")
+        void zeroInputIsZeroRoll() {
+            assertEquals(0.0f, ShipTransform.rollFromTurnInput(0f, MAX_BANK), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("full positive input produces full positive bank")
+        void fullPositiveInputIsFullBank() {
+            assertEquals(MAX_BANK, ShipTransform.rollFromTurnInput(1f, MAX_BANK), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("full negative input produces full negative bank")
+        void fullNegativeInputIsFullBank() {
+            assertEquals(-MAX_BANK, ShipTransform.rollFromTurnInput(-1f, MAX_BANK), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("half input produces half bank (linear, proportional to turn input)")
+        void halfInputIsHalfBank() {
+            assertEquals(MAX_BANK / 2f, ShipTransform.rollFromTurnInput(0.5f, MAX_BANK), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("REGRESSION: same sign as turnInput — positive turnInput (turns left, per the " +
+                "P0-verified ShipEntity.tick() convention: yaw = getYRot() - inputTurn*3f) must bank " +
+                "the same sign, not opposite")
+        void sameSignAsTurnInput() {
+            float positiveRoll = ShipTransform.rollFromTurnInput(0.3f, MAX_BANK);
+            float negativeRoll = ShipTransform.rollFromTurnInput(-0.3f, MAX_BANK);
+            assertEquals(true, positiveRoll > 0, "positive turnInput must produce positive roll");
+            assertEquals(true, negativeRoll < 0, "negative turnInput must produce negative roll");
+        }
+
+        @Test
+        @DisplayName("out-of-range turnInput stays clamped to maxBankDeg (defensive, callers should " +
+                "already clamp to -1..1)")
+        void outOfRangeInputIsClamped() {
+            assertEquals(MAX_BANK, ShipTransform.rollFromTurnInput(1.5f, MAX_BANK), (float) EPSILON);
+            assertEquals(-MAX_BANK, ShipTransform.rollFromTurnInput(-2f, MAX_BANK), (float) EPSILON);
+        }
+    }
 }
