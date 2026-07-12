@@ -21,7 +21,8 @@
             "dev.sharkengine.gametest.BlueprintPersistenceGameTest",
             "dev.sharkengine.gametest.BuilderPreviewPayloadGameTest",
             "dev.sharkengine.gametest.AirframePanelGameTest",
-            "dev.sharkengine.gametest.FuselageFrameGameTest"
+            "dev.sharkengine.gametest.FuselageFrameGameTest",
+            "dev.sharkengine.gametest.HelicopterEngineGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

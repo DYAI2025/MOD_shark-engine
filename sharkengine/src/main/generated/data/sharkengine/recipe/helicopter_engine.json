@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": {
+      "item": "sharkengine:engine_core"
+    },
+    "M": {
+      "item": "sharkengine:metal_sheet"
+    },
+    "S": {
+      "item": "sharkengine:rotor_shaft"
+    }
+  },
+  "pattern": [
+    "M",
+    "E",
+    "S"
+  ],
+  "result": {
+    "count": 1,
+    "id": "sharkengine:helicopter_engine"
+  }
+}

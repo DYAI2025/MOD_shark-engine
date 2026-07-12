@@ -174,6 +174,22 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "MIM"
         );
+
+        // ─── AIR-040: helicopter_engine (fourth core placeable part) ────────────
+        // helicopter_engine: M=metal_sheet, E=engine_core, S=rotor_shaft —
+        // column "M" / "E" / "S", yield 1.
+        shapedRecipe(
+                exporter,
+                "helicopter_engine",
+                ModBlocks.HELICOPTER_ENGINE.asItem(),
+                1,
+                Map.of(
+                        'M', Ingredient.of(ModItems.METAL_SHEET),
+                        'E', Ingredient.of(ModItems.ENGINE_CORE),
+                        'S', Ingredient.of(ModItems.ROTOR_SHAFT)
+                ),
+                "M", "E", "S"
+        );
     }
 
     private void shapedRecipe(

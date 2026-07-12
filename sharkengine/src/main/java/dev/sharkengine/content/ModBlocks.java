@@ -3,6 +3,7 @@ package dev.sharkengine.content;
 import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
+import dev.sharkengine.content.block.HelicopterEngineBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -74,6 +75,24 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * AIR-040: helicopter_engine (PROPULSION role, {@code liftMode=ROTOR} —
+     * {@code dev.sharkengine.ship.part.VehicleBalance#PARTS}). Strength/sound match
+     * {@link #THRUSTER}'s (an engine block, not a light hull-skin/frame part like
+     * {@link #AIRFRAME_PANEL}/{@link #FUSELAGE_FRAME}), including
+     * {@code requiresCorrectToolForDrops()} for the same reason: an industrial engine
+     * block is intentionally harder to casually punch out than sheet-metal hull parts.
+     */
+    public static final Block HELICOPTER_ENGINE = registerBlock(
+            "helicopter_engine",
+            HelicopterEngineBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.COPPER)
+                    .requiresCorrectToolForDrops(),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -84,6 +103,7 @@ public final class ModBlocks {
             entries.accept(BUG.asItem());
             entries.accept(AIRFRAME_PANEL.asItem());
             entries.accept(FUSELAGE_FRAME.asItem());
+            entries.accept(HELICOPTER_ENGINE.asItem());
         });
     }
 

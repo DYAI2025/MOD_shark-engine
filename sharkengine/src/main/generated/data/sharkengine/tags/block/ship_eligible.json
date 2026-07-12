@@ -25,6 +25,7 @@
     "sharkengine:thruster",
     "sharkengine:bug",
     "sharkengine:airframe_panel",
-    "sharkengine:fuselage_frame"
+    "sharkengine:fuselage_frame",
+    "sharkengine:helicopter_engine"
   ]
 }

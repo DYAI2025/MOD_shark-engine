@@ -109,6 +109,9 @@ final class SharkEngineLangProvider {
             // AIR-040: fuselage_frame (second core placeable part)
             b.add("block.sharkengine.fuselage_frame", "Fuselage Frame");
             b.add("item.sharkengine.fuselage_frame", "Fuselage Frame");
+            // AIR-040: helicopter_engine (fourth core placeable part)
+            b.add("block.sharkengine.helicopter_engine", "Helicopter Engine");
+            b.add("item.sharkengine.helicopter_engine", "Helicopter Engine");
         }
     }
 
@@ -199,6 +202,9 @@ final class SharkEngineLangProvider {
             // AIR-040: fuselage_frame (second core placeable part)
             b.add("block.sharkengine.fuselage_frame", "Rumpfrahmen");
             b.add("item.sharkengine.fuselage_frame", "Rumpfrahmen");
+            // AIR-040: helicopter_engine (fourth core placeable part)
+            b.add("block.sharkengine.helicopter_engine", "Hubschraubermotor");
+            b.add("item.sharkengine.helicopter_engine", "Hubschraubermotor");
         }
     }
 }

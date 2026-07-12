@@ -56,18 +56,21 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "bug", BUG_BLOCKSTATE),
                 writeBlockState(writer, ns, "airframe_panel", AIRFRAME_PANEL_BLOCKSTATE),
                 writeBlockState(writer, ns, "fuselage_frame", FUSELAGE_FRAME_BLOCKSTATE),
+                writeBlockState(writer, ns, "helicopter_engine", HELICOPTER_ENGINE_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "bug"), BUG_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "airframe_panel"), AIRFRAME_PANEL_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "bug"), BUG_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "airframe_panel"), AIRFRAME_PANEL_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "fuselage_frame"), FUSELAGE_FRAME_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "helicopter_engine"), HELICOPTER_ENGINE_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -204,6 +207,31 @@ final class SharkEngineModelProvider implements DataProvider {
                 "axis=y": { "model": "sharkengine:block/fuselage_frame" },
                 "axis=x": { "model": "sharkengine:block/fuselage_frame", "x": 90, "y": 90 },
                 "axis=z": { "model": "sharkengine:block/fuselage_frame", "x": 90 }
+              }
+            }
+            """;
+
+    /**
+     * AIR-040: {@code helicopter_engine} (PROPULSION role, {@code liftMode=ROTOR}).
+     * Concept §4 "Blockstate" column: {@code facing}, full six-direction — same
+     * default-{@code facing=up} + x/y-rotation-table idiom as
+     * {@link #AIRFRAME_PANEL_BLOCKSTATE} (see
+     * {@link dev.sharkengine.content.block.HelicopterEngineBlock}'s javadoc for why
+     * full six-direction rather than {@code bug}'s horizontal-only variant was
+     * chosen). The single {@code helicopter_engine.png} texture is uniform across all
+     * six faces (see {@link #HELICOPTER_ENGINE_BLOCK_MODEL}), so — exactly like
+     * {@link #FUSELAGE_FRAME_BLOCKSTATE}'s three axis variants — every facing variant
+     * is visually identical today; kept for blockstate correctness.
+     */
+    private static final String HELICOPTER_ENGINE_BLOCKSTATE = """
+            {
+              "variants": {
+                "facing=up":    { "model": "sharkengine:block/helicopter_engine" },
+                "facing=down":  { "model": "sharkengine:block/helicopter_engine", "x": 180 },
+                "facing=north": { "model": "sharkengine:block/helicopter_engine", "x": 90 },
+                "facing=east":  { "model": "sharkengine:block/helicopter_engine", "x": 90, "y": 90 },
+                "facing=south": { "model": "sharkengine:block/helicopter_engine", "x": 90, "y": 180 },
+                "facing=west":  { "model": "sharkengine:block/helicopter_engine", "x": 90, "y": 270 }
               }
             }
             """;
@@ -445,6 +473,21 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    /**
+     * AIR-040: {@code helicopter_engine} is a solid engine block (full cube, no
+     * custom {@code VoxelShape} — see the block class javadoc), with a single
+     * uniform texture across all six faces — reuses {@code minecraft:block/cube_all}
+     * directly, same as {@link #FUSELAGE_FRAME_BLOCK_MODEL}.
+     */
+    private static final String HELICOPTER_ENGINE_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/cube_all",
+              "textures": {
+                "all": "sharkengine:block/helicopter_engine"
+              }
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -472,6 +515,12 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String FUSELAGE_FRAME_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/fuselage_frame"
+            }
+            """;
+
+    private static final String HELICOPTER_ENGINE_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/helicopter_engine"
             }
             """;
 }

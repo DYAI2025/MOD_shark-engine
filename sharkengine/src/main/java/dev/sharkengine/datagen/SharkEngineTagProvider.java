@@ -65,12 +65,17 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         builder.add(key(ModBlocks.BUG));
         builder.add(key(ModBlocks.AIRFRAME_PANEL));
         builder.add(key(ModBlocks.FUSELAGE_FRAME));
+        builder.add(key(ModBlocks.HELICOPTER_ENGINE));
 
         // AIR-040 (concept doc §5.4): role tags, populated as each part lands.
         // airframe_panel's and fuselage_frame's own scope notes explicitly require
         // "ship_eligible + aircraft_structure tag membership" — added here.
         tag(ModTags.AIRCRAFT_STRUCTURE).add(key(ModBlocks.AIRFRAME_PANEL));
         tag(ModTags.AIRCRAFT_STRUCTURE).add(key(ModBlocks.FUSELAGE_FRAME));
+
+        // helicopter_engine's own scope note explicitly requires
+        // "ship_eligible + propulsion tags" — added here.
+        tag(ModTags.PROPULSION).add(key(ModBlocks.HELICOPTER_ENGINE));
     }
 
     private static ResourceKey<Block> key(Block block) {
