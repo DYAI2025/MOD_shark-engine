@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "sharkengine:bearing_assembly"
+    },
+    "S": {
+      "item": "sharkengine:rotor_shaft"
+    }
+  },
+  "pattern": [
+    "B",
+    "S"
+  ],
+  "result": {
+    "count": 1,
+    "id": "sharkengine:rotor_hub"
+  }
+}

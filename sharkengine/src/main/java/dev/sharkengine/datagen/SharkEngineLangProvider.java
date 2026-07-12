@@ -112,6 +112,9 @@ final class SharkEngineLangProvider {
             // AIR-040: helicopter_engine (fourth core placeable part)
             b.add("block.sharkengine.helicopter_engine", "Helicopter Engine");
             b.add("item.sharkengine.helicopter_engine", "Helicopter Engine");
+            // AIR-040: rotor_hub (fifth core placeable part)
+            b.add("block.sharkengine.rotor_hub", "Rotor Hub");
+            b.add("item.sharkengine.rotor_hub", "Rotor Hub");
         }
     }
 
@@ -205,6 +208,9 @@ final class SharkEngineLangProvider {
             // AIR-040: helicopter_engine (fourth core placeable part)
             b.add("block.sharkengine.helicopter_engine", "Hubschraubermotor");
             b.add("item.sharkengine.helicopter_engine", "Hubschraubermotor");
+            // AIR-040: rotor_hub (fifth core placeable part)
+            b.add("block.sharkengine.rotor_hub", "Rotor-Hub");
+            b.add("item.sharkengine.rotor_hub", "Rotor-Hub");
         }
     }
 }

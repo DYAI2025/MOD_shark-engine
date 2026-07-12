@@ -190,6 +190,20 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "M", "E", "S"
         );
+
+        // ─── AIR-040: rotor_hub (fifth core placeable part) ─────────────────────
+        // rotor_hub: B=bearing_assembly, S=rotor_shaft — column "B" / "S", yield 1.
+        shapedRecipe(
+                exporter,
+                "rotor_hub",
+                ModBlocks.ROTOR_HUB.asItem(),
+                1,
+                Map.of(
+                        'B', Ingredient.of(ModItems.BEARING_ASSEMBLY),
+                        'S', Ingredient.of(ModItems.ROTOR_SHAFT)
+                ),
+                "B", "S"
+        );
     }
 
     private void shapedRecipe(

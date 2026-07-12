@@ -93,6 +93,26 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * AIR-040: rotor_hub (ROTOR_HUB role, concept §4 "Blockstate" column: {@code axis}
+     * — same "placed along X/Y/Z like a log/pillar" semantics as {@link #FUSELAGE_FRAME}).
+     * Reuses vanilla's {@link RotatedPillarBlock} directly for the identical reason
+     * documented on {@link #FUSELAGE_FRAME}: it already implements the {@code AXIS}
+     * blockstate property and full-cube {@code VoxelShape} this part needs, with no
+     * custom geometry required. Strength/sound match {@link #FUSELAGE_FRAME}'s (a
+     * metal structural/mechanical part, not a light hull-skin plate) rather than
+     * {@link #HELICOPTER_ENGINE}'s heavier-industrial profile — a hub is a bearing
+     * fixture, not an engine block.
+     */
+    public static final Block ROTOR_HUB = registerBlock(
+            "rotor_hub",
+            RotatedPillarBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 3.0F)
+                    .sound(SoundType.METAL),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -104,6 +124,7 @@ public final class ModBlocks {
             entries.accept(AIRFRAME_PANEL.asItem());
             entries.accept(FUSELAGE_FRAME.asItem());
             entries.accept(HELICOPTER_ENGINE.asItem());
+            entries.accept(ROTOR_HUB.asItem());
         });
     }
 

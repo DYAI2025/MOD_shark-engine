@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "sharkengine:block/rotor_hub",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "sharkengine:block/rotor_hub"
+    },
+    "axis=z": {
+      "model": "sharkengine:block/rotor_hub",
+      "x": 90
+    }
+  }
+}
