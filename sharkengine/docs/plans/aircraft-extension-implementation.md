@@ -1,0 +1,248 @@
+# Aircraft Extension — Implementation Plan (TDD, iterative slices)
+
+**Design source of truth:** `docs/AIRCRAFT_CONCEPT_V2.md` (REQ register in §11, bug ledger B1–B12 in §2, balance numbers in §4, palette in §5).
+**Verified against:** repo commit `100b639`, 2026-07-11. All file:line references were re-verified against current source, not the audit snapshot.
+**Task IDs:** self-contained register. Inherited from the external audit backlog (not committed to this repo): AIR-000, 010–014, 020–022, 030, 031, 040–042, 050–053, 060, 070–072. New in this plan: AIR-002 (resource repair, replaces audit AIR-001), AIR-003 (gametest infra), AIR-015 (blueprint v2), AIR-016 (dismount), AIR-023 (balance constants), AIR-032 (asset pipeline), AIR-054 (helicopter lift rule, pulled forward from audit P6). No ID is reused with a different meaning.
+
+## Goal
+
+Ship the extension in seven playable slices: repair the currently-dead resources and fuel bug, fix the yaw/transform foundation, introduce a property-based part system, add 11 craftable aircraft parts with own 16×16 copper-steel textures via datagen + a deterministic asset-gen pipeline, animate rotors, add flight rules, and harden multiplayer. Every task is TDD: failing test first, then implementation, then evidence.
+
+## Non-goals
+
+- No 6DoF/pitch/roll flight model (yaw-only rotation, matching current physics).
+- No block-entity state inside blueprints (schema v2 reserves room; no BE serialization).
+- No ground-mode rotor animation (placed blades stay static).
+- No aerodynamics simulation (linear, table-driven stat model only).
+- No 1.21.2+ port; target is exactly MC 1.21.1 / Fabric Loader 0.17.0 / Fabric API 0.114.0+1.21.1 / Loom 1.7 / Gradle 8.8 / Java 21.
+- No Modrinth publishing until Slice 6 passes (`real-boundary-smoke`).
+
+## Preconditions and known gaps
+
+- Work happens on a feature branch (`feature/aircraft-extension`), not `main`. One branch per slice or one long-lived branch with slice-tagged merges — decide at Slice 0; default: long-lived branch, PR per slice.
+- All commands run from `sharkengine/`. `./gradlew test` currently green locally; CI must be confirmed green first (AIR-000).
+- **Gap (verify during AIR-003/AIR-030):** exact Fabric API syntax for GameTest run config and `fabricApi { configureDataGeneration() }` on Loom 1.7 / FAPI 0.114.0+1.21.1 — including datagen-with-split-sources (`client = true`) and the `fabric-gametest` / `fabric-datagen` entrypoint names. The patterns below are the well-known Fabric idioms; confirm against Fabric docs for 1.21.1 before wiring (Context7/Fabric wiki). Do not trust this plan's snippet syntax blindly.
+- **Gap:** no numeric performance budget exists for 512-block ships; AIR-013 defines a measurement, not a pass/fail number, until a baseline exists.
+- Existing saves: v1 blueprints in test worlds must survive (REQ-M1). Back up `run/` worlds before Slice 1.
+- Manual visual gates need a human: texture/optics review and two-client smoke are user-facing checkpoints — flag them in PR descriptions.
+
+## Slice 0 — Repair & Rails (playable gate: parts craftable in survival, fuel lasts documented time)
+
+### AIR-000 · CI baseline green
+- **REQ:** REQ-G1 · **Depends:** —
+- **Files:** `.github/workflows/ci.yml` (read-only check), `sharkengine/gradle.properties`
+- **Do:** Run `./gradlew clean check` locally; push branch; confirm CI green. Record version matrix (MC/Loader/FAPI/Loom/Gradle/Java) in PR description.
+- **Tests:** existing suite (must stay green).
+- **Evidence:** CI run URL green on the feature branch.
+
+### AIR-002 · Resource repair: dead paths, stale formats, missing recipe/loot (B7, B8, B9)
+- **REQ:** REQ-A4 · **Depends:** AIR-000
+- **Files:** `src/main/resources/data/sharkengine/recipes/**` → `recipe/`, `loot_tables/blocks/**` → `loot_table/blocks/`, delete `assets/sharkengine/items/steering_wheel.json`, new `recipe/steering_wheel.json`, `loot_table/blocks/steering_wheel.json`; `src/test/java/dev/sharkengine/ship/ResourceValidationTest.java`
+- **TDD:**
+  1. RED: extend `ResourceValidationTest` — assert singular `data/sharkengine/recipe/` and `loot_table/` exist, plural dirs do NOT exist (mirror the existing tag guard, lines 51–68), every registered block id has recipe + loot table, recipe JSONs use `result.id` (not `result.item`), and no `assets/sharkengine/items/` dir exists. Write path assertions against a single resolvable resource-root constant — AIR-030 later retargets that root to the generated dir without rewriting each assertion.
+  2. GREEN: move/rewrite the two thruster files (fix `result.item` → `result.id`), add steering_wheel recipe (`.P./PCP/.P.`, P=planks tag, C=copper_ingot) and loot table, delete the 1.21.2-format items file.
+- **Evidence:** tests green + `runClient`: craft thruster and steering wheel from recipe book, break both, items drop. (Manual checklist via `/mc-bugtest`.)
+
+### AIR-014 · Fuel rate fix (B3) — pulled forward from P1 because it is small and immediately playable
+- **REQ:** REQ-F3 · **Depends:** AIR-000
+- **Files:** `src/main/java/dev/sharkengine/ship/ShipEntity.java:421-423`, `ShipPhysics.java:102-121` (javadoc), `FuelSystem.java:65-71`; `src/test/java/dev/sharkengine/ship/FuelSystemTest.java`, `ShipPhysicsTest.java`
+- **TDD:**
+  1. RED: test "a ship consuming in PHASE_1 pays exactly 1 fuel after 20 *consuming* ticks, 0 before" — pure helper `FuelTicker` (throttle-conditioned counter), unit-testable without Fabric.
+  2. GREEN: **accumulator, NOT tick-modulo** — a counter on ShipEntity that increments only while consumption conditions hold (`!engineOut && inputForward > 0`); at 20 it resets and subtracts `calculateFuelConsumption(phase)`. Rationale: `tickCount % 20` is entity-lifetime-aligned, not throttle-aligned — it fails the RED test when throttle starts mid-window and is exploitable (pulsing throttle around modulo boundaries flies nearly fuel-free). Persist the counter in NBT.
+  3. Assert HUD remaining-time matches actual drain (both derive from the same per-second constant).
+- **Evidence:** unit tests lock the 20-consuming-ticks rate; `runClient`: full tank at held full throttle lasts ≈ 37 s (phases advance at ticks 40/80/100/120 per `AccelerationPhase`, so most flight time runs at phase-5 rate 3/s — the exact expectation is locked in the unit test, the manual check validates order of magnitude).
+
+### AIR-003 · Fabric GameTest infrastructure
+- **REQ:** REQ-T1 · **Depends:** AIR-000
+- **Files:** `build.gradle` (gametest run config + `fabric-gametest-api-v1` dependency if not in FAPI bundle), `fabric.mod.json` (`fabric-gametest` entrypoint), new `src/gametest/` or `src/main` test class `dev.sharkengine.gametest.AssemblySmokeTest`, `.github/workflows/ci.yml` (gametest job)
+- **Do:** VERIFY exact 1.21.1 wiring against Fabric docs first (see Preconditions gap). Then: one smoke gametest — structure template with steering wheel + 4 planks + thruster, invoke `ShipAssemblyService.scanStructure`, assert `canAssemble`.
+- **TDD:** the smoke gametest IS the red/green cycle for the infra.
+- **Evidence:** `./gradlew runGametest` (or equivalent task) green locally and in CI.
+
+## Slice 1 — Foundation (playable gate: asymmetric L-ship consistent at 0/90/180/270° in render, collision, disassembly)
+
+### AIR-010 · `ShipTransform` — single rotation authority
+- **REQ:** REQ-F1, REQ-F2 · **Depends:** AIR-000
+- **Files:** new `src/main/java/dev/sharkengine/ship/ShipTransform.java`; new `src/test/java/dev/sharkengine/ship/ShipTransformTest.java`
+- **TDD:** RED: pure-math tests — `rotateOffset` roundtrips for 0/90/180/270 and arbitrary angles (float tolerance), `snapToCardinal` boundaries (44.9°→0, 45.1°→90, negative angles), `effectiveYaw` wrap-around (−180/+180), `worldBlock` dedupe behavior on rounding collisions. **Plus one sign-convention cross-consistency test:** pin `rotateOffset(θ=+90°)` to the exact same `(dx,dz)` mapping as the `Rotation` enum used in disassembly (document the world truth: MC yaw is clockwise-positive from above, 0 = south; e.g. yaw +90° ⇔ `Rotation.CLOCKWISE_90`). Without this, renderer, collision, and disassembly can each be internally consistent yet mutually mirrored. GREEN: implement (no Minecraft classes in core math; `Rotation`/`BlockPos` only in thin adapters so tests run with existing stub pattern).
+- **Evidence:** unit tests; grep gate: no other `Math.sin/cos` on blueprint offsets anywhere else (add an ArchUnit-style grep test or a documented review check).
+
+### AIR-015 · Blueprint v2: `SchemaVersion` + `AssemblyYaw` + v1 fallback (B6 partial)
+- **REQ:** REQ-M1 · **Depends:** AIR-010
+- **Files:** `src/main/java/dev/sharkengine/ship/ShipBlueprint.java` (toNbt/fromNbt, new fields), `ShipAssemblyService.java:94` area (capture pilot yaw at scan), `ShipEntity.java` (v1 fallback in `readAdditionalSaveData`); new `ShipBlueprintTest.java`
+- **Design constraint (client delivery):** `assemblyYaw` is a **ShipBlueprint v2 field written by `toNbt`** — never entity-only NBT. The blueprint's sole client path is `ShipBlueprintS2CPayload` (carries `blueprint.toNbt()`, sent in `startSeenByPlayer`, `ShipEntity.java:336-341`); an entity-NBT-only field would never reach `ShipEntityRenderer` and AIR-011 would rotate from a wrong reference. The v1 fallback (`assemblyYaw := entity yaw`) runs **server-side in `readAdditionalSaveData` immediately after `fromNbt`**, before tracking starts — every S2C payload thus already carries v2 NBT; a client-side v1 path never exists.
+- **TDD:** RED: roundtrip test v2 (SchemaVersion=2, AssemblyYaw preserved); legacy fallback as pure math with explicit yaw parameter (v1 NBT + yaw y → blueprint with assemblyYaw==y); the "no visual jump" property (effectiveYaw==0 after load) is asserted at entity level in a GameTest, not in `ShipBlueprintTest` (static `fromNbt` has no entity access); corrupt-BlockCount case (fromNbt trusts stored BlockCount over list size, `ShipBlueprint.java:100` — fix to derive from list). GREEN: implement.
+- **Evidence:** unit tests; load a pre-change test world save → ship renders unchanged.
+
+### AIR-011 · Renderer rotates blueprint by effective yaw (B1)
+- **REQ:** REQ-F1 · **Depends:** AIR-010, AIR-015
+- **Files:** `src/client/java/dev/sharkengine/client/render/ShipEntityRenderer.java:49-65`
+- **Do:** single `poseStack.mulPose(Axis.YP.rotationDegrees(...))` around the block loop using interpolated `entityYaw` minus `assemblyYaw` (sign per vanilla convention — verify against boat renderer, typically `180 − yaw`). Keep per-block translates unchanged.
+- **Tests:** not unit-testable; define manual checklist BEFORE coding: L-ship assembled facing north renders identical pre/post change; turning in flight visibly rotates hull; parked (anchored) ship unchanged; **render orientation matches disassembled block orientation for the L-ship at 90°** (guards against renderer and disassembly rotating in mirrored directions).
+- **Evidence:** `runClient` screenshots at 0/90/180/270 attached to PR; checklist signed off.
+
+### AIR-012 · Collision + disassembly use transformed offsets (B2, B12, B13)
+- **REQ:** REQ-F2 · **Depends:** AIR-010, AIR-015, AIR-003
+- **Files:** `src/main/java/dev/sharkengine/ship/ShipPhysics.java:155-179` (hasCollision/collectOffsets take effective yaw; probe NEXT position = current + deltaMovement), `ShipEntity.java:352-361` (disassembly: snap to cardinal, `BlockState.rotate(Rotation)`, **and fix B13**: blocked target positions currently vanish silently — drop them as ItemStacks via `Block.popResource` instead), `ShipEntity.java:499-504` (pass yaw + next-pos probe)
+- **TDD:** RED: unit tests for rotated offset collision sets (L-shape at 4 cardinals, dedupe after rounding); gametests: assemble L-ship, rotate 90°, fly toward wall → collision happens at rotated footprint; disassemble at 90° → blocks placed rotated, FACING states rotated; **with terrain deliberately occupying part of the rotated footprint: placed + dropped items == blueprint.blocks().size()** (no silent loss). GREEN: implement.
+- **Evidence:** unit + gametest green; manual L-ship flight check.
+
+### AIR-013 · Blueprint-derived render/culling bounds (B5) — culling ONLY, hitbox stays small
+- **REQ:** REQ-F4 · **Depends:** AIR-015
+- **Files:** `src/main/java/dev/sharkengine/ship/ShipEntity.java` (override `getBoundingBoxForCulling` and/or `shouldRenderAtSqrDistance` from blueprint min/max, refreshed in `setBlueprint` — runs on both sides via `ShipBlueprintHandler`), `ShipPartAnalyzer` later supplies bounds (interim: compute min/max from blueprint)
+- **Do NOT enlarge `getDimensions`/EntityDimensions.** `ShipEntity.tick()` calls `this.move(MoverType.SELF, …)` (`ShipEntity.java:473,504`), and vanilla `Entity.move()` collides the dimensions-AABB against terrain — a hull-extent cube would phantom-collide with terrain inside the cube where no hull block exists, breaking low flight and landing. `isPickable()==true` (`ShipEntity.java:517-519`) would additionally turn the whole cube into a click/raytrace target. World collision stays with `ShipPhysics.checkCollision` (AIR-012); the entity hitbox keeps its small size.
+- **TDD:** RED: unit test bounds computation from blueprint (asymmetric shape → correct min/max; rotation-safe extent for the culling box). Gametest: culling AABB covers rotated hull; dimensions-AABB unchanged (2.5×1.5). GREEN: implement; measure (not gate) frame cost on a 512-block ship, record number in PR.
+- **Evidence:** tests green; long ship no longer disappears at screen edge (manual check); low flight over uneven terrain shows no phantom stops.
+
+### AIR-016 · Safe dismount (B10)
+- **REQ:** REQ-F5 · **Depends:** AIR-010, AIR-013, AIR-003
+- **Files:** `src/main/java/dev/sharkengine/ship/ShipEntity.java:508-514`
+- **TDD:** RED gametest: dismount from large hull → player lands in air/on ground outside hull blocks, never inside a blueprint block. GREEN: search transformed perimeter positions (ShipTransform) for a 2-block air column.
+- **Evidence:** gametest green.
+
+## Slice 2 — Semantic part system (playable gate: thruster runs via definition; builder shows structured errors)
+
+### AIR-020 · `PartRole`, `VehiclePartDefinition`, `VehiclePartRegistry` (B4)
+- **REQ:** REQ-S1 · **Depends:** AIR-000
+- **Files:** new `src/main/java/dev/sharkengine/ship/part/{PartRole,VehiclePartDefinition,VehiclePartRegistry}.java`; register legacy `thruster` (PROPULSION, `liftMode=DIRECT`, thrust 20, mass 2) and `steering_wheel` (CONTROL, mass 2); fallback definition (STRUCTURE, mass 1); new `VehiclePartRegistryTest.java`
+- **Design constraints:** `VehiclePartDefinition` carries `liftMode` (`DIRECT` = engine lifts by itself, `ROTOR` = drives rotors only) — this is what lets AIR-054 exempt thrust-only ships without ID comparison. Registration lives in the registry's static initializer or `SharkEngineMod.init()` (**common entrypoint, both sides**) — never in server- or client-only paths, because `ShipEntityRenderer` (client) must resolve ROTOR_BLADE parts from the same registry (split source sets: client compiles against main, so `ship.part` is visible).
+- **TDD:** RED: every registered block id → exactly one definition; unknown block → fallback; thruster resolves as PROPULSION/DIRECT without string comparison; definitions resolve **without any Fabric bootstrap** (plain unit test proves common availability). GREEN: implement.
+- **Evidence:** unit tests.
+
+### AIR-021 · `ShipPartAnalyzer` + `ShipStats` replace `ThrusterRequirements`
+- **REQ:** REQ-S2 · **Depends:** AIR-020
+- **Files:** new `ship/part/ShipPartAnalyzer.java`, `ShipStats.java`; delete `ThrusterRequirements.java`; touch `ShipAssemblyService.java:51,75,162-170`, `ShipEntity.java:555`; port `ShipAssemblyServiceTest`
+- **TDD:** RED: stats aggregation deterministic for mixed part sets (mass/lift/thrust/fuelCap sums); assembly still requires ≥1 PROPULSION; unknown parts count as STRUCTURE mass 1. GREEN: implement. `ThrusterRequirements` must be gone (compile-time proof).
+- **Evidence:** unit tests; gametest from AIR-003 still green.
+
+### AIR-022 · Structured assembly validation codes
+- **REQ:** REQ-S3 · **Depends:** AIR-021
+- **Files:** new `ship/part/AssemblyIssue.java` (code enum + optional BlockPos + args), `ShipAssemblyService`, `net/BuilderPreviewS2CPayload` (carry codes), client `builder/BuilderScreen`/`PreviewState` (render list), `lang/{en_us,de_de}.json`
+- **TDD:** RED: unit tests per issue code (NO_PROPULSION, TERRAIN_CONTACT, TOO_FEW_CORE_NEIGHBORS, …); payload roundtrip test. GREEN: implement; keep old message behavior as translation of codes.
+- **Evidence:** unit tests; `runClient`: builder preview lists all blockers.
+
+### AIR-023 · `VehicleBalance` constants + complete block-count→mass switch
+- **REQ:** REQ-S4 · **Depends:** AIR-020, AIR-021 (mass comes from `ShipStats` — no second aggregation)
+- **Files:** new `ship/part/VehicleBalance.java` (the full table from concept §4 + rotor ω/spool + weight thresholds on mass); `WeightCategory.java` (fromBlockCount → fromMass); **`ShipPhysics.java:52-62`** (`calculateMaxSpeed` independently hardcodes the 20/40/60 block thresholds — derive it from `WeightCategory` instead, one authority); **`ShipEntity.java:408, 552-554, getWeightCategory:156`** (call sites switch to stats mass); **synced mass**: new `SYNC_MASS` EntityData (or sync the server-computed category), because `FuelHudOverlay.java:153` currently recomputes the category client-side from the synced block count — without a synced mass the HUD would show a different category than the server enforces; `FuelHudOverlay.java` reads the new value. New `VehicleBalanceTest.java`, adjust `ShipPhysicsTest`.
+- **TDD:** RED: lock every number from concept §4 in one table-driven test; weight category boundaries on mass (30/60/90); **consistency test: category shown to HUD == category used for max speed for mixed-mass ships** (e.g. 15 blocks of engines+tanks ≈ mass 95 → OVERLOADED everywhere, not "HUD overloaded but flying at 30 b/s"); legacy plain-block ship speeds unchanged within tolerance. GREEN: implement.
+- **Evidence:** unit tests.
+
+## Slice 3 — Datagen + helicopter asset set (playable gate: 7 parts craftable, placeable, textured, assemblable)
+
+### AIR-030 · Datagen entrypoint + providers
+- **REQ:** REQ-A3 · **Depends:** AIR-002
+- **Files:** `build.gradle` (`fabricApi { configureDataGeneration(...) }` — VERIFY split-sources/client flag per Preconditions gap), `fabric.mod.json` (`fabric-datagen` entrypoint), new `src/.../datagen/{SharkEngineDataGenerator, ModelProvider, LootProvider, RecipeProvider, TagProvider, LangProvider}.java`
+- **Do:** first migrate existing thruster/steering_wheel resources into providers; generated output must be **semantically equal** to the AIR-002 hand-fixed files (same parsed JSON content — byte-identity is not required, datagen's formatting is its own). Then delete the hand-written ones from `src/main/resources`, keep the generated dir as canonical (Fabric convention: `src/main/generated`), and **retarget the AIR-002 resource-root constant in `ResourceValidationTest` to the generated root** (the AIR-002 assertions must keep running against the new location, not be deleted).
+- **TDD:** RED: `ResourceValidationTest` asserts generated dir contains recipe+loot+model+blockstate+lang for every registered block. GREEN: providers. Diff-stability: run datagen twice → no diff (test via CI step or gradle task assertion).
+- **Evidence:** `./gradlew runDatagen` (verify task name) idempotent; CI green; `runClient` recipes still work.
+
+### AIR-032 · Deterministic texture pipeline (`tools/asset-gen/`)
+- **REQ:** REQ-A2 · **Depends:** — (parallel to AIR-030)
+- **Files:** new `tools/asset-gen/{palette.json,generate.py,parts/*.py,README.md}` (repo root, beside `tools/modrinth-mcp-server/`); outputs to `sharkengine/src/main/resources/assets/sharkengine/textures/{block,item}/`
+- **Do:** palette.json with the four families/hex values from concept §5.1; generator rules (rivet grid every 4 px, 1-px seams, light leading edge); one drawing function per texture; CLI `python3 generate.py [part…]`.
+- **TDD:** RED: `ResourceValidationTest` — every texture referenced by any model exists, is 16×16, uses only palette colors. GREEN: generate first texture (`airframe_panel`) + wire test.
+- **Evidence:** tests green; regeneration produces zero diff; human optics review in `runClient` (explicit PR checklist item — pipeline output quality is a user gate, not self-certified).
+
+### AIR-031 · Resource contract expansion
+- **REQ:** REQ-A3, REQ-A4 · **Depends:** AIR-020, AIR-030, AIR-032 (the per-block `VehiclePartDefinition` assertion needs the registry from AIR-020 — the Depends graph, not slice order, is the execution contract)
+- **Files:** `ResourceValidationTest.java`
+- **Do/TDD:** assert for EVERY entry in `ModBlocks`: blockstate, block model, item model, loot, recipe (if craftable), en+de translation, `VehiclePartDefinition`, ship_eligible tag membership, resolving texture refs, lowercase filenames. Deleting any one generated file must fail the suite with a useful message (spot-check this failure mode once, document in PR).
+- **Evidence:** deliberately delete one file → red with clear message → restore → green.
+
+### AIR-040 · Core helicopter parts (registry → datagen → PartDefs → textures → tests)
+- **REQ:** REQ-A1, REQ-A2 · **Depends:** AIR-021, AIR-023, AIR-030, AIR-031, AIR-032
+- **Files:** `content/ModBlocks.java`, `content/ModTags.java` (+5 new tags), block classes under `content/block/` (facing/axis states, VoxelShapes), datagen providers, `tools/asset-gen/parts/*.py`, `VehiclePartRegistry` entries, `lang` via provider
+- **Order (one PR per part or small groups, each fully green):** **intermediates FIRST** — `metal_sheet`, `rotor_shaft`, `engine_core`, `bearing_assembly` (every part recipe references them; registering a part recipe before its ingredients exist produces a datapack load error) — then `airframe_panel` → `fuselage_frame` → `helicopter_engine` → `rotor_hub` → `rotor_blade` → `landing_skid`.
+- **TDD per part:** RED: resource-contract test fails for the new id the moment it is registered → GREEN: add all resources/definition; gametest: place+break drops item; assembly including the part yields expected `ShipStats` delta (table-driven from `VehicleBalance`).
+- **Evidence:** per-part: unit+resource+gametest green; slice end: `runClient` — craft and place all 6 parts, assemble a helicopter shape (the strict rotor/lift validity rules arrive in Slice 4 via AIR-054; until then assembly uses the plain PROPULSION check from AIR-021, so `helicopter_engine` qualifies transitionally).
+
+### AIR-042 · `fuel_tank` + capacity contribution
+- **REQ:** REQ-A1 · **Depends:** AIR-040
+- **Files:** part files as above; `ShipEntity` fuel init/refill path (`ShipEntity.java:201-202` MAX_FUEL cap → `100 + stats.fuelCapacity()`), `FuelHudOverlay` scale
+- **TDD:** RED: unit — stats.fuelCapacity from blueprint with N tanks; refill caps at extended max; persistence roundtrip keeps extended fuel. GREEN: implement. Gametest: save/load keeps capacity.
+- **Evidence:** tests green; `runClient` HUD shows extended tank.
+
+## Slice 4 — Rotor MVP (playable gate: helicopter flies with visibly spinning rotor; lift rule enforced)
+
+### AIR-050 · Rotor topology detection + validation
+- **REQ:** REQ-R1 · **Depends:** AIR-040
+- **Files:** new `ship/part/RotorAssembly.java`, analyzer extension; `AssemblyIssue` codes (ROTOR_NO_ENGINE, ROTOR_BLADE_GAP, ROTOR_MIXED_PLANE, ROTOR_BAD_BLADE_COUNT)
+- **TDD:** RED first (this is the highest-unit-test-value task): valid 2-blade, valid 4-blade, gap in chain, one blade only, mixed plane, hub without adjacent engine, two rotors, main-vs-tail via hub axis. GREEN: implement detection during assembly scan; store assemblies in blueprint v2 (or derive deterministically — decide: derive, keeps NBT lean; document decision).
+- **Evidence:** unit suite; gametest: invalid rotor blocks assembly with specific code.
+
+### AIR-051 · Rotor render pass
+- **REQ:** REQ-R2 · **Depends:** AIR-011, AIR-050
+- **Files:** `ShipEntityRenderer.java` — filter ROTOR_BLADE blocks from static pass; per RotorAssembly: pivot to hub, rotate `ω·(level.getGameTime()+partialTick)` around hub axis (**game time, NOT entity `tickCount`** — `tickCount` is client-local and resets per tracking session, so two clients would permanently disagree on blade angle and re-tracking would visibly jump; `getGameTime()` is server-synced), render blades relative. **Cache the static-vs-rotor block partition once in `setBlueprint`** — no per-frame registry lookups across up to 512 blocks.
+- **Tests:** manual checklist defined first: blades rotate around hub (not world origin), main+tail rotors spin on correct axes, static pass shows no duplicate blades, anchored ship idles slow, angle continuous after flying away and back (re-track).
+- **Evidence:** `runClient` video/GIF in PR; checklist signed.
+
+### AIR-052 · RPM/engine-state sync
+- **REQ:** REQ-R3 · **Depends:** AIR-051
+- **Files:** `ShipEntity` EntityData (target ω, engine state, `SPOOL_CHANGE_GAME_TIME` — the spool anchor is a **synced game-time timestamp**, never a client-local tick delta), spool logic in `VehicleBalance` constants (9→36°/tick over 40 ticks)
+- **TDD:** RED: unit — spool interpolation deterministic from (state, gameTime − spoolChangeTime); the synced values change **only on state transitions** (assert the value sequence over a simulated flight: constant while cruising, one change per throttle/fuel event). Do NOT test via accessor-call counting — vanilla `SynchedEntityData.set()` already dedupes identical values (per-tick `set` calls with unchanged values generate zero network traffic, see existing pattern at `ShipEntity.java:438-441`), so call counts prove nothing about packets. GREEN: implement. Gametest: engine off (fuel out) → target ω hits idle→0.
+- **Evidence:** unit + gametest; two-client visual check deferred to AIR-071 (note in PR).
+
+### AIR-053 · Effects at part positions (B11)
+- **REQ:** REQ-R4 · **Depends:** AIR-050, AIR-010
+- **Files:** `ShipEntityRenderer.java:106-122` (particles at transformed PROPULSION/ROTOR_HUB positions), sound emitter position
+- **TDD:** unit: transformed emitter positions for rotated ship (pure ShipTransform math). Manual: particles visually track engine when turning.
+- **Evidence:** unit green + `runClient` check.
+
+### AIR-054 · Helicopter lift rule (moved up from audit P6 — the rotor slice must gate flight, or rotors are decoration)
+- **REQ:** REQ-S4, REQ-R1 · **Depends:** AIR-050, AIR-021
+- **Files:** `ShipAssemblyService`/analyzer. Rule (role-based, NO block-ID comparison — REQ-S1): a craft may lift off iff **(a)** `Σ thrust(liftMode=DIRECT) > 0` (legacy thruster path — flies exactly as today) **or** **(b)** valid rotor topology AND `Σ blade lift ≥ mass` (AssemblyIssue INSUFFICIENT_LIFT). `helicopter_engine` is `liftMode=ROTOR` (from AIR-020), so it alone does not enable flight.
+- **TDD:** RED: 2-blade rotor + mass 17 → rejected; mass 16 → accepted; thruster-only ship → accepted via DIRECT path; **helicopter_engine without any rotor → rejected** (ROTOR_NO_ENGINE/INSUFFICIENT_LIFT code); mixed thruster+rotor craft → accepted via DIRECT even with invalid rotor (document precedence). GREEN: implement.
+- **Evidence:** unit + gametest.
+
+## Slice 5 — Fixed-wing (playable gate: airplane with wing rules flies; invalid builds rejected with reasons)
+
+### AIR-041 · Wing/tail asset set
+- **REQ:** REQ-A1, REQ-A2 · **Depends:** AIR-040 pattern, AIR-031
+- **Files:** as AIR-040 for `wing_root`, `wing_panel`, `wing_tip`, `tail_fin` (+ `reinforced_fabric` intermediate)
+- **TDD:** same per-part contract cycle as AIR-040.
+- **Evidence:** per-part green; parts orientable and contribute stats.
+
+### AIR-060 · Fixed-wing flight rules
+- **REQ:** REQ-W1 · **Depends:** AIR-041, AIR-054
+- **Files:** analyzer/physics: lift counts at phase ≥3; tail_fin required for wing-lift crafts; left/right lift asymmetry ≤25% (AssemblyIssue codes ASYM_WINGS, NO_TAIL_FIN, INSUFFICIENT_LIFT_FIXED_WING)
+- **TDD:** RED: table-driven validity matrix (symmetric ok, 30% asym rejected, no tail rejected, mixed rotor+wing craft → rotor rules win if valid rotor present — document precedence). GREEN: implement.
+- **Evidence:** unit + gametest; `runClient` flight of a small plane.
+
+## Slice 6 — Multiplayer release path
+
+### AIR-070 · Protocol/schema versioning (B6 completion)
+- **REQ:** REQ-M2, REQ-M1 · **Depends:** AIR-052
+- **Files:** `net/ModNetworking.java` + new version-check payload or login-phase check; `blueprintSchemaVersion` already in NBT (AIR-015); clear disconnect message on mismatch
+- **TDD:** RED: unit — version compare logic; payload roundtrip. GREEN: implement. Manual: old-client-jar vs new-server → clean rejection message (document how tested).
+- **Evidence:** unit green + documented mismatch test.
+
+### AIR-071 · Two-client smoke suite (`real-boundary-smoke`)
+- **REQ:** REQ-M3 · **Depends:** AIR-070
+- **Do:** Docker test server (`/test-server`, port 25566) + two real clients (Prism instance ×2, `/mod-deploy`). Scripted checklist: both see same craft/rotor animation/disassembly; join mid-flight; untrack/retrack (fly away+back); chunk reload; server restart persistence.
+- **Evidence:** filled checklist + screenshots/GIF from both clients in PR. This is a human-in-the-loop gate.
+
+### AIR-072 · Packaging
+- **REQ:** REQ-G1 · **Depends:** AIR-071
+- **Do:** version bump (`gradle.properties` mod_version 0.1.0), changelog, build server+client jar (identical), optional Modrinth draft via `tools/modrinth-mcp-server` (requires MODRINTH_TOKEN; ask user before publishing — outward-facing action).
+- **Evidence:** built jar checksums recorded; publish only on explicit user go.
+
+## Execution rules (apply to every task)
+
+1. **RED first** — commit or at least run the failing test before implementation. GameTest counts as a test; a manual checklist written *before* coding counts as RED for render-only tasks.
+2. **One task, one PR-sized change**; slice gates are user checkpoints (playable build + evidence summary).
+3. `./gradlew check` + gametest task green before any "done" claim; never claim done from static JSON inspection or screenshots alone (concept §10).
+4. Commit style: `Feat:`/`Fix:` imperative (repo convention); use feature branch, no work on `main`.
+5. When a "VERIFY" note exists (Fabric datagen/gametest syntax), resolve it against current Fabric 1.21.1 docs before writing code, and record the verified syntax in the PR.
+
+## Risks and rollback
+
+| Risk | Mitigation | Rollback |
+|---|---|---|
+| Blueprint v2 breaks existing saves | v1-fallback path + dedicated legacy roundtrip tests (AIR-015); back up `run/` worlds before Slice 1 | fromNbt keeps reading v1 forever; revert renderer commit independently (AIR-011 is isolated) |
+| Yaw rotation reveals collision edge cases (rounding dedupe, corner clipping) | next-pos probe + unit-tested offset sets (AIR-012); L-ship gate at 4 cardinals | feature-flag: effective yaw can be forced to 0 via a single constant in `ShipTransform` — instant behavioral revert without code removal |
+| Fabric datagen/gametest wiring differs from assumed syntax on Loom 1.7/FAPI 0.114 | explicit VERIFY step against docs; infra tasks isolated (AIR-003/030) with no gameplay coupling | hand-written resources from AIR-002 remain valid; datagen can land later without blocking Slice 3 asset work (fallback: hand-write JSONs against the same contract tests) |
+| Texture quality subjectively poor despite palette conformance | human optics gate per asset PR; pipeline makes iteration cheap | regenerate from adjusted generator scripts; palette.json is the single tuning point |
+| Balance numbers feel wrong in play | all constants in `VehicleBalance`, table-locked tests updated in one place | change table + tests in a single commit; no scattered magic numbers |
+| WeightCategory switch (blocks→mass) changes legacy thruster-ship speeds | mass≈1–2× block count by table; thresholds scaled 1.5× to compensate; legacy ships covered by explicit test in AIR-023 | keep `fromBlockCount` as deprecated shim if regression reported |
+| 512-block render/tick cost after rotation+rotor passes | measure in AIR-013 and AIR-051, record numbers; MAX_BLOCKS=512 already caps worst case | reduce MAX_BLOCKS or add render distance cutoff (one constant) |
+| Two-client smoke reveals desync late | rotor design avoids per-tick packets by construction (deterministic formula); EntityData-only sync tested in AIR-052 | resync on tracking-start already exists via blueprint S2C; worst case: force re-track |
