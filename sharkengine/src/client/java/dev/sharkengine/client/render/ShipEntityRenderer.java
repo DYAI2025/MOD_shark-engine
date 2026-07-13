@@ -79,26 +79,36 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         // ═══════════════════════════════════════════════════════════════════
         // FLR-003 (flight-feel bank/roll, docs/plans/flight-bank-roll.md):
         // second rotation, composed AFTER yaw so it turns around the ship's
-        // own local forward axis (Z, per how blueprint offsets place blocks
-        // via dz) in the already-yaw-rotated frame, not world-space Z.
-        // entity.getClientRoll() is a smoothed, client-only value (never
-        // synced itself — derived every client tick from the synced
-        // SYNC_TURN, see ShipEntity.tick()'s client branch) so this stays
-        // purely cosmetic and identical for every observer.
+        // own local forward axis in the already-yaw-rotated frame, not
+        // world-space. entity.getClientRoll() is a smoothed, client-only
+        // value (never synced itself — derived every client tick from the
+        // synced SYNC_TURN, see ShipEntity.tick()'s client branch) so this
+        // stays purely cosmetic and identical for every observer.
         //
-        // Axis.ZP below is a first guess, NOT yet empirically confirmed —
+        // CORRECTED 2026-07-13 after live runClient feedback, in two steps:
+        //   1) original guess (Axis.ZP) produced visible PITCH (nose/tail
+        //      tilting up/down) instead of ROLL/bank (left/right side
+        //      dipping) — the wrong horizontal axis entirely. (If this ever
+        //      needs re-deriving: block placement is
+        //      poseStack.translate(dx-0.5, dy, dz-0.5), and empirically
+        //      rotating around X — not Z — produces the left/right-dipping
+        //      motion; treat that as ground truth over any a priori "dz is
+        //      forward, so roll must be around Z" reasoning.)
+        //   2) Axis.XP (the axis fix) banked the correct AXIS but the wrong
+        //      SIGN — a right turn dipped the LEFT side. Axis.XN is now
+        //      empirically confirmed correct on both axis and sign.
+        //
         // ShipTransform.rollFromTurnInput's contract only guarantees
         // "positive return value = bank in the direction that turns the
         // ship left"; it does NOT decide which PoseStack axis/sign that
-        // corresponds to visually. Verify in runClient (turn left, confirm
-        // the hull actually banks left — left wing/edge dips) and flip to
-        // Axis.ZN here if it rolls the wrong way. Do not "fix" this by
-        // flipping the sign in rollFromTurnInput instead — that function's
-        // sign convention is deliberately anchored to the already-proven
-        // turn-direction physics (see its javadoc), this axis choice is the
-        // only thing that should change.
+        // corresponds to visually — that mapping lives entirely here. Do
+        // not "fix" a future regression by flipping the sign in
+        // rollFromTurnInput instead — that function's sign convention is
+        // deliberately anchored to the already-proven turn-direction
+        // physics (see its javadoc); this axis/sign choice is the only
+        // thing that should change.
         // ═══════════════════════════════════════════════════════════════════
-        poseStack.mulPose(Axis.ZP.rotationDegrees(entity.getClientRoll()));
+        poseStack.mulPose(Axis.XN.rotationDegrees(entity.getClientRoll()));
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockState blockState = block.state();
