@@ -118,17 +118,15 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         // ShipEntity.tick()'s client branch) — purely cosmetic, identical for
         // every observer.
         //
-        // STARTING GUESS, not yet live-verified: Axis.ZP. This is not a blind
-        // guess — it is the exact axis FLR-003's *first* (wrong) roll attempt
-        // accidentally used and confirmed empirically produces PITCH-type
-        // rotation (nose/tail tilt) in this rendering setup, not roll (see the
-        // comment on the Axis.XN roll call above, and flight-pitch.md's
-        // Preconditions). Only the SIGN is unverified here — confirm live that
-        // positive entity.getClientPitch() (Space/climb) tips the nose UP per
-        // ShipTransform.pitchFromVerticalInput's contract; flip to Axis.ZN if
-        // backwards. Do not re-derive the axis from scratch.
+        // CORRECTED 2026-07-13 after live runClient feedback: the axis (Z) was
+        // confirmed right on the first guess — it really is the same axis
+        // FLR-003's first (wrong) roll attempt accidentally used, exactly as
+        // predicted (see flight-pitch.md's Preconditions) — but the SIGN was
+        // backwards, same class of mistake as roll's XP->XN correction: Space
+        // (climb, positive entity.getClientPitch()) was tipping the nose DOWN
+        // instead of up. Axis.ZN corrects it.
         // ═══════════════════════════════════════════════════════════════════
-        poseStack.mulPose(Axis.ZP.rotationDegrees(entity.getClientPitch()));
+        poseStack.mulPose(Axis.ZN.rotationDegrees(entity.getClientPitch()));
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockState blockState = block.state();
