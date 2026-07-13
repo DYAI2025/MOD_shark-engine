@@ -33,6 +33,8 @@ Requires **Java 21** — Fabric Loom enforces the toolchain and fails on wrong J
 
 **Datagen/`clean` gotcha:** `fabricApi.configureDataGeneration()` (added 2026-07-12, AIR-030) wires `src/main/generated` deletion into the `clean` task, but *regenerating* it is not part of the normal build graph — running `./gradlew clean build` alone leaves `src/main/generated` missing and `test`/`runGametest` red (missing recipe/loot/blockstate/model/tag/lang files for datagen-migrated blocks: currently `bug`, `steering_wheel`, `thruster`). After `clean`, always run `./gradlew runDatagen` before `build`/`test`/`runGametest` — or just `./gradlew clean runDatagen build`. This does **not** affect CI (`.github/workflows/ci.yml` never runs `clean`; the generated output is committed to git, so it's present immediately after checkout) or normal incremental `./gradlew build` without a preceding `clean`.
 
+**GameTest registration gotcha:** `@GameTest`-annotated classes are **not** classpath-scanned — they only run if listed in `src/main/resources/fabric.mod.json`'s `"fabric-gametest"` array. Adding a new GameTest class/file without adding it there compiles and runs cleanly, just silently contributes zero tests (the total test count in `runGametest`'s output stays unchanged — that's the tell). Happened for real 2026-07-13 with `ShipEntityMountGameTest`. Always add new GameTest classes to that array and confirm the reported test count went up.
+
 ## Architecture
 
 ### Source Set Split
@@ -62,6 +64,8 @@ This is enforced by Loom's `splitEnvironmentSourceSets()`. Putting client import
 
 **Ship Assembly** (`ShipAssemblyService`): BFS scan from Steering Wheel finds connected `ship_eligible`-tagged blocks. Constraints: min 4 blocks adjacent to wheel, at least 1 Thruster, no terrain contact, max 512 blocks, max 32-block radius. Produces a `ShipBlueprint`.
 
+**Entity `interact()` on large-hitbox vehicles must PASS on a non-empty hand.** `ShipEntity`'s hitbox spans the whole assembled structure (up to the 32-block radius above), so any entity-level `interact()` override on it — or on any future large-hitbox vehicle entity — intercepts right-clicks *before* vanilla's normal block-placement path ever runs. Returning `CONSUME` unconditionally (e.g. for a generic "mount the pilot" fallback) silently defeats block placement anywhere on/near the vehicle, with zero exceptions logged — exactly what happened in `ShipEntity.interact()` until the 2026-07-13 fix (`ShipEntity.java`, see the fix's inline comment): every right-click holding a `ship_eligible` block near an already-launched ship got mounted-and-consumed instead of placing. Rule: only consume/handle when `player.getItemInHand(hand).isEmpty()`; otherwise return `InteractionResult.PASS` so vanilla gets a chance at normal item-use/placement (same pattern as right-clicking a vanilla boat while holding a block).
+
 **Physics** (`ShipEntity` + `ShipPhysics`): Weight categories (LIGHT 1-20, MEDIUM 21-40, HEAVY 41-60, OVERLOADED 61+) determine max speed. Five `AccelerationPhase` stages ramp speed from 5 to 30 blocks/sec over 6 seconds. Height penalty reduces performance above Y=100.
 
 **Fuel** (`FuelSystem`): 100 energy max, 1 wood = 100 energy, consumption 1-3 units/sec by phase. Critical at <20%.
@@ -84,6 +88,10 @@ JUnit 5 tests in `src/test/java/dev/sharkengine/ship/`:
 - `ResourceValidationTest` — Validates resource files (lang, tags) against expected content
 
 Tests use `@DisplayName` tied to gameplay behavior. Mock Fabric abstractions where needed.
+
+## Debugging "nothing happens" reports
+
+When a player reports an interaction that silently does nothing (no crash, no log error) — e.g. "this item won't place" — check the server log first, but don't stop at "no exceptions, so the block/item registration must be fine." Isolate registration from interaction with `/setblock <pos> <block>` in a live client: if that succeeds, the block/blockstate/model is registered correctly and the bug is somewhere in the *interaction* path (an entity `interact()` override, a custom `useOn`, client-side input handling), not the block definition. This found the `ShipEntity.interact()` mount-hijack bug (2026-07-13) in a couple of commands, versus a much longer detour through blind GUI automation first (see also: `xdotool` synthetic mouse motion does not move the camera in this game — it uses GLFW raw mouse input, which ignores synthetic X11 pointer warps; use `/tp <pos> <yaw> <pitch>` or chat-driven `/data get`/`/setblock` commands for live diagnosis instead of trying to simulate mouse-look).
 
 ## CI
 
