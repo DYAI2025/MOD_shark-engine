@@ -34,6 +34,8 @@
   "item.sharkengine.rotor_hub": "Rotor Hub",
   "item.sharkengine.rotor_shaft": "Rotor Shaft",
   "item.sharkengine.thruster": "Thruster",
+  "key.categories.sharkengine": "Shark Engine",
+  "key.sharkengine.descend": "Descend",
   "message.sharkengine.anchor_off": "Anchor: OFF",
   "message.sharkengine.anchor_on": "Anchor: ON",
   "message.sharkengine.assembly_fail_bug_inside": "Bow must be on the outer edge – currently placed inside.",

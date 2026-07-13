@@ -27,6 +27,9 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 public final class SharkEngineClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        // Custom key bindings (must register before anything reads them)
+        ShipKeyBindings.init();
+
         // Initialize input handler
         HelmInputClient.init();
         

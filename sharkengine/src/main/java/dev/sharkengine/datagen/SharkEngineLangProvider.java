@@ -121,6 +121,10 @@ final class SharkEngineLangProvider {
             // AIR-040: landing_skid (seventh and last core placeable part)
             b.add("block.sharkengine.landing_skid", "Landing Skid");
             b.add("item.sharkengine.landing_skid", "Landing Skid");
+            // 2026-07-13: dedicated descend key (was conflicting with vanilla's
+            // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
+            b.add("key.categories.sharkengine", "Shark Engine");
+            b.add("key.sharkengine.descend", "Descend");
         }
     }
 
@@ -223,6 +227,10 @@ final class SharkEngineLangProvider {
             // AIR-040: landing_skid (seventh and last core placeable part)
             b.add("block.sharkengine.landing_skid", "Landekufe");
             b.add("item.sharkengine.landing_skid", "Landekufe");
+            // 2026-07-13: dedicated descend key (was conflicting with vanilla's
+            // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
+            b.add("key.categories.sharkengine", "Shark Engine");
+            b.add("key.sharkengine.descend", "Sinkflug");
         }
     }
 }

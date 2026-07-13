@@ -15,7 +15,9 @@ import net.minecraft.client.player.LocalPlayer;
  *   <li>W: Forward acceleration (0..1)</li>
  *   <li>A/D: Turn left/right (-1..+1)</li>
  *   <li>Leertaste: Climb up (+1)</li>
- *   <li>Shift: Descend (-1)</li>
+ *   <li>Left Alt (rebindable, {@link ShipKeyBindings#DESCEND}): Descend (-1) —
+ *       deliberately NOT the sneak key; see that class's javadoc for why
+ *       reusing sneak conflicted with vanilla's dismount-on-sneak behavior</li>
  * </ul>
  * 
  * <p>Controller Controls (Xbox-style):</p>
@@ -96,7 +98,7 @@ public final class HelmInputClient {
             if (client.options.keyJump.isDown()) {
                 kbVertical = 1.0f;
             }
-            if (client.options.keyShift.isDown()) {
+            if (ShipKeyBindings.DESCEND.isDown()) {
                 kbVertical = -1.0f;
             }
 
