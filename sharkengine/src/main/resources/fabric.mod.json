@@ -25,7 +25,8 @@
             "dev.sharkengine.gametest.HelicopterEngineGameTest",
             "dev.sharkengine.gametest.RotorHubGameTest",
             "dev.sharkengine.gametest.RotorBladeGameTest",
-            "dev.sharkengine.gametest.LandingSkidGameTest"
+            "dev.sharkengine.gametest.LandingSkidGameTest",
+            "dev.sharkengine.gametest.ShipEntityMountGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

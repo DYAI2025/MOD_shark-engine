@@ -572,7 +572,26 @@ public final class ShipEntity extends Entity {
             }
         }
 
-        // Normal rightclick: mount (only one pilot at a time)
+        // BUG FIX (2026-07-13, live playtest report: "helicopter_engine/rotor_shaft/
+        // metal_sheet können nicht angebaut werden, es passiert einfach nichts"):
+        // a held non-empty item (in particular a ship_eligible BlockItem the player is
+        // trying to attach to an already-assembled/launched ship) must NOT be swallowed
+        // by the mount fallback below. This entity's hitbox spans the whole blueprint
+        // (up to 32-block radius, AIR-0xx assembly constraints), so before this fix
+        // *every* right-click anywhere on/near a launched ship — including one holding a
+        // block meant for placement — landed here and unconditionally mounted the player
+        // (or, if already mounted, silently no-op'd) while returning CONSUME, which
+        // prevents vanilla's normal BlockItem-placement path from ever running. Root-
+        // caused via /setblock (proves the block itself places fine server-side) plus
+        // live runClient repro (mounting happened silently on every attempt). PASS here
+        // lets vanilla fall through to normal item-use/placement against the actual
+        // world block grid, exactly like right-clicking a vanilla boat/minecart while
+        // holding a block still lets you place against terrain behind/around it.
+        if (!player.getItemInHand(hand).isEmpty()) {
+            return InteractionResult.PASS;
+        }
+
+        // Normal rightclick with an empty hand: mount (only one pilot at a time)
         if (pilot != null && !isPilot(player) && getPassengers().stream().anyMatch(e -> e instanceof Player)) {
             // Ship already has a pilot – don't allow a second mount
             return InteractionResult.CONSUME;
