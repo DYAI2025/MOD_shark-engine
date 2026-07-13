@@ -45,27 +45,28 @@ class FuelSystemTest {
     }
     
     @Test
-    @DisplayName("calculateRemainingFlightTime: Phase 1-2 (1 energy/sec)")
+    @DisplayName("calculateRemainingFlightTime: Phase 1-2 (1 energy/sec nominal, "
+            + "x0.25 FUEL_CONSUMPTION_RATE = 4x flight time, 2026-07-13 tuning)")
     void testCalculateRemainingFlightTime_Low() {
-        // 100 energy / 1 energy/sec = 100 seconds
-        assertEquals(100, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_1));
-        assertEquals(50, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_2));
+        // 100 energy / (1 * 0.25 energy/sec) = 400 seconds
+        assertEquals(400, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_1));
+        assertEquals(200, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_2));
     }
-    
+
     @Test
-    @DisplayName("calculateRemainingFlightTime: Phase 3-4 (2 energy/sec)")
+    @DisplayName("calculateRemainingFlightTime: Phase 3-4 (2 energy/sec nominal, x0.25 rate)")
     void testCalculateRemainingFlightTime_Medium() {
-        // 100 energy / 2 energy/sec = 50 seconds
-        assertEquals(50, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_3));
-        assertEquals(25, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_4));
+        // 100 energy / (2 * 0.25 energy/sec) = 200 seconds
+        assertEquals(200, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_3));
+        assertEquals(100, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_4));
     }
-    
+
     @Test
-    @DisplayName("calculateRemainingFlightTime: Phase 5 (3 energy/sec)")
+    @DisplayName("calculateRemainingFlightTime: Phase 5 (3 energy/sec nominal, x0.25 rate)")
     void testCalculateRemainingFlightTime_High() {
-        // 100 energy / 3 energy/sec = 33 seconds
-        assertEquals(33, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_5));
-        assertEquals(16, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_5));
+        // 100 energy / (3 * 0.25 energy/sec) = 133.33 -> 133 seconds
+        assertEquals(133, FuelSystem.calculateRemainingFlightTime(100, AccelerationPhase.PHASE_5));
+        assertEquals(66, FuelSystem.calculateRemainingFlightTime(50, AccelerationPhase.PHASE_5));
     }
     
     @Test
@@ -102,17 +103,19 @@ class FuelSystemTest {
     }
     
     @Test
-    @DisplayName("formatRemainingTime: Shows seconds for short times")
+    @DisplayName("formatRemainingTime: Shows seconds for short times (inputs scaled down from "
+            + "pre-2026-07-13 values so the x0.25 rate still lands under the 60s boundary)")
     void testFormatRemainingTime_Seconds() {
-        assertEquals("30s", FuelSystem.formatRemainingTime(30, AccelerationPhase.PHASE_1));
-        assertEquals("15s", FuelSystem.formatRemainingTime(30, AccelerationPhase.PHASE_3));
+        assertEquals("20s", FuelSystem.formatRemainingTime(5, AccelerationPhase.PHASE_1));
+        assertEquals("20s", FuelSystem.formatRemainingTime(10, AccelerationPhase.PHASE_3));
     }
-    
+
     @Test
-    @DisplayName("formatRemainingTime: Shows minutes for long times")
+    @DisplayName("formatRemainingTime: Shows minutes for long times (inputs scaled down from "
+            + "pre-2026-07-13 values so the x0.25 rate lands on the same 1m/2m marks)")
     void testFormatRemainingTime_Minutes() {
-        assertEquals("1m", FuelSystem.formatRemainingTime(60, AccelerationPhase.PHASE_1));
-        assertEquals("2m", FuelSystem.formatRemainingTime(120, AccelerationPhase.PHASE_1));
+        assertEquals("1m", FuelSystem.formatRemainingTime(15, AccelerationPhase.PHASE_1));
+        assertEquals("2m", FuelSystem.formatRemainingTime(30, AccelerationPhase.PHASE_1));
     }
     
     @Test

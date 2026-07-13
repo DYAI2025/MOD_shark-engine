@@ -98,6 +98,25 @@ public final class VehicleBalance {
     public static final float PITCH_SMOOTHING_FACTOR = 0.15f;
 
     // ═══════════════════════════════════════════════════════════════════
+    // FUEL TUNING
+    //
+    // User feedback 2026-07-13: "Der Spritverbrauch ist sehr hoch aktuell.
+    // Bitte den Verbrauch um das vierfache reduzieren, so dass er vier mal
+    // länger hält." Deliberately a separate multiplier rather than changing
+    // ShipPhysics.calculateFuelConsumption's per-phase 1/2/3 nominal values
+    // directly — those are locked by ShipPhysicsTest as the documented
+    // "energy/sec" balance-table numbers; this constant is the single place
+    // to retune overall fuel duration without touching that contract.
+    // Consumed by ShipEntity#tick() (via a fractional accumulator, since
+    // fuelLevel is an int and 1/4 of "1 energy/sec" isn't a whole unit) and
+    // FuelSystem#calculateRemainingFlightTime (so the displayed time matches
+    // actual burn rate).
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Multiplies {@code ShipPhysics.calculateFuelConsumption}'s nominal per-phase rate. 0.25 = 4x flight time. */
+    public static final float FUEL_CONSUMPTION_RATE = 0.25f;
+
+    // ═══════════════════════════════════════════════════════════════════
     // PART BALANCE TABLE (concept §4)
     //
     // The concept table's dash ("–") cells mean "no contribution" (0), and

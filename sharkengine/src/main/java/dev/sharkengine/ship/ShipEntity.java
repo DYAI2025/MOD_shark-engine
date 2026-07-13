@@ -150,6 +150,17 @@ public final class ShipEntity extends Entity {
     /** Tick counter for per-second fuel consumption */
     private int fuelConsumptionTick = 0;
 
+    /**
+     * Fractional energy not yet subtracted from {@link #fuelLevel} (2026-07-13
+     * fuel-duration tuning). {@link dev.sharkengine.ship.part.VehicleBalance#FUEL_CONSUMPTION_RATE}
+     * quarters the nominal per-second consumption from {@link ShipPhysics#calculateFuelConsumption},
+     * which no longer divides evenly into the integer {@link #fuelLevel} — this
+     * accumulator carries the sub-1 remainder across ticks so the average
+     * long-run burn rate is still exactly the intended fraction, not rounded
+     * away every second.
+     */
+    private float fuelDebt = 0.0f;
+
     // ═══════════════════════════════════════════════════════════════════
     // BUG-BASED DIRECTION (replaces thruster direction)
     // ═══════════════════════════════════════════════════════════════════
@@ -827,13 +838,18 @@ public final class ShipEntity extends Entity {
             fuelConsumptionTick++;
             if (fuelConsumptionTick >= 20) {
                 fuelConsumptionTick = 0;
-                int consumption = ShipPhysics.calculateFuelConsumption(phase);
-                fuelLevel -= consumption;
+                int nominalConsumption = ShipPhysics.calculateFuelConsumption(phase);
+                fuelDebt += nominalConsumption * dev.sharkengine.ship.part.VehicleBalance.FUEL_CONSUMPTION_RATE;
+                int wholeUnits = (int) fuelDebt;
+                if (wholeUnits > 0) {
+                    fuelDebt -= wholeUnits;
+                    fuelLevel -= wholeUnits;
 
-                if (fuelLevel <= 0) {
-                    engineOut = true;
-                    fuelLevel = 0;
-                    notifyPilot(Component.translatable("message.sharkengine.no_fuel"));
+                    if (fuelLevel <= 0) {
+                        engineOut = true;
+                        fuelLevel = 0;
+                        notifyPilot(Component.translatable("message.sharkengine.no_fuel"));
+                    }
                 }
             }
         } else {

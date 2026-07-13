@@ -58,17 +58,23 @@ public final class FuelSystem {
     
     /**
      * Calculates remaining flight time in seconds based on current fuel level and phase.
-     * 
+     *
+     * <p>Applies {@link dev.sharkengine.ship.part.VehicleBalance#FUEL_CONSUMPTION_RATE}
+     * (2026-07-13 fuel-duration tuning) to {@link ShipPhysics#calculateFuelConsumption}'s
+     * nominal per-second rate, so the displayed time matches {@code ShipEntity#tick()}'s
+     * actual (now 4x slower) burn rate rather than the un-tuned nominal one.</p>
+     *
      * @param fuelLevel Current fuel level in energy units
      * @param phase Current acceleration phase
      * @return Remaining flight time in seconds
      */
     public static int calculateRemainingFlightTime(int fuelLevel, AccelerationPhase phase) {
-        int consumption = ShipPhysics.calculateFuelConsumption(phase);
-        if (consumption == 0) {
+        int nominalConsumption = ShipPhysics.calculateFuelConsumption(phase);
+        if (nominalConsumption == 0) {
             return Integer.MAX_VALUE; // No consumption = infinite flight
         }
-        return fuelLevel / consumption;
+        float effectiveConsumption = nominalConsumption * dev.sharkengine.ship.part.VehicleBalance.FUEL_CONSUMPTION_RATE;
+        return (int) (fuelLevel / effectiveConsumption);
     }
     
     /**
