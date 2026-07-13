@@ -190,7 +190,9 @@ Block-IDs (REQ-S1).
   → 2-Blatt-Rotor trägt 16 mass, 4-Blatt 32 mass. Mehrere Rotoren addieren.
   Ein `helicopter_engine` ohne gültigen Rotor wird mit konkretem Code abgelehnt.
 - `WeightCategory` wird von Blockanzahl auf `mass` umgestellt; Schwellen skaliert
-  (LIGHT ≤ 30, MEDIUM ≤ 60, HEAVY ≤ 90, OVERLOADED > 90) — Werte in `VehicleBalance`.
+  (LIGHT ≤ 120, MEDIUM ≤ 240, HEAVY ≤ 360, OVERLOADED > 360) — Werte in
+  `VehicleBalance`. Ursprünglich 30/60/90; am 2026-07-13 um das Vierfache
+  angehoben (Nutzerwunsch: größere Flugzeuge sollen baubar/flugfähig bleiben).
 - Bestehende Speed-/Phasen-Pipeline (`AccelerationPhase`, Höhenmalus) bleibt unverändert.
 
 **Fixed-Wing-Regeln (späterer Slice):** Lift zählt erst ab Phase 3 (≥ 15 b/s);

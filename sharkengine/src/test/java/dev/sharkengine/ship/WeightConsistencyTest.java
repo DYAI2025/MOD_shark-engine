@@ -35,19 +35,20 @@ class WeightConsistencyTest {
     private static final String AIRFRAME_PANEL_ID = "sharkengine:airframe_panel";
 
     @Test
-    @DisplayName("mixed-mass ship: 16 helicopter_engine blocks (mass 6 each) -> mass 96, OVERLOADED everywhere")
+    @DisplayName("mixed-mass ship: 70 helicopter_engine blocks (mass 6 each) -> mass 420, OVERLOADED everywhere")
     void fewHeavyEngineBlocksAreOverloadedByMassNotBlockCount() {
-        // Deliberately FEW blocks (16, well under the old block-count
-        // OVERLOADED threshold of 61) but each one heavy
-        // (helicopter_engine mass=6, concept §4) -> mass 96.
+        // 70 blocks is a small fraction of the 512-block BFS structural cap,
+        // but each one is heavy (helicopter_engine mass=6, concept §4) ->
+        // mass 420, past the 2026-07-13-raised OVERLOADED threshold (>360).
+        // Still proves the point by mass, not block count.
         List<String> blockIds = new ArrayList<>();
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 70; i++) {
             blockIds.add(HELICOPTER_ENGINE_ID);
         }
 
         ShipStats stats = ShipPartAnalyzer.analyze(blockIds);
-        assertEquals(16, blockIds.size());
-        assertEquals(96, stats.mass(), "16 * mass6 helicopter_engine should sum to 96");
+        assertEquals(70, blockIds.size());
+        assertEquals(420, stats.mass(), "70 * mass6 helicopter_engine should sum to 420");
 
         // The category the HUD would show (ShipEntity.getWeightCategory() ->
         // WeightCategory.fromMass(getMass()), getMass() reading SYNC_MASS).
@@ -58,7 +59,7 @@ class WeightConsistencyTest {
         float serverMaxSpeed = ShipPhysics.calculateMaxSpeed(stats.mass());
 
         assertEquals(WeightCategory.OVERLOADED, hudCategory,
-                "96 mass must read OVERLOADED, not LIGHT — a block-count-only read (16 blocks) would wrongly say LIGHT");
+                "420 mass must read OVERLOADED despite only 70 (of a possible 512) blocks");
         assertEquals(0.0f, serverMaxSpeed,
                 "OVERLOADED must ground the ship (0 b/s), matching what the HUD category says");
 
@@ -75,7 +76,7 @@ class WeightConsistencyTest {
     void manyLightPanelBlocksStayLightByMassNotBlockCount() {
         // The inverse mix: lots of blocks (25, over the old block-count
         // LIGHT threshold of 20) but each one is mass-1 -> mass 25, still
-        // comfortably LIGHT under the new mass threshold (<=30).
+        // comfortably LIGHT under the mass threshold (<=120).
         List<String> blockIds = new ArrayList<>();
         for (int i = 0; i < 25; i++) {
             blockIds.add(AIRFRAME_PANEL_ID);
@@ -100,7 +101,7 @@ class WeightConsistencyTest {
         // of — no mass value can make the two paths disagree, because
         // ShipPhysics.calculateMaxSpeed derives from WeightCategory instead
         // of hardcoding its own thresholds (AIR-023 "single authority").
-        for (int mass = 0; mass <= 200; mass += 5) {
+        for (int mass = 0; mass <= 500; mass += 5) {
             float expected = mass <= 0 ? 0.0f : WeightCategory.fromMass(mass).getMaxSpeed();
             assertEquals(expected, ShipPhysics.calculateMaxSpeed(mass), "mass=" + mass);
         }

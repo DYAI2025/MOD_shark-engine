@@ -84,11 +84,12 @@ class VehicleBalanceTest {
     // ─── weight-category thresholds (mass-based, concept §4) ──────────────────
 
     @Test
-    @DisplayName("weight thresholds: LIGHT<=30, MEDIUM<=60, HEAVY<=90 (OVERLOADED > 90)")
+    @DisplayName("weight thresholds: LIGHT<=120, MEDIUM<=240, HEAVY<=360 (OVERLOADED > 360) — "
+            + "4x raised 2026-07-13 from the original concept 30/60/90")
     void weightThresholdsMatchConcept() {
-        assertEquals(30, VehicleBalance.LIGHT_MAX_MASS);
-        assertEquals(60, VehicleBalance.MEDIUM_MAX_MASS);
-        assertEquals(90, VehicleBalance.HEAVY_MAX_MASS);
+        assertEquals(120, VehicleBalance.LIGHT_MAX_MASS);
+        assertEquals(240, VehicleBalance.MEDIUM_MAX_MASS);
+        assertEquals(360, VehicleBalance.HEAVY_MAX_MASS);
     }
 
     // ─── rotor animation constants (concept §6) ────────────────────────────────

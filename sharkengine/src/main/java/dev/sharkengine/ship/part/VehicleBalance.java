@@ -30,16 +30,21 @@ public final class VehicleBalance {
     // ═══════════════════════════════════════════════════════════════════
     // WEIGHT-CATEGORY THRESHOLDS (mass-based, concept §4)
     //
-    // "WeightCategory wird von Blockanzahl auf mass umgestellt; Schwellen
-    // skaliert (LIGHT ≤ 30, MEDIUM ≤ 60, HEAVY ≤ 90, OVERLOADED > 90)".
-    // WeightCategory.fromMass is the only reader of these three constants;
-    // ShipPhysics.calculateMaxSpeed derives its speed from WeightCategory
-    // instead of re-declaring its own thresholds (single authority, AIR-023).
+    // Originally "LIGHT ≤ 30, MEDIUM ≤ 60, HEAVY ≤ 90, OVERLOADED > 90" per
+    // the concept doc's AIR-023 mass migration. Raised 4x (2026-07-13, user
+    // request: "lass uns das zulässige maximal Gewicht um das vierfache
+    // anheben, so dass der Spieler auch große Flugzeuge bauen kann") so
+    // larger builds stay flyable — docs/AIRCRAFT_CONCEPT_V2.md §4 updated to
+    // match, these constants are the current source of truth, not the
+    // original concept numbers. WeightCategory.fromMass is the only reader
+    // of these three constants; ShipPhysics.calculateMaxSpeed derives its
+    // speed from WeightCategory instead of re-declaring its own thresholds
+    // (single authority, AIR-023).
     // ═══════════════════════════════════════════════════════════════════
 
-    public static final int LIGHT_MAX_MASS = 30;
-    public static final int MEDIUM_MAX_MASS = 60;
-    public static final int HEAVY_MAX_MASS = 90;
+    public static final int LIGHT_MAX_MASS = 120;
+    public static final int MEDIUM_MAX_MASS = 240;
+    public static final int HEAVY_MAX_MASS = 360;
     // OVERLOADED: mass > HEAVY_MAX_MASS (unbounded above)
 
     // ═══════════════════════════════════════════════════════════════════

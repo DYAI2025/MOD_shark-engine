@@ -10,10 +10,11 @@ import static org.junit.jupiter.api.Assertions.*;
  * Covers all four weight categories, boundary values, canFly(), and warnings.
  *
  * <p>AIR-023: switched from block-count thresholds (20/40/60) to mass thresholds
- * (30/60/90) per {@code docs/AIRCRAFT_CONCEPT_V2.md} §4 — {@code fromBlockCount} is
+ * per {@code docs/AIRCRAFT_CONCEPT_V2.md} §4 — {@code fromBlockCount} is
  * gone, {@code fromMass} is the only entry point, sourcing its boundaries from
  * {@link dev.sharkengine.ship.part.VehicleBalance} (single authority, no duplicated
- * thresholds).</p>
+ * thresholds). Mass thresholds were originally 30/60/90, raised 4x to 120/240/360
+ * on 2026-07-13 (user request: larger builds should stay flyable).</p>
  */
 @DisplayName("WeightCategory Tests")
 class WeightCategoryTest {
@@ -33,51 +34,51 @@ class WeightCategoryTest {
     }
 
     @Test
-    @DisplayName("fromMass: mass=30 → LIGHT (upper boundary)")
-    void thirtyMass_isLight() {
-        assertEquals(WeightCategory.LIGHT, WeightCategory.fromMass(30));
+    @DisplayName("fromMass: mass=120 → LIGHT (upper boundary)")
+    void oneHundredTwentyMass_isLight() {
+        assertEquals(WeightCategory.LIGHT, WeightCategory.fromMass(120));
     }
 
     @Test
-    @DisplayName("fromMass: mass=31 → MEDIUM (lower boundary)")
-    void thirtyOneMass_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(31));
+    @DisplayName("fromMass: mass=121 → MEDIUM (lower boundary)")
+    void oneHundredTwentyOneMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(121));
     }
 
     @Test
-    @DisplayName("fromMass: mass=45 → MEDIUM (midpoint)")
-    void fortyFiveMass_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(45));
+    @DisplayName("fromMass: mass=180 → MEDIUM (midpoint)")
+    void oneHundredEightyMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(180));
     }
 
     @Test
-    @DisplayName("fromMass: mass=60 → MEDIUM (upper boundary)")
-    void sixtyMass_isMedium() {
-        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(60));
+    @DisplayName("fromMass: mass=240 → MEDIUM (upper boundary)")
+    void twoHundredFortyMass_isMedium() {
+        assertEquals(WeightCategory.MEDIUM, WeightCategory.fromMass(240));
     }
 
     @Test
-    @DisplayName("fromMass: mass=61 → HEAVY (lower boundary)")
-    void sixtyOneMass_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(61));
+    @DisplayName("fromMass: mass=241 → HEAVY (lower boundary)")
+    void twoHundredFortyOneMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(241));
     }
 
     @Test
-    @DisplayName("fromMass: mass=75 → HEAVY (midpoint)")
-    void seventyFiveMass_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(75));
+    @DisplayName("fromMass: mass=300 → HEAVY (midpoint)")
+    void threeHundredMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(300));
     }
 
     @Test
-    @DisplayName("fromMass: mass=90 → HEAVY (upper boundary)")
-    void ninetyMass_isHeavy() {
-        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(90));
+    @DisplayName("fromMass: mass=360 → HEAVY (upper boundary)")
+    void threeHundredSixtyMass_isHeavy() {
+        assertEquals(WeightCategory.HEAVY, WeightCategory.fromMass(360));
     }
 
     @Test
-    @DisplayName("fromMass: mass=91 → OVERLOADED (lower boundary)")
-    void ninetyOneMass_isOverloaded() {
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(91));
+    @DisplayName("fromMass: mass=361 → OVERLOADED (lower boundary)")
+    void threeHundredSixtyOneMass_isOverloaded() {
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(361));
     }
 
     @Test
@@ -177,13 +178,13 @@ class WeightCategoryTest {
     // ─── min/max range sanity ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Categories cover the full integer range without gaps (mass thresholds 30/60/90)")
+    @DisplayName("Categories cover the full integer range without gaps (mass thresholds 120/240/360)")
     void categoriesCoversFullRange_noGaps() {
-        assertEquals(WeightCategory.LIGHT,      WeightCategory.fromMass(30));
-        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(31));
-        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(60));
-        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(61));
-        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(90));
-        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(91));
+        assertEquals(WeightCategory.LIGHT,      WeightCategory.fromMass(120));
+        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(121));
+        assertEquals(WeightCategory.MEDIUM,     WeightCategory.fromMass(240));
+        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(241));
+        assertEquals(WeightCategory.HEAVY,      WeightCategory.fromMass(360));
+        assertEquals(WeightCategory.OVERLOADED, WeightCategory.fromMass(361));
     }
 }

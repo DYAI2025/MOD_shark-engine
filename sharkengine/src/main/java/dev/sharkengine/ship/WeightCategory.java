@@ -13,41 +13,42 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Weight categories affect flight capability. Thresholds are mass values,
  * sourced from {@link VehicleBalance} (single authority — not duplicated here
- * or in {@link dev.sharkengine.ship.ShipPhysics}):</p>
+ * or in {@link dev.sharkengine.ship.ShipPhysics}). Raised 4x on 2026-07-13
+ * (originally 30/60/90) so larger builds stay flyable:</p>
  * <ul>
- *   <li>LIGHT (mass 0-30): Full speed (30 blocks/sec)</li>
- *   <li>MEDIUM (mass 31-60): Reduced speed (20 blocks/sec)</li>
- *   <li>HEAVY (mass 61-90): Slow speed (10 blocks/sec) + warning</li>
- *   <li>OVERLOADED (mass 91+): Cannot fly (0 blocks/sec) + error</li>
+ *   <li>LIGHT (mass 0-120): Full speed (30 blocks/sec)</li>
+ *   <li>MEDIUM (mass 121-240): Reduced speed (20 blocks/sec)</li>
+ *   <li>HEAVY (mass 241-360): Slow speed (10 blocks/sec) + warning</li>
+ *   <li>OVERLOADED (mass 361+): Cannot fly (0 blocks/sec) + error</li>
  * </ul>
  *
  * @author Shark Engine Team
- * @version 2.0 (AIR-023: mass-based thresholds)
+ * @version 2.1 (2026-07-13: thresholds raised 4x for larger builds)
  */
 public enum WeightCategory {
     /**
-     * Light vehicles: mass 0-30
+     * Light vehicles: mass 0-120
      * Maximum speed: 30 blocks/sec
      * No warning displayed
      */
     LIGHT(0, VehicleBalance.LIGHT_MAX_MASS, 30.0f, null),
 
     /**
-     * Medium vehicles: mass 31-60
+     * Medium vehicles: mass 121-240
      * Maximum speed: 20 blocks/sec
      * No warning displayed
      */
     MEDIUM(VehicleBalance.LIGHT_MAX_MASS + 1, VehicleBalance.MEDIUM_MAX_MASS, 20.0f, null),
 
     /**
-     * Heavy vehicles: mass 61-90
+     * Heavy vehicles: mass 241-360
      * Maximum speed: 10 blocks/sec
      * Warning: "Achtung: Schiff wird langsam"
      */
     HEAVY(VehicleBalance.MEDIUM_MAX_MASS + 1, VehicleBalance.HEAVY_MAX_MASS, 10.0f, "§eAchtung: Schiff wird langsam"),
 
     /**
-     * Overloaded vehicles: mass 91+
+     * Overloaded vehicles: mass 361+
      * Maximum speed: 0 blocks/sec (cannot fly)
      * Error: "⚠️ Zu schwer zum Fliegen!"
      */
