@@ -110,6 +110,26 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         // ═══════════════════════════════════════════════════════════════════
         poseStack.mulPose(Axis.XN.rotationDegrees(entity.getClientRoll()));
 
+        // ═══════════════════════════════════════════════════════════════════
+        // FLP-003 (flight-feel pitch, docs/plans/flight-pitch.md): third rotation,
+        // composed after yaw+roll for the same local-forward-axis reasoning as
+        // roll above. entity.getClientPitch() is a smoothed, client-only value
+        // derived every client tick from the synced SYNC_VERTICAL (see
+        // ShipEntity.tick()'s client branch) — purely cosmetic, identical for
+        // every observer.
+        //
+        // STARTING GUESS, not yet live-verified: Axis.ZP. This is not a blind
+        // guess — it is the exact axis FLR-003's *first* (wrong) roll attempt
+        // accidentally used and confirmed empirically produces PITCH-type
+        // rotation (nose/tail tilt) in this rendering setup, not roll (see the
+        // comment on the Axis.XN roll call above, and flight-pitch.md's
+        // Preconditions). Only the SIGN is unverified here — confirm live that
+        // positive entity.getClientPitch() (Space/climb) tips the nose UP per
+        // ShipTransform.pitchFromVerticalInput's contract; flip to Axis.ZN if
+        // backwards. Do not re-derive the axis from scratch.
+        // ═══════════════════════════════════════════════════════════════════
+        poseStack.mulPose(Axis.ZP.rotationDegrees(entity.getClientPitch()));
+
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockState blockState = block.state();
             if (blockState.getRenderShape() != RenderShape.MODEL) continue;

@@ -80,6 +80,24 @@ public final class VehicleBalance {
     public static final float BANK_SMOOTHING_FACTOR = 0.15f;
 
     // ═══════════════════════════════════════════════════════════════════
+    // FLIGHT-FEEL: PITCH (FLP-004, docs/plans/flight-pitch.md)
+    //
+    // Purely cosmetic (ShipEntityRenderer only), same as bank/roll above —
+    // see that plan doc's Non-goals for why this deliberately does not
+    // touch vertical-speed physics/collision.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Maximum visual pitch angle at full vertical input, in degrees. Smaller
+     * than {@link #MAX_BANK_DEG}'s 25° — pitch reads as a more extreme
+     * attitude change at the same angle than roll does.
+     */
+    public static final float MAX_PITCH_DEG = 18.0f;
+
+    /** Per-tick interpolation fraction for pitch, same convention as {@link #BANK_SMOOTHING_FACTOR}. */
+    public static final float PITCH_SMOOTHING_FACTOR = 0.15f;
+
+    // ═══════════════════════════════════════════════════════════════════
     // PART BALANCE TABLE (concept §4)
     //
     // The concept table's dash ("–") cells mean "no contribution" (0), and

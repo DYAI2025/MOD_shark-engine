@@ -134,4 +134,33 @@ public final class ShipTransform {
         float clamped = Math.max(-1.0f, Math.min(1.0f, turnInput));
         return clamped * maxBankDeg;
     }
+
+    /**
+     * Pitch angle for the flight-feel feature (FLP-002, docs/plans/flight-pitch.md) —
+     * a pure, deterministic mapping from vertical input to a visual pitch angle.
+     * Structurally identical to {@link #rollFromTurnInput}: linear and clamped,
+     * {@code verticalInput} is expected in {@code [-1, 1]} (callers should already
+     * clamp, e.g. {@code ShipEntity.setInputVertical}) but out-of-range input is
+     * defensively clamped here too rather than trusted.
+     *
+     * <p><b>Sign convention:</b> the return value has the SAME sign as
+     * {@code verticalInput}. Positive {@code verticalInput} is Space/climb
+     * (see {@code HelmInputClient}: Space=+1, Shift=-1), and per the user's own
+     * stated convention for this feature a climb should tip the nose UP — so a
+     * positive return here means "pitch nose up". This function does NOT decide
+     * which {@code PoseStack} rotation axis/direction corresponds to nose-up —
+     * that mapping is empirically verified in {@code ShipEntityRenderer} (FLP-003)
+     * against a real {@code runClient} render, not assumed here (though the axis
+     * itself is very likely already known from the FLR-003 bug hunt — see that
+     * task's notes in the plan doc).</p>
+     *
+     * @param verticalInput current vertical input, expected {@code [-1, 1]}
+     * @param maxPitchDeg   maximum pitch angle in degrees at full vertical input
+     * @return pitch angle in degrees, same sign as {@code verticalInput}, clamped
+     *         to {@code [-maxPitchDeg, maxPitchDeg]}
+     */
+    public static float pitchFromVerticalInput(float verticalInput, float maxPitchDeg) {
+        float clamped = Math.max(-1.0f, Math.min(1.0f, verticalInput));
+        return clamped * maxPitchDeg;
+    }
 }

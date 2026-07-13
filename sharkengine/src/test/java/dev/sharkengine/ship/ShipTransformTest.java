@@ -228,4 +228,53 @@ class ShipTransformTest {
             assertEquals(-MAX_BANK, ShipTransform.rollFromTurnInput(-2f, MAX_BANK), (float) EPSILON);
         }
     }
+
+    @Nested
+    @DisplayName("pitchFromVerticalInput (FLP-002, docs/plans/flight-pitch.md)")
+    class PitchFromVerticalInputTests {
+
+        private static final float MAX_PITCH = 18.0f;
+
+        @Test
+        @DisplayName("zero input produces zero pitch")
+        void zeroInputIsZeroPitch() {
+            assertEquals(0.0f, ShipTransform.pitchFromVerticalInput(0f, MAX_PITCH), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("full positive input (Space/climb) produces full positive pitch (nose up)")
+        void fullPositiveInputIsFullPitch() {
+            assertEquals(MAX_PITCH, ShipTransform.pitchFromVerticalInput(1f, MAX_PITCH), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("full negative input (Shift/descend) produces full negative pitch (nose down)")
+        void fullNegativeInputIsFullPitch() {
+            assertEquals(-MAX_PITCH, ShipTransform.pitchFromVerticalInput(-1f, MAX_PITCH), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("half input produces half pitch (linear, proportional to vertical input)")
+        void halfInputIsHalfPitch() {
+            assertEquals(MAX_PITCH / 2f, ShipTransform.pitchFromVerticalInput(0.5f, MAX_PITCH), (float) EPSILON);
+        }
+
+        @Test
+        @DisplayName("REGRESSION: same sign as verticalInput — positive verticalInput (Space/climb) " +
+                "must pitch the same sign (nose up), not opposite")
+        void sameSignAsVerticalInput() {
+            float positivePitch = ShipTransform.pitchFromVerticalInput(0.3f, MAX_PITCH);
+            float negativePitch = ShipTransform.pitchFromVerticalInput(-0.3f, MAX_PITCH);
+            assertEquals(true, positivePitch > 0, "positive verticalInput must produce positive pitch");
+            assertEquals(true, negativePitch < 0, "negative verticalInput must produce negative pitch");
+        }
+
+        @Test
+        @DisplayName("out-of-range verticalInput stays clamped to maxPitchDeg (defensive, callers " +
+                "should already clamp to -1..1)")
+        void outOfRangeInputIsClamped() {
+            assertEquals(MAX_PITCH, ShipTransform.pitchFromVerticalInput(1.5f, MAX_PITCH), (float) EPSILON);
+            assertEquals(-MAX_PITCH, ShipTransform.pitchFromVerticalInput(-2f, MAX_PITCH), (float) EPSILON);
+        }
+    }
 }

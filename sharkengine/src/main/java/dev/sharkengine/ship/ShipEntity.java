@@ -80,6 +80,14 @@ public final class ShipEntity extends Entity {
      */
     private static final EntityDataAccessor<Float> SYNC_TURN =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
+    /**
+     * Synced current vertical input (FLP-001, docs/plans/flight-pitch.md) — the
+     * direct analog of {@link #SYNC_TURN} for the pitch feature. Mirrors the
+     * server-side {@link #inputVertical} field for the same reason: rendering
+     * runs for every observer, not just the local pilot.
+     */
+    private static final EntityDataAccessor<Float> SYNC_VERTICAL =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
 
     // ═══════════════════════════════════════════════════════════════════
     // FIELDS
@@ -199,6 +207,16 @@ public final class ShipEntity extends Entity {
 
     public float getClientRoll() { return clientRoll; }
 
+    /**
+     * Client-only smoothed pitch angle (FLP-003, docs/plans/flight-pitch.md).
+     * Direct analog of {@link #clientRoll}: derived every client tick from
+     * {@link #SYNC_VERTICAL} via {@link ShipTransform#pitchFromVerticalInput},
+     * never itself synced. Read by {@code ShipEntityRenderer}.
+     */
+    private float clientPitch = 0.0f;
+
+    public float getClientPitch() { return clientPitch; }
+
     // ═══════════════════════════════════════════════════════════════════
     // FEATURE 5: VEHICLE HEALTH
     // ═══════════════════════════════════════════════════════════════════
@@ -305,6 +323,15 @@ public final class ShipEntity extends Entity {
      */
     public float getSyncedTurn() {
         return level().isClientSide ? this.entityData.get(SYNC_TURN) : inputTurn;
+    }
+
+    /**
+     * Synced current vertical input, -1..+1 (FLP-001). Client-side consumer:
+     * {@code ShipEntityRenderer}'s pitch rendering (FLP-003) — see that class
+     * for the sign convention this value feeds into.
+     */
+    public float getSyncedVertical() {
+        return level().isClientSide ? this.entityData.get(SYNC_VERTICAL) : inputVertical;
     }
 
     public boolean hasThrusters() { return hasThrusters; }
@@ -427,6 +454,7 @@ public final class ShipEntity extends Entity {
         builder.define(SYNC_ENGINE_OUT, false);
         builder.define(SYNC_HEALTH, MAX_HEALTH);
         builder.define(SYNC_TURN, 0.0f);
+        builder.define(SYNC_VERTICAL, 0.0f);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -825,6 +853,7 @@ public final class ShipEntity extends Entity {
         this.entityData.set(SYNC_ENGINE_OUT, engineOut);
         this.entityData.set(SYNC_HEALTH, health);
         this.entityData.set(SYNC_TURN, inputTurn);
+        this.entityData.set(SYNC_VERTICAL, inputVertical);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -853,6 +882,9 @@ public final class ShipEntity extends Entity {
             // level gradually instead of snapping.
             float targetRoll = ShipTransform.rollFromTurnInput(getSyncedTurn(), dev.sharkengine.ship.part.VehicleBalance.MAX_BANK_DEG);
             this.clientRoll = Mth.lerp(dev.sharkengine.ship.part.VehicleBalance.BANK_SMOOTHING_FACTOR, this.clientRoll, targetRoll);
+            // FLP-003: same smoothing pattern as roll above, for pitch.
+            float targetPitch = ShipTransform.pitchFromVerticalInput(getSyncedVertical(), dev.sharkengine.ship.part.VehicleBalance.MAX_PITCH_DEG);
+            this.clientPitch = Mth.lerp(dev.sharkengine.ship.part.VehicleBalance.PITCH_SMOOTHING_FACTOR, this.clientPitch, targetPitch);
             return;
         }
 

@@ -112,6 +112,19 @@ class VehicleBalanceTest {
                 "smoothing factor must be a valid lerp fraction");
     }
 
+    // ─── flight-feel pitch constants (FLP-004, docs/plans/flight-pitch.md) ─────
+
+    @Test
+    @DisplayName("pitch: max 18deg (smaller than bank's 25deg), smoothing factor in (0,1]")
+    void pitchConstantsAreSane() {
+        assertEquals(18.0f, VehicleBalance.MAX_PITCH_DEG);
+        assertEquals(0.15f, VehicleBalance.PITCH_SMOOTHING_FACTOR);
+        assertTrue(VehicleBalance.MAX_PITCH_DEG < VehicleBalance.MAX_BANK_DEG,
+                "pitch reads as a more extreme attitude change at the same angle than roll");
+        assertTrue(VehicleBalance.PITCH_SMOOTHING_FACTOR > 0.0f && VehicleBalance.PITCH_SMOOTHING_FACTOR <= 1.0f,
+                "smoothing factor must be a valid lerp fraction");
+    }
+
     @Test
     @DisplayName("2-blade rotor lift (16) and 4-blade rotor lift (32) derive from rotor_blade lift=8, per concept §4")
     void rotorBladeLiftDerivesTwoAndFourBladeTotals() {
