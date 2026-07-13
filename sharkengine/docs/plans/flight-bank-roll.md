@@ -1,8 +1,23 @@
 # Flight Feel: Bank/Roll Into Turns
 
-**Status:** Draft, not started. Written 2026-07-13 in response to live playtest feedback
-("wenn das Luftfahrzeug sich in den Kurven wie ein Flugzeug zur Seite neigen würde, so
-dass es wirklich wie ein kleiner Flugsimulator wäre").
+**Status:** Done. FLR-001..004 implemented, live-verified 2026-07-13. Written 2026-07-13
+in response to live playtest feedback ("wenn das Luftfahrzeug sich in den Kurven wie ein
+Flugzeug zur Seite neigen würde, so dass es wirklich wie ein kleiner Flugsimulator wäre").
+
+**FLR-003 axis/sign, as actually shipped:** `Axis.XN`, composed after the yaw `mulPose`.
+Getting there took three live-`runClient` iterations, not one — recorded here since the
+task text below (left as originally written) undersells how much empirical correction was
+needed and this project has already been burned twice by assuming a rotation sign instead
+of ground-truthing it:
+1. `Axis.ZP` (first guess) — wrong axis entirely, produced pitch (nose/tail tilt) instead
+   of roll.
+2. `Axis.XP` — correct axis (left/right dip), wrong sign — a right turn dipped the left
+   side.
+3. `Axis.XN` — confirmed correct on both axis and sign by the user
+   ("er neigt sich richtig jetzt nach links und rechts").
+
+See `ShipEntityRenderer.java`'s inline comment above the `mulPose(Axis.XN...)` call for
+the full derivation/rationale.
 
 ## 1. Goal
 
