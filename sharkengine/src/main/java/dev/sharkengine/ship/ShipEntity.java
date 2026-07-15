@@ -23,6 +23,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -613,20 +614,28 @@ public final class ShipEntity extends Entity {
 
         // BUG FIX (2026-07-13, live playtest report: "helicopter_engine/rotor_shaft/
         // metal_sheet können nicht angebaut werden, es passiert einfach nichts"):
-        // a held non-empty item (in particular a ship_eligible BlockItem the player is
-        // trying to attach to an already-assembled/launched ship) must NOT be swallowed
-        // by the mount fallback below. This entity's hitbox spans the whole blueprint
-        // (up to 32-block radius, AIR-0xx assembly constraints), so before this fix
-        // *every* right-click anywhere on/near a launched ship — including one holding a
-        // block meant for placement — landed here and unconditionally mounted the player
-        // (or, if already mounted, silently no-op'd) while returning CONSUME, which
-        // prevents vanilla's normal BlockItem-placement path from ever running. Root-
-        // caused via /setblock (proves the block itself places fine server-side) plus
-        // live runClient repro (mounting happened silently on every attempt). PASS here
-        // lets vanilla fall through to normal item-use/placement against the actual
-        // world block grid, exactly like right-clicking a vanilla boat/minecart while
-        // holding a block still lets you place against terrain behind/around it.
-        if (!player.getItemInHand(hand).isEmpty()) {
+        // a held placeable BlockItem (a ship_eligible block the player is trying to
+        // attach to an already-assembled/launched ship) must NOT be swallowed by the
+        // mount fallback below. This entity's hitbox spans the whole blueprint (up to
+        // 32-block radius, AIR-0xx assembly constraints), so before this fix *every*
+        // right-click anywhere on/near a launched ship — including one holding a block
+        // meant for placement — landed here and unconditionally mounted the player (or,
+        // if already mounted, silently no-op'd) while returning CONSUME, which prevents
+        // vanilla's normal BlockItem-placement path from ever running. Root-caused via
+        // /setblock (proves the block itself places fine server-side) plus live
+        // runClient repro (mounting happened silently on every attempt). PASS here lets
+        // vanilla fall through to normal placement against the actual world block grid,
+        // exactly like right-clicking a vanilla boat while holding a block still lets
+        // you place against terrain behind/around it.
+        //
+        // CORRECTED same day (ultrathink-craftsmanship gate caught it before any live
+        // report): the first version of this fix checked "any non-empty hand", not just
+        // BlockItem — that silently regressed mounting for every OTHER held item too
+        // (holding a sword/torch/food and right-clicking the ship stopped mounting you
+        // at all, since it's neither empty nor a block). Narrowing to BlockItem restores
+        // exactly the pre-fix mount behavior for every non-block item while still fixing
+        // the reported bug.
+        if (player.getItemInHand(hand).getItem() instanceof BlockItem) {
             return InteractionResult.PASS;
         }
 
