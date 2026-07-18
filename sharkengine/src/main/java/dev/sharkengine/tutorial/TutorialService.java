@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,18 +20,33 @@ public final class TutorialService {
     private static final Map<UUID, BlockPos> pendingBuilder = new HashMap<>();
     private static final Map<UUID, EnumSet<TutorialPopupStage>> stageHistory = new HashMap<>();
 
+    /**
+     * REQ-001 (AC-001) test/inspection hook: the most recent {@link TutorialPopupS2CPayload} sent
+     * to each player. This is the single point every {@code ServerPlayNetworking.send(player,
+     * TutorialPopupS2CPayload...)} call site routes through (see {@link #sendPopup}), so GameTests
+     * can assert on the resulting server-side popup state (stage + routes) without needing to
+     * intercept the network layer itself.
+     */
+    private static final Map<UUID, TutorialPopupS2CPayload> lastPopupSent = new HashMap<>();
+
     private TutorialService() {}
 
     public static void sendWelcomePopup(ServerPlayer player) {
         resetStages(player);
-        ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.WELCOME));
+        sendPopup(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.WELCOME));
     }
 
+    /**
+     * REQ-001 (AC-001): the vehicle route-selection popup path. Both placing a Steering Wheel
+     * ({@link dev.sharkengine.content.block.SteeringWheelBlock#setPlacedBy}) and right-clicking an
+     * already-placed one ({@link dev.sharkengine.content.block.SteeringWheelBlock#useWithoutItem})
+     * call this exact method, so both trigger paths produce the same popup state.
+     */
     public static void startModeSelection(ServerPlayer player, BlockPos wheelPos) {
         pendingBuilder.put(player.getUUID(), wheelPos.immutable());
         // Feature 6: Reset stages so build mode can be re-entered after disassembly
         resetStages(player);
-        ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.MODE_SELECTION));
+        sendPopup(player, TutorialPopupS2CPayload.forModeSelection(List.of(VehicleClass.values())));
     }
 
     public static void handleModeSelection(ServerPlayer player, VehicleClass mode) {
@@ -41,11 +57,11 @@ public final class TutorialService {
         if (mode != VehicleClass.AIR) {
             sendModeLockedMessage(player, mode);
             pendingBuilder.put(player.getUUID(), wheelPos);
-            ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.MODE_SELECTION));
+            sendPopup(player, TutorialPopupS2CPayload.forModeSelection(List.of(VehicleClass.values())));
             return;
         }
         pendingBuilder.put(player.getUUID(), wheelPos);
-        ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.BUILD_GUIDE));
+        sendPopup(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.BUILD_GUIDE));
     }
 
     private static void sendModeLockedMessage(ServerPlayer player, VehicleClass mode) {
@@ -69,14 +85,28 @@ public final class TutorialService {
 
     public static void notifyReady(ServerPlayer player) {
         if (markStageAsShown(player, TutorialPopupStage.READY_TO_LAUNCH)) {
-            ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.READY_TO_LAUNCH));
+            sendPopup(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.READY_TO_LAUNCH));
         }
     }
 
     public static void notifyFlightTips(ServerPlayer player) {
         if (markStageAsShown(player, TutorialPopupStage.FLIGHT_TIPS)) {
-            ServerPlayNetworking.send(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.FLIGHT_TIPS));
+            sendPopup(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.FLIGHT_TIPS));
         }
+    }
+
+    private static void sendPopup(ServerPlayer player, TutorialPopupS2CPayload payload) {
+        lastPopupSent.put(player.getUUID(), payload);
+        ServerPlayNetworking.send(player, payload);
+    }
+
+    /**
+     * REQ-001 (AC-001) test/inspection hook: the most recent popup payload sent to this player, or
+     * {@code null} if none has been sent yet this session. See {@link #lastPopupSent} for why this
+     * exists.
+     */
+    public static TutorialPopupS2CPayload lastPopupSent(UUID playerId) {
+        return lastPopupSent.get(playerId);
     }
 
     private static void resetStages(ServerPlayer player) {

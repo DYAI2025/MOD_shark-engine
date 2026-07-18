@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -36,6 +37,24 @@ public final class SteeringWheelBlock extends Block {
         ItemEntity dropBug = new ItemEntity(level, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, bug);
         dropBug.setDefaultPickUpDelay();
         level.addFreshEntity(dropBug);
+    }
+
+    /**
+     * REQ-001 (AC-001): the placement half of the vehicle route-popup trigger. Vanilla's
+     * {@code BlockItem#place} always calls this after successfully placing the block, with the
+     * placing entity — this is the only placement hook that actually has a player reference
+     * ({@link #onPlace} above does not), so it is the correct place to open the route-selection
+     * popup on placement, matching {@link #useWithoutItem}'s interact-path trigger below (both
+     * call {@link TutorialService#startModeSelection}).
+     */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide || !(placer instanceof ServerPlayer sp)) {
+            return;
+        }
+
+        TutorialService.startModeSelection(sp, pos);
     }
 
     @Override
