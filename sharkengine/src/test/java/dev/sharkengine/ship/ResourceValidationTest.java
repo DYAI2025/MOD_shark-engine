@@ -797,4 +797,128 @@ class ResourceValidationTest {
             }
         }
     }
+
+    @Nested
+    @DisplayName("T04/REQ-004: Registration-closure guard (ModBlocks/ModItems vs. resource-contract lists)")
+    class RegistrationClosureTests {
+
+        private static final Path MOD_BLOCKS_SOURCE =
+                Path.of("src/main/java/dev/sharkengine/content/ModBlocks.java");
+        private static final Path MOD_ITEMS_SOURCE =
+                Path.of("src/main/java/dev/sharkengine/content/ModItems.java");
+
+        /**
+         * Text-based scan, NOT classloading: {@code ModBlocks}/{@code ModItems} pull in
+         * un-stubbed Minecraft/Fabric types ({@code Block}, {@code BuiltInRegistries},
+         * {@code Item}, {@code BlockItem}, {@code ItemGroupEvents}, ...) that do not exist
+         * on this {@code test} source set's classpath — same constraint already documented
+         * on {@link PerBlockResourceContractTests#ALL_BLOCK_IDS}'s javadoc. So this reads the
+         * .java source as plain text and regex-matches the {@code registerBlock("id", ...)} /
+         * {@code registerItem("id")} call-site string literals — the same regex-over-source
+         * idiom {@link #extractJsonKeys} already uses elsewhere in this file for JSON, just
+         * applied to .java source instead. This is the closure guard itself: it must fail
+         * loudly whenever a later task (T05, T07, T20, ...) registers a new block/item
+         * without updating the hand-maintained {@code ALL_BLOCK_IDS} /
+         * {@code INTERMEDIATE_ITEM_IDS} literal lists above.
+         */
+        private static Set<String> extractRegisteredIds(Path javaSource, String factoryMethodName) throws IOException {
+            String source = Files.readString(javaSource, StandardCharsets.UTF_8);
+            Set<String> ids = new TreeSet<>();
+            // Matches `registerBlock(` / `registerItem(` followed (across whitespace/newlines,
+            // since call sites wrap arguments onto their own line) by a string-literal first
+            // argument. Does not match the private factory-method *declarations* themselves
+            // (`registerBlock(String name, ...)` / `registerItem(String name)`), since their
+            // first token after `(` is an identifier, not a `"`.
+            Matcher m = Pattern.compile(Pattern.quote(factoryMethodName) + "\\(\\s*\"([^\"]+)\"").matcher(source);
+            while (m.find()) {
+                ids.add(m.group(1));
+            }
+            return ids;
+        }
+
+        @Test
+        @DisplayName("guard sanity: ModBlocks.java / ModItems.java exist at the scanned paths")
+        void sourceFilesExistAtScannedPaths() {
+            assertTrue(Files.exists(MOD_BLOCKS_SOURCE),
+                    "Expected to find ModBlocks.java at " + MOD_BLOCKS_SOURCE.toAbsolutePath()
+                            + " — did the class move? Update RegistrationClosureTests' scan path.");
+            assertTrue(Files.exists(MOD_ITEMS_SOURCE),
+                    "Expected to find ModItems.java at " + MOD_ITEMS_SOURCE.toAbsolutePath()
+                            + " — did the class move? Update RegistrationClosureTests' scan path.");
+        }
+
+        @Test
+        @DisplayName("REGRESSION GUARD: every registerBlock(...) call-site id is listed in ALL_BLOCK_IDS")
+        void everyRegisteredBlockIsInResourceContract() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_BLOCKS_SOURCE, "registerBlock");
+            assertFalse(registeredIds.isEmpty(),
+                    "Found zero registerBlock(...) call sites in " + MOD_BLOCKS_SOURCE
+                            + " — the source-scanning regex may be broken (guard would silently pass "
+                            + "vacuously otherwise)");
+
+            Set<String> contractIds = new TreeSet<>(List.of(PerBlockResourceContractTests.ALL_BLOCK_IDS));
+            Set<String> missingFromContract = new TreeSet<>(registeredIds);
+            missingFromContract.removeAll(contractIds);
+
+            assertTrue(missingFromContract.isEmpty(),
+                    "Block id(s) registered in ModBlocks.java but missing from ResourceValidationTest's "
+                            + "ALL_BLOCK_IDS resource-contract list: " + missingFromContract
+                            + " — add them to ALL_BLOCK_IDS (and CRAFTABLE_IDS if craftable) in the same "
+                            + "commit that registers the block. This is the T04/REQ-004 registration-closure "
+                            + "guard firing as designed.");
+        }
+
+        @Test
+        @DisplayName("hygiene: ALL_BLOCK_IDS lists no id that isn't actually registered in ModBlocks.java")
+        void resourceContractHasNoStaleBlockEntries() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_BLOCKS_SOURCE, "registerBlock");
+            Set<String> contractIds = new TreeSet<>(List.of(PerBlockResourceContractTests.ALL_BLOCK_IDS));
+            Set<String> staleInContract = new TreeSet<>(contractIds);
+            staleInContract.removeAll(registeredIds);
+
+            assertTrue(staleInContract.isEmpty(),
+                    "ALL_BLOCK_IDS lists block id(s) with no matching registerBlock(...) call site in "
+                            + "ModBlocks.java: " + staleInContract + " — remove the stale entry or fix the "
+                            + "registration (keeps the closure guard bidirectionally honest, not just "
+                            + "forward-checking).");
+        }
+
+        @Test
+        @DisplayName("REGRESSION GUARD: every registerItem(...) call-site id is listed in INTERMEDIATE_ITEM_IDS")
+        void everyRegisteredItemIsInResourceContract() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_ITEMS_SOURCE, "registerItem");
+            assertFalse(registeredIds.isEmpty(),
+                    "Found zero registerItem(...) call sites in " + MOD_ITEMS_SOURCE
+                            + " — the source-scanning regex may be broken (guard would silently pass "
+                            + "vacuously otherwise)");
+
+            Set<String> contractIds = new TreeSet<>(
+                    List.of(CraftingIntermediateResourceContractTests.INTERMEDIATE_ITEM_IDS));
+            Set<String> missingFromContract = new TreeSet<>(registeredIds);
+            missingFromContract.removeAll(contractIds);
+
+            assertTrue(missingFromContract.isEmpty(),
+                    "Item id(s) registered in ModItems.java but missing from ResourceValidationTest's "
+                            + "INTERMEDIATE_ITEM_IDS resource-contract list: " + missingFromContract
+                            + " — add them to the appropriate resource-contract literal list in the same "
+                            + "commit that registers the item. This is the T04/REQ-004 registration-closure "
+                            + "guard firing as designed.");
+        }
+
+        @Test
+        @DisplayName("hygiene: INTERMEDIATE_ITEM_IDS lists no id that isn't actually registered in ModItems.java")
+        void resourceContractHasNoStaleItemEntries() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_ITEMS_SOURCE, "registerItem");
+            Set<String> contractIds = new TreeSet<>(
+                    List.of(CraftingIntermediateResourceContractTests.INTERMEDIATE_ITEM_IDS));
+            Set<String> staleInContract = new TreeSet<>(contractIds);
+            staleInContract.removeAll(registeredIds);
+
+            assertTrue(staleInContract.isEmpty(),
+                    "INTERMEDIATE_ITEM_IDS lists item id(s) with no matching registerItem(...) call site "
+                            + "in ModItems.java: " + staleInContract + " — remove the stale entry or fix "
+                            + "the registration (keeps the closure guard bidirectionally honest, not just "
+                            + "forward-checking).");
+        }
+    }
 }
