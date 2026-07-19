@@ -32,7 +32,9 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -98,6 +100,50 @@ public final class ShipEntity extends Entity {
     private float inputTurn;     // -1..+1 (rotation)
     private ShipBlueprint blueprint;
     private UUID pilot;
+
+    /**
+     * REQ-009/T07: the currently-mounted copilot's UUID, or {@code null} if the copilot
+     * seat is empty — a stored occupant reference, the same shape as {@link #pilot}. The
+     * T07 falsifying-test contract's sharpest named risk is an occupancy check that
+     * OVERWRITES this reference on a second interact instead of rejecting it outright, so a
+     * second player silently displaces the first with no dismount event; {@link
+     * #mountCopilot} guards against exactly that — see its javadoc.
+     */
+    private UUID copilot;
+
+    /**
+     * REQ-009/T07 remediation (QA finding: {@code secondPlayerCannotDisplaceFirstCopilot}'s
+     * javadoc/fail-messages claimed to rule out "even an internal dismount-and-remount cycle"
+     * for the first copilot, but every assertion was a post-hoc end-state check with zero
+     * instrumentation on the actual mount/dismount machinery -- a hypothetical internal
+     * displace-then-remount that preserved final state would still have passed silently).
+     * Counts, per passenger UUID, how many times {@link #addPassenger} has actually fired for
+     * them -- i.e. real mount events via ANY path (vanilla's own machinery included), not just
+     * the call sites this class happens to control today. Tests use this to assert a specific
+     * player's count did NOT increment while a different player's interaction was processed,
+     * which a pure end-state check cannot.
+     *
+     * <p>Bounded growth (non-blocking pattern flagged across T01/T02/T03's own per-player
+     * maps -- {@code TutorialService#lastPopupSent}, {@code ShipAssemblyService#lastPreviewSent},
+     * {@code TutorialService#lastModeLockedNotice} -- all of which are {@code static}
+     * server-lifetime maps keyed by every player who ever connects; this one is materially
+     * different in scope, since it is a per-{@code ShipEntity} INSTANCE field, so its lifetime
+     * and key cardinality are already bounded by this specific ship's own lifetime and the set
+     * of distinct players who actually rode it, not the server's whole population. There is no
+     * existing player-disconnect event hook anywhere in this codebase to reuse (checked), and
+     * this ship entity is not tracked in any global registry a disconnect listener could use to
+     * find and clear it, so "clear on disconnect" would require adding both a new event
+     * registration AND a new global live-ship registry -- real new infrastructure, not the "few
+     * lines" this cleanup pass is scoped to. {@link #MAX_TRACKED_MOUNT_COUNTS} instead caps this
+     * map's size defensively in {@link #addPassenger}: since this map is pure test/inspection
+     * instrumentation (never consulted by {@link #mountCopilot}'s actual occupancy guard, which
+     * uses {@link #copilot} directly), resetting it past the cap loses no gameplay-relevant
+     * state, only long-tail historical mount-count instrumentation for a ship far past any
+     * realistic distinct-rider count.</p>
+     */
+    private static final int MAX_TRACKED_MOUNT_COUNTS = 64;
+
+    private final Map<UUID, Integer> passengerMountCounts = new HashMap<>();
 
     /** Vehicle class (AIR for MVP) */
     private VehicleClass vehicleClass = VehicleClass.AIR;
@@ -284,6 +330,104 @@ public final class ShipEntity extends Entity {
 
     public boolean isPilot(Player p) {
         return pilot != null && pilot.equals(p.getUUID());
+    }
+
+    /**
+     * REQ-009/T07: the copilot seat's server-authoritative occupant reference, or {@code
+     * null} if empty. See {@link #copilot}'s javadoc for the falsifying-test contract this
+     * exists to satisfy.
+     */
+    public UUID getCopilot() {
+        return copilot;
+    }
+
+    public boolean isCopilot(Player p) {
+        return copilot != null && copilot.equals(p.getUUID());
+    }
+
+    /**
+     * Vanilla hook fired by {@code Entity#startRiding} on the vehicle (this ship) whenever
+     * ANY passenger actually mounts it -- through {@link #mountCopilot}, the {@link #interact}
+     * pilot fallback, or any other path, present or future. Recorded per-UUID in {@link
+     * #passengerMountCounts} so tests can assert a specific player's mount count did NOT
+     * change while unrelated interactions were processed (see {@link #getMountCount}),
+     * catching a hypothetical internal dismount-and-remount cycle that a pure end-state check
+     * would miss.
+     */
+    @Override
+    protected void addPassenger(Entity passenger) {
+        super.addPassenger(passenger);
+        // Defensive size cap (see passengerMountCounts' javadoc): only ever trims when a
+        // genuinely NEW rider would push this ship past MAX_TRACKED_MOUNT_COUNTS distinct
+        // UUIDs -- an existing rider's own running count is never reset by their own repeat
+        // mounts, only by some other, previously-untracked player's arrival once the map is
+        // already at the cap.
+        if (passengerMountCounts.size() >= MAX_TRACKED_MOUNT_COUNTS
+                && !passengerMountCounts.containsKey(passenger.getUUID())) {
+            passengerMountCounts.clear();
+        }
+        passengerMountCounts.merge(passenger.getUUID(), 1, Integer::sum);
+    }
+
+    /**
+     * REQ-009/T07 remediation: how many times {@code playerId} has actually mounted this ship
+     * (real {@link #addPassenger} events, any path) since it was spawned. See {@link
+     * #passengerMountCounts}'s javadoc for why this exists.
+     */
+    public int getMountCount(UUID playerId) {
+        return passengerMountCounts.getOrDefault(playerId, 0);
+    }
+
+    /**
+     * REQ-009/T07: whether this ship's blueprint carries at least one COPILOT-role {@code
+     * SeatAnchor} — i.e. whether a {@code copilot_seat} block was actually part of the
+     * assembled structure. A copilot mount attempt is only ever honored when this is {@code
+     * true}; ships assembled before the copilot seat existed (or without one placed) have no
+     * copilot seat to occupy at all.
+     */
+    private boolean hasCopilotSeat() {
+        return blueprint != null && blueprint.seatAnchors().stream()
+                .anyMatch(anchor -> anchor.role() == ShipBlueprint.SeatRole.COPILOT);
+    }
+
+    /**
+     * Mounts {@code player} into this ship's copilot seat (REQ-009/AC-009), or rejects the
+     * attempt outright if the seat is already occupied or the ship has no copilot seat at
+     * all.
+     *
+     * <p>REQ-009/AC-009's sharpest named risk (test-plan, "REQ-009 — Craftable copilot
+     * seat"): an occupancy check that silently OVERWRITES {@link #copilot} on a second
+     * interact instead of rejecting it — so a second player displaces the first with no
+     * dismount event, desyncing the first player's client. This method's very first branch
+     * is the guard against exactly that: when {@link #copilot} is already set to a player who
+     * is still actually riding, this returns {@code false} immediately and never assigns
+     * {@link #copilot} or calls {@code startRiding} — the existing occupant is left
+     * completely untouched (no dismount-and-remount cycle, not even internally).</p>
+     *
+     * <p>The one exception is a defensive self-heal: if {@link #copilot} still names a
+     * player who is verifiably no longer among {@link #getPassengers()} (e.g. they dismounted
+     * via vanilla's own sneak-to-dismount path, which does not go through this method), the
+     * stale reference is cleared before re-checking — otherwise a copilot who left would
+     * permanently lock the seat for everyone else. This never touches a still-mounted
+     * occupant's reference.</p>
+     *
+     * @return {@code true} if {@code player} was mounted as the new copilot, {@code false} if
+     *         the attempt was rejected
+     */
+    private boolean mountCopilot(Player player) {
+        if (copilot != null) {
+            boolean stillRiding = getPassengers().stream().anyMatch(p -> p.getUUID().equals(copilot));
+            if (stillRiding) {
+                return false; // seat genuinely occupied -- reject, no state change whatsoever
+            }
+            copilot = null; // stale reference to a passenger who already left some other way
+        }
+        if (!hasCopilotSeat()) {
+            return false;
+        }
+        copilot = player.getUUID();
+        player.startRiding(this, true);
+        return true;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -505,6 +649,18 @@ public final class ShipEntity extends Entity {
         if (compound.hasUUID("Pilot")) {
             this.pilot = compound.getUUID("Pilot");
         }
+        // REQ-009/T07 remediation (security-reviewer BLOCKING finding, round 2): mirrors
+        // the Pilot persistence immediately above exactly. Without this, `copilot` --
+        // mountCopilot()'s ONLY in-memory guard against a second simultaneous occupant,
+        // since both mount call sites use startRiding(this, true), which bypasses
+        // vanilla's own single-passenger canAddPassenger() cap entirely -- resets to null
+        // across an entity reload while the real passenger relationship survives via
+        // vanilla's independent passenger-persistence path, letting the next non-pilot
+        // interact force-mount a second simultaneous passenger past a guard that thinks
+        // the seat is empty.
+        if (compound.hasUUID("Copilot")) {
+            this.copilot = compound.getUUID("Copilot");
+        }
         if (compound.contains("FuelLevel")) {
             this.fuelLevel = compound.getInt("FuelLevel");
         }
@@ -533,6 +689,12 @@ public final class ShipEntity extends Entity {
         compound.putBoolean("Anchored", isAnchored());
         if (pilot != null) {
             compound.putUUID("Pilot", pilot);
+        }
+        // REQ-009/T07 remediation: see readAdditionalSaveData's "Copilot" comment above --
+        // same tag-presence convention as Pilot (only written when actually occupied, so
+        // hasUUID("Copilot") correctly reports absent for an empty seat on reload).
+        if (copilot != null) {
+            compound.putUUID("Copilot", copilot);
         }
         compound.putInt("FuelLevel", fuelLevel);
         compound.putInt("AccelerationTicks", accelerationTicks);
@@ -640,10 +802,39 @@ public final class ShipEntity extends Entity {
         }
 
         // Normal rightclick with an empty hand: mount (only one pilot at a time)
-        if (pilot != null && !isPilot(player) && getPassengers().stream().anyMatch(e -> e instanceof Player)) {
-            // Ship already has a pilot – don't allow a second mount
+        //
+        // REMEDIATION (T07, Watcher review-required finding, "stowaway" mount gap): the
+        // branch condition used to also require getPassengers().stream().anyMatch(e -> e
+        // instanceof Player) as a proxy for "the pilot is currently aboard". That was safe
+        // before copilots existed (only the pilot could ever be a Player passenger) but is
+        // wrong now: if the assigned pilot dismounts (REQ-011 -- normal/expected, a ship can
+        // exist with no pilot aboard) while the copilot seat is still empty, that proxy goes
+        // false and the next right-click fell through to the bare player.startRiding(this,
+        // true) fallback below -- force-mounting the interacting player with ZERO
+        // registration as pilot or copilot (an untracked "stowaway"). A second player
+        // arriving afterward could then legitimately claim the copilot seat via
+        // mountCopilot() (still null, since the stowaway never touched it), producing two
+        // simultaneous Player passengers for a seat AC-009 promises holds "genau ein
+        // zusätzlicher Passagier".
+        //
+        // The fix: {@link #pilot} is already the single persistent, server-authoritative
+        // source of truth for who is authorized to hold the pilot seat -- set once at
+        // assembly (ShipAssemblyService#tryAssemble) and never cleared on dismount, exactly
+        // like isPilot() is already used to gate shift-rightclick disassembly and refuel
+        // above. Whether anyone happens to be riding *right now* is irrelevant to that
+        // question, so it's dropped from the condition entirely: any player who is not the
+        // assigned pilot (and a pilot has in fact been assigned) is routed to the copilot
+        // seat, full stop -- whether the pilot is currently riding, dismounted, or was never
+        // aboard yet. mountCopilot() itself remains the sole guard against silently
+        // displacing an already-mounted copilot (see its javadoc for the falsifying-test
+        // contract this closes) and is unchanged.
+        if (pilot != null && !isPilot(player)) {
+            mountCopilot(player);
             return InteractionResult.CONSUME;
         }
+        // Either this player IS the assigned pilot re-entering a vacated seat (REQ-011), or
+        // no pilot has ever been assigned yet (pilot == null) -- both are legitimate mounts
+        // via the ordinary passenger path.
         player.startRiding(this, true);
         return InteractionResult.CONSUME;
     }

@@ -174,7 +174,15 @@ public final class VehicleBalance {
             // baseline (the same profile FALLBACK carries) — a seat by itself contributes no
             // capability beyond occupying the required PILOT_SEAT role slot.
             Map.entry(id("pilot_seat"), new VehiclePartDefinition(
-                    PartRole.PILOT_SEAT, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE))
+                    PartRole.PILOT_SEAT, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE)),
+
+            // ─── REQ-009/T07: craftable copilot seat ────────────────────────────
+            // Same purely-structural profile as pilot_seat (mass=1, no lift/thrust/drag/fuel
+            // contribution) — a seat by itself contributes no capability beyond occupying its
+            // role slot. Distinct PartRole (COPILOT_SEAT, not PILOT_SEAT) — see that enum
+            // constant's javadoc for why reusing PILOT_SEAT here would break assembly.
+            Map.entry(id("copilot_seat"), new VehiclePartDefinition(
+                    PartRole.COPILOT_SEAT, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE))
     );
 
     private static String id(String path) {

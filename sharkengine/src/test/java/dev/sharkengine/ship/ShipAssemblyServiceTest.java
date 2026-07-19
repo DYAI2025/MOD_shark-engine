@@ -59,10 +59,13 @@ class ShipAssemblyServiceTest {
             int contactPoints, int propulsionCount, int pilotSeatCount, int coreNeighbors,
             int bugCount, boolean bugOnEdge, boolean seatAnchorValid) {
         ShipStats stats = new ShipStats(0, 0, 0, 0, 0, propulsionCount, pilotSeatCount);
+        // REQ-009/T07: copilotSeatAnchors always empty here -- every test in this file
+        // exercises a condition independent of the copilot seat, same isolation treatment
+        // already given to pilotSeatCount/seatAnchorValid above.
         return new ShipAssemblyService.StructureScan(
                 null, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, 0.0f, seatAnchorValid
+                bugCount, bugOnEdge, 0.0f, seatAnchorValid, List.of()
         );
     }
 

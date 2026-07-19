@@ -30,6 +30,7 @@
     "sharkengine:rotor_hub",
     "sharkengine:rotor_blade",
     "sharkengine:landing_skid",
-    "sharkengine:pilot_seat"
+    "sharkengine:pilot_seat",
+    "sharkengine:copilot_seat"
   ]
 }

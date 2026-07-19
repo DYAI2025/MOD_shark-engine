@@ -145,6 +145,9 @@ final class SharkEngineLangProvider {
                     "Pilot seat must be the block directly in front of the bow marker – move it there.");
             b.add("assembly_issue.sharkengine.seat_anchor_invalid",
                     "Pilot seat must be the block directly in front of the bow marker – move it there.");
+            // REQ-009/T07: craftable copilot seat
+            b.add("block.sharkengine.copilot_seat", "Copilot Seat");
+            b.add("item.sharkengine.copilot_seat", "Copilot Seat");
         }
     }
 
@@ -271,6 +274,9 @@ final class SharkEngineLangProvider {
                     "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
             b.add("assembly_issue.sharkengine.seat_anchor_invalid",
                     "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
+            // REQ-009/T07: craftable copilot seat
+            b.add("block.sharkengine.copilot_seat", "Copilotensitz");
+            b.add("item.sharkengine.copilot_seat", "Copilotensitz");
         }
     }
 }

@@ -36,5 +36,6 @@ final class SharkEngineLootProvider extends FabricBlockLootTableProvider {
         dropSelf(ModBlocks.ROTOR_BLADE);
         dropSelf(ModBlocks.LANDING_SKID);
         dropSelf(ModBlocks.PILOT_SEAT);
+        dropSelf(ModBlocks.COPILOT_SEAT);
     }
 }

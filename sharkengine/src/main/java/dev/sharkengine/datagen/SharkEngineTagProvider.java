@@ -73,6 +73,8 @@ final class SharkEngineTagProvider extends FabricTagProvider.BlockTagProvider {
         // BFS structure scan discovers it at all (only ship_eligible-tagged blocks are ever
         // walked into ShipPartAnalyzer's role-based count, see ShipAssemblyService#scanStructure).
         builder.add(key(ModBlocks.PILOT_SEAT));
+        // REQ-009/T07: craftable copilot seat -- same reason as pilot_seat above.
+        builder.add(key(ModBlocks.COPILOT_SEAT));
 
         // AIR-040 (concept doc §5.4): role tags, populated as each part lands.
         // airframe_panel's and fuselage_frame's own scope notes explicitly require

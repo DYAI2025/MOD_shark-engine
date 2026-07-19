@@ -31,7 +31,8 @@
             "dev.sharkengine.gametest.BuildSessionAuthorizationGameTest",
             "dev.sharkengine.gametest.VehicleRouteAvailabilityGameTest",
             "dev.sharkengine.gametest.PilotSeatCountGameTest",
-            "dev.sharkengine.gametest.PilotSeatAnchorGameTest"
+            "dev.sharkengine.gametest.PilotSeatAnchorGameTest",
+            "dev.sharkengine.gametest.CopilotSeatOccupancyGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

@@ -254,6 +254,23 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "WPW"
         );
+
+        // ─── REQ-009/T07: craftable copilot seat ─────────────────────────────────
+        // copilot_seat: same "WPW" cushion/frame/cushion shape as pilot_seat (generic
+        // reagents, no AIR-specific flavor, same REQ-005-style reuse rationale), swapping
+        // in an iron ingot for the frame slot instead of planks so the two seats need
+        // genuinely different reagents rather than being craftable from the exact same
+        // materials.
+        shapedRecipe(
+                exporter,
+                "copilot_seat",
+                ModBlocks.COPILOT_SEAT.asItem(),
+                Map.of(
+                        'W', Ingredient.of(ItemTags.WOOL),
+                        'I', Ingredient.of(Items.IRON_INGOT)
+                ),
+                "WIW"
+        );
     }
 
     private void shapedRecipe(

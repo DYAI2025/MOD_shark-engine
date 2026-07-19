@@ -32,19 +32,19 @@ import java.util.List;
  * {@link #withAssemblyYaw} immediately afterward — see that method's design
  * note for why 0 alone would be wrong for non-SOUTH-facing legacy ships.</p>
  *
- * <p><b>{@code seatAnchors}</b> (REQ-006, schema v3): the resolved pilot-seat anchor
+ * <p><b>{@code seatAnchors}</b> (REQ-006, schema v3+): the resolved seat anchor
  * position(s), each a single block offset relative to {@code origin} — for AIR release 1
- * this is always either empty (no valid anchor — see {@code ShipAssemblyService}'s
- * seat-anchor validation) or exactly one entry (the pilot seat). Deliberately a {@code
- * List}, not a nullable single field: {@code T07} (copilot seat) extends this same
- * representation with additional entries/a role tag rather than introducing a second,
- * parallel data structure. Like {@code blocks}, these are raw (unrotated) offsets captured
- * at assembly time — {@code ShipTransform.rotateOffset} (AIR-010's single rotation
- * authority) is how callers recover the current world position after the ship has since
- * rotated in flight, exactly like {@link ShipBlock} offsets.</p>
+ * this is always empty, exactly one entry (the pilot seat only), or the pilot seat entry
+ * plus one or more copilot entries (REQ-009/T07). Deliberately a {@code List}, not a
+ * nullable single field: {@code T07} (copilot seat) extends this same representation with
+ * additional entries tagged by {@link SeatRole} rather than introducing a second, parallel
+ * data structure. Like {@code blocks}, these are raw (unrotated) offsets captured at
+ * assembly time — {@code ShipTransform.rotateOffset} (AIR-010's single rotation authority)
+ * is how callers recover the current world position after the ship has since rotated in
+ * flight, exactly like {@link ShipBlock} offsets.</p>
  *
  * @author Shark Engine Team
- * @version 3.0 (Pilotensitz-Anker)
+ * @version 4.0 (Copilotensitz)
  */
 public record ShipBlueprint(
     BlockPos origin,
@@ -55,7 +55,7 @@ public record ShipBlueprint(
     List<SeatAnchor> seatAnchors
 ) {
     /** Current NBT schema version written by {@link #toNbt}. */
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
 
     /**
      * Represents a single block in the ship structure
@@ -68,14 +68,34 @@ public record ShipBlueprint(
     public record ShipBlock(int dx, int dy, int dz, BlockState state) {}
 
     /**
-     * A single seat's anchor position, relative to {@code origin} (REQ-006). Raw
-     * (unrotated) offset, captured at assembly time — same convention as {@link ShipBlock}.
+     * Which seat a {@link SeatAnchor} represents (REQ-009/T07). {@code PILOT} is the sole
+     * role that existed through schema v3 (T06); {@code COPILOT} is new in schema v4.
+     */
+    public enum SeatRole { PILOT, COPILOT }
+
+    /**
+     * A single seat's anchor position, relative to {@code origin} (REQ-006), tagged with
+     * which seat it represents (REQ-009/T07). Raw (unrotated) offset, captured at assembly
+     * time — same convention as {@link ShipBlock}.
      *
      * @param dx X offset from origin
      * @param dy Y offset from origin
      * @param dz Z offset from origin
+     * @param role which seat this anchor represents
      */
-    public record SeatAnchor(int dx, int dy, int dz) {}
+    public record SeatAnchor(int dx, int dy, int dz, SeatRole role) {
+        /**
+         * Convenience constructor for every pre-T07 call site (production and the
+         * already-committed T06 GameTests/production code), all of which predate the
+         * copilot seat and always mean the pilot's own anchor — defaults {@code role} to
+         * {@link SeatRole#PILOT} so those 3-arg call sites keep compiling with their
+         * original meaning unchanged, rather than requiring every one of them to be
+         * rewritten just to add an always-PILOT role argument.
+         */
+        public SeatAnchor(int dx, int dy, int dz) {
+            this(dx, dy, dz, SeatRole.PILOT);
+        }
+    }
 
     /** Normalizes {@code seatAnchors} to a non-null, immutable list — never {@code null}. */
     public ShipBlueprint {
@@ -157,6 +177,9 @@ public record ShipBlueprint(
             anchorTag.putInt("dx", anchor.dx());
             anchorTag.putInt("dy", anchor.dy());
             anchorTag.putInt("dz", anchor.dz());
+            // REQ-009/T07 (schema v4): always written explicitly (never relying on the
+            // enum's default) so a v4+ reader never has to guess a role for an anchor.
+            anchorTag.putString("Role", anchor.role().name());
             seatAnchorList.add(anchorTag);
         }
         tag.put("SeatAnchors", seatAnchorList);
@@ -214,10 +237,19 @@ public record ShipBlueprint(
             ListTag seatAnchorList = tag.getList("SeatAnchors", Tag.TAG_COMPOUND);
             for (int i = 0; i < seatAnchorList.size(); i++) {
                 CompoundTag anchorTag = seatAnchorList.getCompound(i);
+                // REQ-009/T07 (schema v4): pre-v4 (v3) NBT never wrote "Role" -- every anchor
+                // written before the copilot seat existed always meant the pilot's own anchor,
+                // so a missing tag defaults to PILOT, the same conservative-default treatment
+                // AssemblyYaw/SeatAnchors themselves already got for their own pre-existing
+                // schema bumps above. Never a fabricated/guessed COPILOT role.
+                SeatRole role = anchorTag.contains("Role")
+                        ? SeatRole.valueOf(anchorTag.getString("Role"))
+                        : SeatRole.PILOT;
                 seatAnchors.add(new SeatAnchor(
                         anchorTag.getInt("dx"),
                         anchorTag.getInt("dy"),
-                        anchorTag.getInt("dz")
+                        anchorTag.getInt("dz"),
+                        role
                 ));
             }
         }

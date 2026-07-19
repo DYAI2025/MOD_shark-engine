@@ -78,7 +78,8 @@ public final class ShipAssemblyService {
                                 int bugCount,
                                 boolean bugOnEdge,
                                 float bugYawDeg,
-                                boolean seatAnchorValid) {
+                                boolean seatAnchorValid,
+                                List<ShipBlueprint.SeatAnchor> copilotSeatAnchors) {
         public boolean isEmpty() {
             return blocks.isEmpty();
         }
@@ -130,16 +131,22 @@ public final class ShipAssemblyService {
             // so rendering/collision/disassembly (which only see the
             // blueprint, not this scan) can compute effective rotation.
             ShipBlueprint blueprint = new ShipBlueprint(origin, blocks, blockCount()).withAssemblyYaw(bugYawDeg);
-            // REQ-006: only ever populate the ONE deterministic front-of-wheel anchor computed
-            // during the scan (see ShipAssemblyService#frontOffset/#scanStructure) — never a
-            // fallback/alternate position. When it's invalid, seatAnchors stays empty, exactly
-            // the "zero SeatAnchor entries" contract AC-006 requires (not a silently-chosen
-            // alternate position).
+            // REQ-006: only ever populate the ONE deterministic front-of-wheel PILOT anchor
+            // computed during the scan (see ShipAssemblyService#frontOffset/#scanStructure) —
+            // never a fallback/alternate position. When it's invalid, no PILOT entry is added,
+            // exactly the "zero SeatAnchor entries" contract AC-006 requires for the pilot seat
+            // (not a silently-chosen alternate position).
+            List<ShipBlueprint.SeatAnchor> anchors = new ArrayList<>();
             if (seatAnchorValid) {
                 int[] offset = frontOffset(bugYawDeg);
-                blueprint = blueprint.withSeatAnchors(
-                        List.of(new ShipBlueprint.SeatAnchor(offset[0], 0, offset[1])));
+                anchors.add(new ShipBlueprint.SeatAnchor(
+                        offset[0], 0, offset[1], ShipBlueprint.SeatRole.PILOT));
             }
+            // REQ-009/T07: additive to the pilot's own entry (or to an empty list if the pilot
+            // anchor is invalid) — every COPILOT_SEAT-role part found during the scan, each at
+            // its own placed position, not a second/parallel seat-tracking structure.
+            anchors.addAll(copilotSeatAnchors);
+            blueprint = blueprint.withSeatAnchors(anchors);
             return blueprint;
         }
 
@@ -339,6 +346,10 @@ public final class ShipAssemblyService {
         List<ShipBlueprint.ShipBlock> blocks = new ArrayList<>();
         List<BlockPos> invalidAttachments = new ArrayList<>();
         List<String> blockIds = new ArrayList<>();
+        // REQ-009/T07: every COPILOT_SEAT-role part's own offset, collected as they're found —
+        // unlike the pilot seat's single deterministic front-of-wheel position (T06), the
+        // copilot seat's anchor is simply wherever it was actually placed.
+        List<ShipBlueprint.SeatAnchor> copilotSeatAnchors = new ArrayList<>();
 
         // BUG tracking
         int bugCount = 0;
@@ -368,7 +379,8 @@ public final class ShipAssemblyService {
             int dy = current.getY() - wheelPos.getY();
             int dz = current.getZ() - wheelPos.getZ();
             blocks.add(new ShipBlueprint.ShipBlock(dx, dy, dz, state));
-            blockIds.add(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+            String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            blockIds.add(blockId);
 
             // Track BUG blocks
             if (state.is(ModBlocks.BUG)) {
@@ -379,6 +391,12 @@ public final class ShipAssemblyService {
                 if (state.hasProperty(BugBlock.FACING)) {
                     bugFacing = state.getValue(BugBlock.FACING);
                 }
+            }
+
+            // REQ-009/T07: role-based (VehiclePartRegistry), not ID comparison (REQ-S1) —
+            // every COPILOT_SEAT-role part becomes its own SeatAnchor, at its own offset.
+            if (VehiclePartRegistry.resolve(blockId).role() == PartRole.COPILOT_SEAT) {
+                copilotSeatAnchors.add(new ShipBlueprint.SeatAnchor(dx, dy, dz, ShipBlueprint.SeatRole.COPILOT));
             }
 
             for (Direction d : Direction.values()) {
@@ -433,7 +451,7 @@ public final class ShipAssemblyService {
 
         return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, bugYawDeg, seatAnchorValid);
+                bugCount, bugOnEdge, bugYawDeg, seatAnchorValid, copilotSeatAnchors);
     }
 
     /**

@@ -3,6 +3,7 @@ package dev.sharkengine.content;
 import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
+import dev.sharkengine.content.block.CopilotSeatBlock;
 import dev.sharkengine.content.block.HelicopterEngineBlock;
 import dev.sharkengine.content.block.LandingSkidBlock;
 import dev.sharkengine.content.block.PilotSeatBlock;
@@ -171,6 +172,21 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * REQ-009/T07: craftable copilot seat ({@code PartRole.COPILOT_SEAT}). Registered the
+     * same minimal way {@link #PILOT_SEAT} is (plain {@link CopilotSeatBlock}, no custom
+     * blockstate property) — same crew-furniture strength/sound profile too (wood, not
+     * metal), distinct only in id/role from the pilot seat.
+     */
+    public static final Block COPILOT_SEAT = registerBlock(
+            "copilot_seat",
+            CopilotSeatBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.0F, 2.0F)
+                    .sound(SoundType.WOOD),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -186,6 +202,7 @@ public final class ModBlocks {
             entries.accept(ROTOR_BLADE.asItem());
             entries.accept(LANDING_SKID.asItem());
             entries.accept(PILOT_SEAT.asItem());
+            entries.accept(COPILOT_SEAT.asItem());
         });
     }
 
