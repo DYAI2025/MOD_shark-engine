@@ -31,6 +31,17 @@ public final class TutorialService {
      */
     private static final Map<UUID, TutorialPopupS2CPayload> lastPopupSent = new HashMap<>();
 
+    /**
+     * REQ-002 (AC-002) test/inspection hook: the {@link VehicleClass} named in the most recent
+     * "coming soon / not available in Release 1" notice sent to each player, or absent if none has
+     * been sent this session. Recorded by {@link #sendModeLockedMessage}, the single call site for
+     * that notice, so GameTests can assert LAND/WATER selection was actively answered with an
+     * explicit, mode-specific feedback state -- not silently dropped (the counter-thesis this test
+     * hook exists to kill: a silent no-op is technically non-mutating but indistinguishable from a
+     * broken button to the player).
+     */
+    private static final Map<UUID, VehicleClass> lastModeLockedNotice = new HashMap<>();
+
     private TutorialService() {}
 
     public static void sendWelcomePopup(ServerPlayer player) {
@@ -84,7 +95,15 @@ public final class TutorialService {
     }
 
     private static void sendModeLockedMessage(ServerPlayer player, VehicleClass mode) {
+        lastModeLockedNotice.put(player.getUUID(), mode);
         player.sendSystemMessage(Component.translatable("message.sharkengine.mode_locked", mode.getDisplayName()));
+    }
+
+    /**
+     * REQ-002 (AC-002) test/inspection hook: see {@link #lastModeLockedNotice} field javadoc.
+     */
+    public static VehicleClass lastModeLockedNotice(UUID playerId) {
+        return lastModeLockedNotice.get(playerId);
     }
 
     public static void handleAdvanceStage(ServerPlayer player, TutorialPopupStage stage) {
