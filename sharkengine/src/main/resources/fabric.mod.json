@@ -34,7 +34,8 @@
             "dev.sharkengine.gametest.PilotSeatAnchorGameTest",
             "dev.sharkengine.gametest.CopilotSeatOccupancyGameTest",
             "dev.sharkengine.gametest.CockpitVisibilityGameTest",
-            "dev.sharkengine.gametest.PilotControlAuthorityGameTest"
+            "dev.sharkengine.gametest.PilotControlAuthorityGameTest",
+            "dev.sharkengine.gametest.CopilotDismountIntegrityGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

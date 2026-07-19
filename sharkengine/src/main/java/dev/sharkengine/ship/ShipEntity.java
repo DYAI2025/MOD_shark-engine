@@ -380,6 +380,38 @@ public final class ShipEntity extends Entity {
     }
 
     /**
+     * REQ-010/AC-010 (T10) falsifying-test contract (test-plan, "REQ-010 — Passive copilot
+     * behavior"): the vanilla hook fired by {@code Entity#stopRiding} on the departing passenger
+     * (which calls {@code vehicle#removePassenger(this)}) whenever ANY passenger actually
+     * dismounts this ship -- the exact symmetric counterpart to {@link #addPassenger}. Before
+     * this override existed, dismount ran entirely through vanilla's own passenger-list
+     * machinery with zero hook here, leaving {@link #copilot} a dangling stale reference to the
+     * departed player until the NEXT {@link #mountCopilot} call happened to self-heal it -- i.e.
+     * {@link #getCopilot()} (and the persisted {@code Copilot} NBT tag) kept reporting the seat
+     * "occupied" by someone no longer aboard for an unbounded window after a completely normal
+     * dismount. That is precisely the failure mode this task's counter-thesis named: "leave the
+     * copilot seat's internal state dangling so it appears occupied forever afterward -- silently
+     * breaking REQ-011's re-entry guarantee even though nobody is in the seat" (confirmed as a
+     * real, reproducible gap by {@code CopilotDismountIntegrityGameTest
+     * #midFlightDismountLeavesPilotUnaffected} against the pre-fix code).
+     *
+     * <p>Deliberately narrow and one-directional: only clears {@link #copilot} when the
+     * departing passenger IS the currently-tracked copilot, and never touches {@link #pilot} --
+     * {@code pilot} is intentionally never cleared on dismount at all (see its own mount-path
+     * comment in {@link #interact}, REQ-011: "a ship can exist with no pilot aboard" is normal,
+     * expected state). There is no shared "occupants" list here for a dismount to accidentally
+     * wipe wholesale -- {@code pilot} and {@code copilot} are two independent {@code UUID}
+     * fields, and this override only ever writes the one matching the departing passenger.</p>
+     */
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        if (copilot != null && copilot.equals(passenger.getUUID())) {
+            copilot = null;
+        }
+    }
+
+    /**
      * REQ-007/AC-007 (T08, OQ-003 resolved 2026-07-18): logs a warning when the seat
      * {@code passenger} just occupied leaves them fully exposed above the hull. Deliberately
      * ignores armor/skin/third-person camera entirely -- the only per-player input threaded
