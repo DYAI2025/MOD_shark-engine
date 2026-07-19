@@ -29,7 +29,8 @@
             "dev.sharkengine.gametest.ShipEntityMountGameTest",
             "dev.sharkengine.gametest.VehicleRoutePopupGameTest",
             "dev.sharkengine.gametest.BuildSessionAuthorizationGameTest",
-            "dev.sharkengine.gametest.VehicleRouteAvailabilityGameTest"
+            "dev.sharkengine.gametest.VehicleRouteAvailabilityGameTest",
+            "dev.sharkengine.gametest.PilotSeatCountGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

@@ -54,6 +54,11 @@ class VehicleBalanceTest {
             new Row("steering_wheel", PartRole.CONTROL, 2, 0, 0, 0, 0,
                     VehiclePartDefinition.LiftMode.NONE),
             new Row("bug", PartRole.CONTROL, 1, 0, 0, 0, 0,
+                    VehiclePartDefinition.LiftMode.NONE),
+            // REQ-005/T05: generic pilot seat — not part of the original concept §4 table
+            // (that doc predates REQ-005), added directly to VehicleBalance.PARTS; locked
+            // here for the same single-source-of-truth reason every other row is.
+            new Row("pilot_seat", PartRole.PILOT_SEAT, 1, 0, 0, 0, 0,
                     VehiclePartDefinition.LiftMode.NONE)
     );
 
@@ -75,10 +80,11 @@ class VehicleBalanceTest {
     }
 
     @Test
-    @DisplayName("PARTS has exactly the 14 named rows from concept §4 (the generic-block row is FALLBACK, not a table entry)")
+    @DisplayName("PARTS has exactly the 14 concept §4 rows plus REQ-005's pilot_seat row (15 total; "
+            + "the generic-block row is FALLBACK, not a table entry)")
     void partsTableHasExpectedSize() {
         assertEquals(CONCEPT_TABLE.size(), VehicleBalance.PARTS.size());
-        assertEquals(14, VehicleBalance.PARTS.size());
+        assertEquals(15, VehicleBalance.PARTS.size());
     }
 
     // ─── weight-category thresholds (mass-based, concept §4) ──────────────────

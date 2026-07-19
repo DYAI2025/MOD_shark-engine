@@ -5,6 +5,7 @@ import dev.sharkengine.content.block.AirframePanelBlock;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.content.block.HelicopterEngineBlock;
 import dev.sharkengine.content.block.LandingSkidBlock;
+import dev.sharkengine.content.block.PilotSeatBlock;
 import dev.sharkengine.content.block.RotorBladeBlock;
 import dev.sharkengine.content.block.SteeringWheelBlock;
 import dev.sharkengine.content.block.SteeringWheelItem;
@@ -152,6 +153,24 @@ public final class ModBlocks {
             block -> new BlockItem(block, new Item.Properties())
     );
 
+    /**
+     * REQ-005/T05: generic pilot seat ({@code PartRole.PILOT_SEAT}). Registered the
+     * same minimal way {@link #THRUSTER} is (plain {@link PilotSeatBlock}, no custom
+     * blockstate property) — see that class's javadoc for why a dedicated block class
+     * exists despite carrying no behavior yet. Strength/sound match a light
+     * furniture-like fixture (wood, not metal) — distinct from every AIR-040
+     * industrial-part block above, since a seat is generic crew furniture, not
+     * vehicle structure/propulsion hardware.
+     */
+    public static final Block PILOT_SEAT = registerBlock(
+            "pilot_seat",
+            PilotSeatBlock::new,
+            BlockBehaviour.Properties.of()
+                    .strength(1.0F, 2.0F)
+                    .sound(SoundType.WOOD),
+            block -> new BlockItem(block, new Item.Properties())
+    );
+
     private ModBlocks() {}
 
     public static void init() {
@@ -166,6 +185,7 @@ public final class ModBlocks {
             entries.accept(ROTOR_HUB.asItem());
             entries.accept(ROTOR_BLADE.asItem());
             entries.accept(LANDING_SKID.asItem());
+            entries.accept(PILOT_SEAT.asItem());
         });
     }
 

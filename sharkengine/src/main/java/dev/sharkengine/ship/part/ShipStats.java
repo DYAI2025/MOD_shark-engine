@@ -20,6 +20,10 @@ package dev.sharkengine.ship.part;
  * @param propulsionCount number of parts whose {@link VehiclePartDefinition#role()} is
  *                        {@link PartRole#PROPULSION} — the role-based replacement for
  *                        {@code ThrusterRequirements.countThrusters}
+ * @param pilotSeatCount  number of parts whose {@link VehiclePartDefinition#role()} is
+ *                        {@link PartRole#PILOT_SEAT} (REQ-005) — same role-based counting
+ *                        treatment as {@code propulsionCount}, but assembly requires this to
+ *                        be exactly 1 (not "at least one" like propulsion)
  */
 public record ShipStats(
         int mass,
@@ -27,10 +31,11 @@ public record ShipStats(
         int thrust,
         int drag,
         int fuelCapacity,
-        int propulsionCount
+        int propulsionCount,
+        int pilotSeatCount
 ) {
     /** Stats for an empty part set (no blocks, or a null/empty input list). */
-    public static final ShipStats EMPTY = new ShipStats(0, 0, 0, 0, 0, 0);
+    public static final ShipStats EMPTY = new ShipStats(0, 0, 0, 0, 0, 0, 0);
 
     /**
      * Whether this ship has at least one PROPULSION part — the role-based

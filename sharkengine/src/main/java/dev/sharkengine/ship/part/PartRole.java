@@ -28,5 +28,15 @@ public enum PartRole {
     /** Fuel storage; extends a ship's fuel capacity. */
     FUEL_STORAGE,
     /** Steering/control input block (steering wheel, bug/bow marker). */
-    CONTROL
+    CONTROL,
+    /**
+     * Generic crew seat that a rider can pilot from (REQ-005). Deliberately vehicle-class
+     * agnostic: the role, not the block's id, is what {@code ShipAssemblyService}'s
+     * seat-count validation checks (see that class's {@code StructureScan#canAssemble()}),
+     * so this same role is directly reusable by future LAND/WATER vehicle profiles without
+     * introducing a parallel AIR-specific seat concept. REQ-006 (seat *anchor* position
+     * resolution) and REQ-009 (copilot seat, additional occupant) build on this role but are
+     * out of scope for the role definition itself.
+     */
+    PILOT_SEAT
 }

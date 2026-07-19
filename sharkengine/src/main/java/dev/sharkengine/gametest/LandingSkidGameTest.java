@@ -45,6 +45,8 @@ public final class LandingSkidGameTest implements FabricGameTest {
         helper.setBlock(WHEEL_POS.east(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.west(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.above(), ModBlocks.THRUSTER);
+        // REQ-005: assembly now also requires exactly one pilot seat.
+        helper.setBlock(WHEEL_POS.west().west(), ModBlocks.PILOT_SEAT);
         BlockState bugState = ModBlocks.BUG.defaultBlockState().setValue(BugBlock.FACING, Direction.SOUTH);
         helper.setBlock(WHEEL_POS.north().north(), bugState);
     }

@@ -29,6 +29,7 @@
     "sharkengine:helicopter_engine",
     "sharkengine:rotor_hub",
     "sharkengine:rotor_blade",
-    "sharkengine:landing_skid"
+    "sharkengine:landing_skid",
+    "sharkengine:pilot_seat"
   ]
 }

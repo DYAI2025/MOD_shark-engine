@@ -237,6 +237,23 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                 ),
                 "I I", "MMM"
         );
+
+        // ─── REQ-005/T05: generic pilot seat ─────────────────────────────────────
+        // pilot_seat: W=#minecraft:wool, P=#minecraft:planks -- single row "WPW"
+        // (cushion, frame, cushion), yield 1. Deliberately generic reagents (wool +
+        // planks, no metal_sheet/AIR-040 intermediate tie-in) so the recipe itself
+        // carries no AIR-specific flavor, consistent with REQ-005's "reusable for
+        // later LAND/WATER profiles" requirement.
+        shapedRecipe(
+                exporter,
+                "pilot_seat",
+                ModBlocks.PILOT_SEAT.asItem(),
+                Map.of(
+                        'W', Ingredient.of(ItemTags.WOOL),
+                        'P', Ingredient.of(ItemTags.PLANKS)
+                ),
+                "WPW"
+        );
     }
 
     private void shapedRecipe(

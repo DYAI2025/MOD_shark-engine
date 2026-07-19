@@ -116,6 +116,8 @@ public final class BlueprintPersistenceGameTest implements FabricGameTest {
         helper.setBlock(wheelPos.east(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.west(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.above(), ModBlocks.THRUSTER);
+        // REQ-005: assembly now also requires exactly one pilot seat.
+        helper.setBlock(wheelPos.west().west(), ModBlocks.PILOT_SEAT);
         // BUG facing WEST (directionToYaw: WEST=90) instead of the usual SOUTH.
         BlockState bugState = ModBlocks.BUG.defaultBlockState().setValue(BugBlock.FACING, Direction.WEST);
         helper.setBlock(wheelPos.north().north(), bugState);

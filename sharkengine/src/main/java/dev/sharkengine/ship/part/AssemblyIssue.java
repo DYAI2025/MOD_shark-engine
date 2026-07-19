@@ -84,6 +84,10 @@ public record AssemblyIssue(Code code, BlockPos pos, List<Integer> args) {
         TERRAIN_CONTACT("terrain_contact"),
         /** No part with {@link PartRole#PROPULSION} is present. */
         NO_PROPULSION("no_propulsion"),
+        /** No part with {@link PartRole#PILOT_SEAT} is present (REQ-005). */
+        NO_PILOT_SEAT("no_pilot_seat"),
+        /** More than one part with {@link PartRole#PILOT_SEAT} is present; exactly one is required (REQ-005). */
+        MULTI_PILOT_SEAT("multi_pilot_seat"),
         /** Fewer than 4 ship-eligible blocks are attached directly to the steering wheel. */
         TOO_FEW_CORE_NEIGHBORS("too_few_core_neighbors"),
         /** No BUG (bow) block found in the structure. */

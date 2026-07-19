@@ -128,6 +128,17 @@ final class SharkEngineLangProvider {
             // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
             b.add("key.categories.sharkengine", "Shark Engine");
             b.add("key.sharkengine.descend", "Descend");
+            // REQ-005/T05: generic pilot seat
+            b.add("block.sharkengine.pilot_seat", "Pilot Seat");
+            b.add("item.sharkengine.pilot_seat", "Pilot Seat");
+            b.add("message.sharkengine.assembly_fail_no_pilot_seat",
+                    "No pilot seat found – add exactly one pilot seat.");
+            b.add("message.sharkengine.assembly_fail_multi_pilot_seat",
+                    "Configuration error: Multiple pilot seats found (%s). Only one allowed.");
+            b.add("assembly_issue.sharkengine.no_pilot_seat",
+                    "No pilot seat found – add exactly one pilot seat.");
+            b.add("assembly_issue.sharkengine.multi_pilot_seat",
+                    "Configuration error: Multiple pilot seats found (%s). Only one allowed.");
         }
     }
 
@@ -237,6 +248,17 @@ final class SharkEngineLangProvider {
             // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
             b.add("key.categories.sharkengine", "Shark Engine");
             b.add("key.sharkengine.descend", "Sinkflug");
+            // REQ-005/T05: generic pilot seat
+            b.add("block.sharkengine.pilot_seat", "Pilotensitz");
+            b.add("item.sharkengine.pilot_seat", "Pilotensitz");
+            b.add("message.sharkengine.assembly_fail_no_pilot_seat",
+                    "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.");
+            b.add("message.sharkengine.assembly_fail_multi_pilot_seat",
+                    "Konfigurationsfehler: Mehrere Pilotensitze gefunden (%s). Nur genau einer erlaubt.");
+            b.add("assembly_issue.sharkengine.no_pilot_seat",
+                    "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.");
+            b.add("assembly_issue.sharkengine.multi_pilot_seat",
+                    "Konfigurationsfehler: Mehrere Pilotensitze gefunden (%s). Nur genau einer erlaubt.");
         }
     }
 }

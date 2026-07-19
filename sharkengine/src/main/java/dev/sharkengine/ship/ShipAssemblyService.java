@@ -98,11 +98,24 @@ public final class ShipAssemblyService {
             return stats.propulsionCount();
         }
 
+        /**
+         * REQ-005: number of parts whose role is {@link dev.sharkengine.ship.part.PartRole#PILOT_SEAT}
+         * in this structure — generalizes {@link #thrusterCount()}'s role-based counting pattern to a
+         * DIFFERENT multiplicity rule ("exactly one", not "at least one"). Every matching part is
+         * tallied by {@code ShipPartAnalyzer.analyze} (no early "found the first one, stop looking"
+         * short-circuit), so two pilot seats anywhere in the structure — adjacent or far apart —
+         * are both counted here, not just the first one found.
+         */
+        public int pilotSeatCount() {
+            return stats.pilotSeatCount();
+        }
+
         public boolean canAssemble() {
             return !isEmpty()
                     && invalidAttachments.isEmpty()
                     && contactPoints == 0
                     && stats.hasPropulsion()
+                    && stats.pilotSeatCount() == 1
                     && coreNeighbors >= 4
                     && bugCount == 1
                     && bugOnEdge;
@@ -137,6 +150,11 @@ public final class ShipAssemblyService {
             if (!stats.hasPropulsion()) {
                 issues.add(AssemblyIssue.of(AssemblyIssue.Code.NO_PROPULSION));
             }
+            if (stats.pilotSeatCount() == 0) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.NO_PILOT_SEAT));
+            } else if (stats.pilotSeatCount() > 1) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.MULTI_PILOT_SEAT, stats.pilotSeatCount()));
+            }
             if (coreNeighbors < 4) {
                 issues.add(AssemblyIssue.of(AssemblyIssue.Code.TOO_FEW_CORE_NEIGHBORS, coreNeighbors));
             }
@@ -168,6 +186,21 @@ public final class ShipAssemblyService {
 
         if (!scan.hasThruster()) {
             return new AssembleResult("message.sharkengine.assembly_fail_thruster", scan.thrusterCount());
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // PILOT SEAT VALIDATION (REQ-005): exactly one PILOT_SEAT-role part
+        // required — zero and more-than-one are both rejected explicitly,
+        // with the world left unchanged (no blocks removed, no entity
+        // spawned before this point). Role-based count, generalizing the
+        // hasThruster()/thrusterCount() pattern above rather than reintroducing
+        // ID-comparison counting (see ShipPartAnalyzer/ShipStats).
+        // ═══════════════════════════════════════════════════════════════════
+        if (scan.pilotSeatCount() == 0) {
+            return new AssembleResult("message.sharkengine.assembly_fail_no_pilot_seat", "");
+        }
+        if (scan.pilotSeatCount() > 1) {
+            return new AssembleResult("message.sharkengine.assembly_fail_multi_pilot_seat", scan.pilotSeatCount());
         }
 
         if (scan.coreNeighbors() < 4) {

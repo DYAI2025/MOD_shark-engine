@@ -164,7 +164,17 @@ public final class VehicleBalance {
             Map.entry(id("steering_wheel"), new VehiclePartDefinition(
                     PartRole.CONTROL, 2, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE)),
             Map.entry(id("bug"), new VehiclePartDefinition(
-                    PartRole.CONTROL, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE))
+                    PartRole.CONTROL, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE)),
+
+            // ─── REQ-005/T05: generic pilot seat ────────────────────────────────
+            // Not part of the original AIRCRAFT_CONCEPT_V2.md §4 table (that doc predates
+            // REQ-005) — added directly here as this system's single source of truth for the
+            // same reason every other row is. Purely structural: mass=1, no lift/thrust/drag/
+            // fuel contribution, matching the concept table's "generic ship_eligible block"
+            // baseline (the same profile FALLBACK carries) — a seat by itself contributes no
+            // capability beyond occupying the required PILOT_SEAT role slot.
+            Map.entry(id("pilot_seat"), new VehiclePartDefinition(
+                    PartRole.PILOT_SEAT, 1, 0, 0, 0, 0, VehiclePartDefinition.LiftMode.NONE))
     );
 
     private static String id(String path) {
