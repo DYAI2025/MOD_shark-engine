@@ -32,18 +32,30 @@ import java.util.List;
  * {@link #withAssemblyYaw} immediately afterward — see that method's design
  * note for why 0 alone would be wrong for non-SOUTH-facing legacy ships.</p>
  *
+ * <p><b>{@code seatAnchors}</b> (REQ-006, schema v3): the resolved pilot-seat anchor
+ * position(s), each a single block offset relative to {@code origin} — for AIR release 1
+ * this is always either empty (no valid anchor — see {@code ShipAssemblyService}'s
+ * seat-anchor validation) or exactly one entry (the pilot seat). Deliberately a {@code
+ * List}, not a nullable single field: {@code T07} (copilot seat) extends this same
+ * representation with additional entries/a role tag rather than introducing a second,
+ * parallel data structure. Like {@code blocks}, these are raw (unrotated) offsets captured
+ * at assembly time — {@code ShipTransform.rotateOffset} (AIR-010's single rotation
+ * authority) is how callers recover the current world position after the ship has since
+ * rotated in flight, exactly like {@link ShipBlock} offsets.</p>
+ *
  * @author Shark Engine Team
- * @version 2.0 (Luftfahrzeug-MVP)
+ * @version 3.0 (Pilotensitz-Anker)
  */
 public record ShipBlueprint(
     BlockPos origin,
     List<ShipBlock> blocks,
     int blockCount,  // NEW: Cached block count for performance
     int schemaVersion,
-    float assemblyYaw
+    float assemblyYaw,
+    List<SeatAnchor> seatAnchors
 ) {
     /** Current NBT schema version written by {@link #toNbt}. */
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
 
     /**
      * Represents a single block in the ship structure
@@ -56,21 +68,36 @@ public record ShipBlueprint(
     public record ShipBlock(int dx, int dy, int dz, BlockState state) {}
 
     /**
+     * A single seat's anchor position, relative to {@code origin} (REQ-006). Raw
+     * (unrotated) offset, captured at assembly time — same convention as {@link ShipBlock}.
+     *
+     * @param dx X offset from origin
+     * @param dy Y offset from origin
+     * @param dz Z offset from origin
+     */
+    public record SeatAnchor(int dx, int dy, int dz) {}
+
+    /** Normalizes {@code seatAnchors} to a non-null, immutable list — never {@code null}. */
+    public ShipBlueprint {
+        seatAnchors = seatAnchors == null ? List.of() : List.copyOf(seatAnchors);
+    }
+
+    /**
      * Convenience constructor that calculates blockCount automatically and
-     * defaults schemaVersion/assemblyYaw for callers that don't care about
-     * orientation (e.g. tests). Use {@link #withAssemblyYaw} to set a real
-     * assembly yaw after construction.
+     * defaults schemaVersion/assemblyYaw/seatAnchors for callers that don't care about
+     * orientation or seating (e.g. tests). Use {@link #withAssemblyYaw}/
+     * {@link #withSeatAnchors} to set real values after construction.
      */
     public ShipBlueprint(BlockPos origin, List<ShipBlock> blocks) {
-        this(origin, blocks, blocks.size(), CURRENT_SCHEMA_VERSION, 0f);
+        this(origin, blocks, blocks.size(), CURRENT_SCHEMA_VERSION, 0f, List.of());
     }
 
     /**
      * Convenience constructor with an explicit blockCount (existing callers)
-     * that defaults schemaVersion/assemblyYaw the same way as the 2-arg form.
+     * that defaults schemaVersion/assemblyYaw/seatAnchors the same way as the 2-arg form.
      */
     public ShipBlueprint(BlockPos origin, List<ShipBlock> blocks, int blockCount) {
-        this(origin, blocks, blockCount, CURRENT_SCHEMA_VERSION, 0f);
+        this(origin, blocks, blockCount, CURRENT_SCHEMA_VERSION, 0f, List.of());
     }
 
     /**
@@ -79,11 +106,20 @@ public record ShipBlueprint(
      * kept separate from the constructors so existing 2-/3-arg call sites
      * never need to change, and so the legacy-fallback patch in
      * {@code ShipEntity.readAdditionalSaveData} reads as an explicit,
-     * intentional override rather than a fifth constructor argument easy to
+     * intentional override rather than a sixth constructor argument easy to
      * pass in the wrong order.
      */
     public ShipBlueprint withAssemblyYaw(float newAssemblyYaw) {
-        return new ShipBlueprint(origin, blocks, blockCount, schemaVersion, newAssemblyYaw);
+        return new ShipBlueprint(origin, blocks, blockCount, schemaVersion, newAssemblyYaw, seatAnchors);
+    }
+
+    /**
+     * Returns a copy of this blueprint with only {@code seatAnchors} changed (REQ-006).
+     * Kept separate from the constructors for the same reason {@link #withAssemblyYaw} is —
+     * an explicit, intentional override rather than another positional constructor argument.
+     */
+    public ShipBlueprint withSeatAnchors(List<SeatAnchor> newSeatAnchors) {
+        return new ShipBlueprint(origin, blocks, blockCount, schemaVersion, assemblyYaw, newSeatAnchors);
     }
 
     /**
@@ -110,6 +146,20 @@ public record ShipBlueprint(
             blockList.add(blockTag);
         }
         tag.put("Blocks", blockList);
+
+        // REQ-006 (schema v3): seat anchors. Always written (possibly empty) so a v3+
+        // reader never has to guess between "v3 blueprint with zero anchors" and
+        // "pre-v3 blueprint that never had the concept" — fromNbt still handles a
+        // missing tag defensively for true legacy (v1/v2) data, see below.
+        ListTag seatAnchorList = new ListTag();
+        for (SeatAnchor anchor : seatAnchors) {
+            CompoundTag anchorTag = new CompoundTag();
+            anchorTag.putInt("dx", anchor.dx());
+            anchorTag.putInt("dy", anchor.dy());
+            anchorTag.putInt("dz", anchor.dz());
+            seatAnchorList.add(anchorTag);
+        }
+        tag.put("SeatAnchors", seatAnchorList);
         return tag;
     }
 
@@ -155,6 +205,23 @@ public record ShipBlueprint(
         // after this call, before the blueprint is used for rendering.
         float assemblyYaw = tag.contains("AssemblyYaw") ? tag.getFloat("AssemblyYaw") : 0f;
 
-        return new ShipBlueprint(origin, blocks, blockCount, schemaVersion, assemblyYaw);
+        // REQ-006 (schema v3, NFR-004 conservative migration): pre-v3 (v1/v2) NBT never
+        // wrote "SeatAnchors" at all. Missing tag defaults to an empty list rather than
+        // failing to load — the same conservative-default treatment AIR-015 already gave
+        // AssemblyYaw for pre-v2 saves — never a fabricated/guessed anchor position.
+        List<SeatAnchor> seatAnchors = new ArrayList<>();
+        if (tag.contains("SeatAnchors")) {
+            ListTag seatAnchorList = tag.getList("SeatAnchors", Tag.TAG_COMPOUND);
+            for (int i = 0; i < seatAnchorList.size(); i++) {
+                CompoundTag anchorTag = seatAnchorList.getCompound(i);
+                seatAnchors.add(new SeatAnchor(
+                        anchorTag.getInt("dx"),
+                        anchorTag.getInt("dy"),
+                        anchorTag.getInt("dz")
+                ));
+            }
+        }
+
+        return new ShipBlueprint(origin, blocks, blockCount, schemaVersion, assemblyYaw, seatAnchors);
     }
 }

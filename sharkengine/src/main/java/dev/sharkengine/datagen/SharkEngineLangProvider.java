@@ -139,6 +139,12 @@ final class SharkEngineLangProvider {
                     "No pilot seat found – add exactly one pilot seat.");
             b.add("assembly_issue.sharkengine.multi_pilot_seat",
                     "Configuration error: Multiple pilot seats found (%s). Only one allowed.");
+            // REQ-006/T06: pilot seat anchor -- must sit exactly one block in front of the
+            // bow (BUG) marker's facing; no fallback to another position.
+            b.add("message.sharkengine.assembly_fail_seat_anchor",
+                    "Pilot seat must be the block directly in front of the bow marker – move it there.");
+            b.add("assembly_issue.sharkengine.seat_anchor_invalid",
+                    "Pilot seat must be the block directly in front of the bow marker – move it there.");
         }
     }
 
@@ -259,6 +265,12 @@ final class SharkEngineLangProvider {
                     "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.");
             b.add("assembly_issue.sharkengine.multi_pilot_seat",
                     "Konfigurationsfehler: Mehrere Pilotensitze gefunden (%s). Nur genau einer erlaubt.");
+            // REQ-006/T06: pilot seat anchor -- must sit exactly one block in front of the
+            // bow (BUG) marker's facing; no fallback to another position.
+            b.add("message.sharkengine.assembly_fail_seat_anchor",
+                    "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
+            b.add("assembly_issue.sharkengine.seat_anchor_invalid",
+                    "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
         }
     }
 }

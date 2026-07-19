@@ -6,8 +6,10 @@ import dev.sharkengine.content.ModTags;
 import dev.sharkengine.content.block.BugBlock;
 import dev.sharkengine.net.BuilderPreviewS2CPayload;
 import dev.sharkengine.ship.part.AssemblyIssue;
+import dev.sharkengine.ship.part.PartRole;
 import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import dev.sharkengine.ship.part.ShipStats;
+import dev.sharkengine.ship.part.VehiclePartRegistry;
 import dev.sharkengine.tutorial.TutorialService;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -75,7 +77,8 @@ public final class ShipAssemblyService {
                                 int coreNeighbors,
                                 int bugCount,
                                 boolean bugOnEdge,
-                                float bugYawDeg) {
+                                float bugYawDeg,
+                                boolean seatAnchorValid) {
         public boolean isEmpty() {
             return blocks.isEmpty();
         }
@@ -118,14 +121,26 @@ public final class ShipAssemblyService {
                     && stats.pilotSeatCount() == 1
                     && coreNeighbors >= 4
                     && bugCount == 1
-                    && bugOnEdge;
+                    && bugOnEdge
+                    && seatAnchorValid;
         }
 
         public ShipBlueprint toBlueprint() {
             // AIR-015: carry the BUG block's resolved yaw into the blueprint
             // so rendering/collision/disassembly (which only see the
             // blueprint, not this scan) can compute effective rotation.
-            return new ShipBlueprint(origin, blocks, blockCount()).withAssemblyYaw(bugYawDeg);
+            ShipBlueprint blueprint = new ShipBlueprint(origin, blocks, blockCount()).withAssemblyYaw(bugYawDeg);
+            // REQ-006: only ever populate the ONE deterministic front-of-wheel anchor computed
+            // during the scan (see ShipAssemblyService#frontOffset/#scanStructure) — never a
+            // fallback/alternate position. When it's invalid, seatAnchors stays empty, exactly
+            // the "zero SeatAnchor entries" contract AC-006 requires (not a silently-chosen
+            // alternate position).
+            if (seatAnchorValid) {
+                int[] offset = frontOffset(bugYawDeg);
+                blueprint = blueprint.withSeatAnchors(
+                        List.of(new ShipBlueprint.SeatAnchor(offset[0], 0, offset[1])));
+            }
+            return blueprint;
         }
 
         /**
@@ -164,6 +179,12 @@ public final class ShipAssemblyService {
                 issues.add(AssemblyIssue.of(AssemblyIssue.Code.MULTI_BUG, bugCount));
             } else if (!bugOnEdge) {
                 issues.add(AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE));
+            }
+            // REQ-006: only meaningful once exactly one BUG resolves an unambiguous facing —
+            // with zero/multiple BUGs the facing itself is undefined, so NO_BUG/MULTI_BUG above
+            // already cover that case and this would just be redundant noise.
+            if (bugCount == 1 && !seatAnchorValid) {
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID));
             }
             return issues;
         }
@@ -220,6 +241,20 @@ public final class ShipAssemblyService {
             return new AssembleResult("message.sharkengine.assembly_fail_bug_inside", "");
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SEAT ANCHOR VALIDATION (REQ-006): the pilot seat must occupy the single
+        // deterministic block directly in front of the BUG's resolved facing. If that
+        // exact position is occupied by a non-seat block, or is otherwise invalid (empty,
+        // outside the structure, etc.), assembly fails explicitly here — there is no
+        // fallback search for a nearby alternate position anywhere in this class; only
+        // this one position (computed by #frontOffset, reusing ShipTransform.rotateOffset,
+        // AIR-010's single rotation authority) is ever consulted. World is still
+        // unchanged at this point (no blocks removed, no entity spawned).
+        // ═══════════════════════════════════════════════════════════════════
+        if (!scan.seatAnchorValid()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_seat_anchor", "");
+        }
+
         ShipBlueprint blueprint = scan.toBlueprint();
 
         // Remove scanned blocks
@@ -253,8 +288,10 @@ public final class ShipAssemblyService {
 
     public static void openBuilderPreview(ServerLevel level, BlockPos wheelPos, ServerPlayer player) {
         StructureScan scan = scanStructure(level, wheelPos);
-        ShipBlueprint blueprint = new ShipBlueprint(wheelPos, scan.blocks(), scan.blockCount())
-                .withAssemblyYaw(scan.bugYawDeg());
+        // REQ-006: scan.toBlueprint() (rather than reconstructing the same fields by hand here)
+        // so the preview blueprint carries the exact same SeatAnchor entries (zero or one, never
+        // a fallback position) that a real assembly attempt against this same scan would produce.
+        ShipBlueprint blueprint = scan.toBlueprint();
 
         // REQ-003 (security fix, reviewer-reported): embed the session id bound to this wheel
         // ONLY if `player` is that session's own owner -- sessionIdForOwner returns null for
@@ -371,9 +408,48 @@ public final class ShipAssemblyService {
         // ═══════════════════════════════════════════════════════════════════
         float bugYawDeg = directionToYaw(bugFacing);
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SEAT ANCHOR VALIDATION (REQ-006): the pilot seat's anchor is deterministically
+        // the single block directly in front of the BUG's resolved facing. Only meaningful
+        // once exactly one BUG resolves an unambiguous facing (bugCount == 1) -- with
+        // zero/multiple BUGs there is no well-defined "front" to check, and assembly
+        // already fails separately on NO_BUG/MULTI_BUG in that case.
+        //
+        // Deliberately reads the ACTUAL world block state at exactly ONE position
+        // (wheelPos + frontOffset) and nothing else -- no search, no scan of nearby
+        // positions, no "if occupied, try the next side" branch. This is the single
+        // source-of-truth check the "no silent fallback" requirement (REQ-006/AC-006)
+        // depends on: an occupied-or-invalid front slot must be rejected here, not
+        // silently reinterpreted as "look for a seat somewhere else nearby".
+        // ═══════════════════════════════════════════════════════════════════
+        boolean seatAnchorValid = false;
+        if (bugCount == 1) {
+            int[] frontOffset = frontOffset(bugYawDeg);
+            BlockPos seatAnchorPos = wheelPos.offset(frontOffset[0], 0, frontOffset[1]);
+            BlockState seatAnchorState = level.getBlockState(seatAnchorPos);
+            String seatAnchorId = BuiltInRegistries.BLOCK.getKey(seatAnchorState.getBlock()).toString();
+            seatAnchorValid = VehiclePartRegistry.resolve(seatAnchorId).role() == PartRole.PILOT_SEAT;
+        }
+
         return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, bugYawDeg);
+                bugCount, bugOnEdge, bugYawDeg, seatAnchorValid);
+    }
+
+    /**
+     * REQ-006: the local (dx, dz) offset of "one block directly in front of the BUG's
+     * resolved facing", derived by rotating the canonical SOUTH-facing offset (0, 1) through
+     * {@link ShipTransform#rotateOffset} by {@code yawDeg} -- the SAME single rotation
+     * authority (AIR-010) collision/disassembly/rendering already share, not a second,
+     * independently-maintained direction-to-offset mapping. Pure and deterministic: the
+     * sole computation of "where is the seat anchor" anywhere in this class -- there is no
+     * fallback/alternate-position search calling this (or anything else) in a loop.
+     *
+     * @return a 2-element array {@code [dx, dz]}, rounded to the nearest integer block delta
+     */
+    private static int[] frontOffset(float yawDeg) {
+        double[] rotated = ShipTransform.rotateOffset(0, 1, yawDeg);
+        return new int[] { (int) Math.round(rotated[0]), (int) Math.round(rotated[1]) };
     }
 
     /**

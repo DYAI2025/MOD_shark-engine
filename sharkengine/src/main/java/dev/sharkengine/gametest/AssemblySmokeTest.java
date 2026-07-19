@@ -20,7 +20,9 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>Layout (relative to the empty 8x8x8 test structure origin):</p>
  * <pre>
  *   wheel:  (3,1,3)
- *   planks: (3,1,2) (3,1,4) (2,1,3) (4,1,3)  -- the 4 required core neighbors
+ *   planks: (3,1,2) (2,1,3) (4,1,3)          -- 3 of the 4 required core neighbors
+ *   pilot seat: (3,1,4)                      -- south core neighbor AND the REQ-006
+ *                                                front-of-wheel seat anchor (BUG faces SOUTH)
  *   thruster: (3,2,3)                        -- above the wheel
  *   bug:    (3,1,1)                          -- 2 north of the wheel, on the
  *                                                structure edge, facing SOUTH
@@ -41,12 +43,13 @@ public final class AssemblySmokeTest implements FabricGameTest {
     private static void placeCoreStructure(GameTestHelper helper) {
         helper.setBlock(WHEEL_POS, ModBlocks.STEERING_WHEEL);
         helper.setBlock(WHEEL_POS.north(), Blocks.OAK_PLANKS);
-        helper.setBlock(WHEEL_POS.south(), Blocks.OAK_PLANKS);
+        // REQ-006: the BUG below faces SOUTH, so the pilot seat must sit exactly one block
+        // south of the wheel (the deterministic front-of-wheel anchor) -- it doubles as the
+        // south core-neighbor, same as any other ship_eligible block would.
+        helper.setBlock(WHEEL_POS.south(), ModBlocks.PILOT_SEAT);
         helper.setBlock(WHEEL_POS.east(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.west(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.above(), ModBlocks.THRUSTER);
-        // REQ-005: assembly now also requires exactly one pilot seat.
-        helper.setBlock(WHEEL_POS.west().west(), ModBlocks.PILOT_SEAT);
     }
 
     private static ShipAssemblyService.StructureScan scan(GameTestHelper helper) {

@@ -28,6 +28,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * stays isolated — exactly like those tests already do for
  * {@code propulsionCount=1}/{@code coreNeighbors=4}/{@code bugCount=1} elsewhere in
  * this file.</p>
+ *
+ * <p>REQ-006/T06: {@code makeScan} additionally takes an explicit {@code seatAnchorValid}
+ * parameter — same isolation treatment again: every pre-existing test below that
+ * exercises a DIFFERENT failure condition passes {@code seatAnchorValid=true} (the
+ * "otherwise valid" baseline). The occupied-front-slot failure case itself and the
+ * per-facing offset math are covered by {@code dev.sharkengine.gametest.PilotSeatAnchorGameTest}
+ * (needs a real {@code ServerLevel} to check an actual block at a computed world position)
+ * and {@link ShipTransformTest} (pure rotation math) respectively, not here.</p>
  */
 @DisplayName("ShipAssembly / StructureScan / BUG Tests")
 class ShipAssemblyServiceTest {
@@ -40,11 +48,21 @@ class ShipAssemblyServiceTest {
             List<net.minecraft.core.BlockPos> invalidAttachments,
             int contactPoints, int propulsionCount, int pilotSeatCount, int coreNeighbors,
             int bugCount, boolean bugOnEdge) {
+        return makeScan(blocks, invalidAttachments, contactPoints, propulsionCount,
+                pilotSeatCount, coreNeighbors, bugCount, bugOnEdge, true);
+    }
+
+    /** Helper to build a valid scan with BUG defaults, with explicit seat-anchor validity (REQ-006). */
+    private static ShipAssemblyService.StructureScan makeScan(
+            List<ShipBlueprint.ShipBlock> blocks,
+            List<net.minecraft.core.BlockPos> invalidAttachments,
+            int contactPoints, int propulsionCount, int pilotSeatCount, int coreNeighbors,
+            int bugCount, boolean bugOnEdge, boolean seatAnchorValid) {
         ShipStats stats = new ShipStats(0, 0, 0, 0, 0, propulsionCount, pilotSeatCount);
         return new ShipAssemblyService.StructureScan(
                 null, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, 0.0f
+                bugCount, bugOnEdge, 0.0f, seatAnchorValid
         );
     }
 
@@ -194,6 +212,32 @@ class ShipAssemblyServiceTest {
         assertTrue(scan.canAssemble());
     }
 
+    // ─── REQ-006/T06: seat-anchor validity ─────────────────────────────────────
+    //
+    // Mirrors the canAssemble/issues coverage above one-to-one, but for
+    // seatAnchorValid: even with a count of exactly one pilot seat (T05's own
+    // invariant satisfied), assembly still requires that ONE seat to sit at the
+    // single deterministic front-of-wheel position -- not merely exist somewhere
+    // in the structure.
+
+    @Test
+    @DisplayName("canAssemble: false when seatAnchorValid=false, even with an otherwise-valid " +
+            "structure and exactly one pilot seat present (REQ-006)")
+    void structureScan_cannotAssemble_seatAnchorInvalid() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, false);
+        assertFalse(scan.canAssemble(),
+                "A pilot seat that exists but isn't at the front-of-wheel position must not assemble");
+    }
+
+    @Test
+    @DisplayName("canAssemble: true when seatAnchorValid=true and every other condition is met (REQ-006)")
+    void structureScan_canAssemble_seatAnchorValid() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, true);
+        assertTrue(scan.canAssemble());
+    }
+
     // ─── issues() — structured assembly validation codes (AIR-022, REQ-S3) ────────────────
     //
     // One test per AssemblyIssue.Code, mirroring canAssemble()'s conditions one-to-one:
@@ -289,6 +333,24 @@ class ShipAssemblyServiceTest {
         var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
                 0, 1, 1, 4, 1, false);
         assertTrue(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE)));
+    }
+
+    @Test
+    @DisplayName("issues(): SEAT_ANCHOR_INVALID when the front-of-wheel slot doesn't hold the " +
+            "pilot seat, even though exactly one BUG resolves a facing (REQ-006)")
+    void issues_seatAnchorInvalid() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, false);
+        assertTrue(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID)));
+    }
+
+    @Test
+    @DisplayName("issues(): SEAT_ANCHOR_INVALID is NOT reported when bugCount != 1 (NO_BUG/MULTI_BUG " +
+            "already cover the undefined-facing case; would otherwise be redundant noise, REQ-006)")
+    void issues_seatAnchorInvalidNotReportedWithoutAWellDefinedBug() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 0, false, false);
+        assertFalse(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID)));
     }
 
     @Test

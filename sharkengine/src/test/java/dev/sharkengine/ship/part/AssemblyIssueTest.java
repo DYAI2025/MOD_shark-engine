@@ -95,6 +95,13 @@ class AssemblyIssueTest {
                 AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE).translationKey());
     }
 
+    @Test
+    @DisplayName("SEAT_ANCHOR_INVALID translation key (REQ-006)")
+    void seatAnchorInvalidTranslationKey() {
+        assertEquals("assembly_issue.sharkengine.seat_anchor_invalid",
+                AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID).translationKey());
+    }
+
     // ─── factory / normalization behavior ────────────────────────────────────────────────────
 
     @Test

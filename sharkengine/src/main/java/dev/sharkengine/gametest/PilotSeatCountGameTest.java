@@ -27,7 +27,8 @@ import java.util.Map;
  * section), the sharpest false positive here is an off-by-one "found the first pilot
  * seat, stop looking" counting bug that never checks for a SECOND seat elsewhere in
  * the structure. {@link #twoSeatsRejectedEvenWhenFarApart} deliberately places its two
- * pilot seats far apart — one two blocks west of the wheel, the other at the end of an
+ * pilot seats far apart — one directly south of the wheel (REQ-006's front-of-wheel
+ * position for this class's SOUTH-facing BUG), the other at the end of an
  * L-shaped plank corridor (east, then south) — not adjacent, specifically to defeat a
  * scan that only checks immediate neighbors for a duplicate rather than tallying every
  * matching part in the structure (see {@code ShipPartAnalyzer#analyze}, which sums
@@ -82,9 +83,17 @@ public final class PilotSeatCountGameTest implements FabricGameTest {
         helper.setBlock(WHEEL_POS.north().north(), bugState);
     }
 
-    /** Close seat: two blocks west of the wheel, connected via the west core-neighbor plank. */
+    /**
+     * Close seat: exactly the front-of-wheel position for the base structure's SOUTH-facing
+     * BUG (REQ-006) -- {@code oneSeatAccepted} needs the single seat to actually be here for
+     * assembly to succeed; it overwrites the south core-neighbor plank {@link
+     * #placeBaseStructure} already set, same as any other ship_eligible block could.
+     * {@code twoSeatsRejectedEvenWhenFarApart} also reuses this position for its "close" seat
+     * -- that test expects rejection regardless of position (MULTI_PILOT_SEAT fires before
+     * REQ-006's anchor check is ever reached), so the exact position doesn't affect its outcome.
+     */
     private static BlockPos closeSeatPos() {
-        return WHEEL_POS.west().west();
+        return WHEEL_POS.south();
     }
 
     /** Lays {@link #FAR_CORRIDOR} and places a pilot seat at {@link #FAR_SEAT_POS}. */

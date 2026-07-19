@@ -95,7 +95,14 @@ public record AssemblyIssue(Code code, BlockPos pos, List<Integer> args) {
         /** More than one BUG block found; exactly one is required. */
         MULTI_BUG("multi_bug"),
         /** The single BUG block is not on the structure's outer edge. */
-        BUG_INSIDE("bug_inside");
+        BUG_INSIDE("bug_inside"),
+        /**
+         * The pilot seat is not resolved at its one required position — the single block
+         * directly in front of the BUG's resolved facing (REQ-006). Covers both "occupied by a
+         * non-seat block" and "empty/otherwise invalid": there is no fallback search for an
+         * alternate position, only this exact position is ever consulted.
+         */
+        SEAT_ANCHOR_INVALID("seat_anchor_invalid");
 
         private final String id;
 

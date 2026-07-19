@@ -92,6 +92,56 @@ public final class BlueprintPersistenceGameTest implements FabricGameTest {
     }
 
     @GameTest(template = EMPTY_STRUCTURE)
+    public void roundtripsSeatAnchors(GameTestHelper helper) {
+        BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
+        List<ShipBlueprint.ShipBlock> blocks = List.of(
+                new ShipBlueprint.ShipBlock(1, 0, 0, Blocks.OAK_PLANKS.defaultBlockState())
+        );
+        ShipBlueprint original = new ShipBlueprint(origin, blocks, blocks.size())
+                .withSeatAnchors(List.of(new ShipBlueprint.SeatAnchor(0, 0, 1)));
+
+        CompoundTag tag = original.toNbt();
+        ShipBlueprint restored = ShipBlueprint.fromNbt(tag, helper.getLevel().registryAccess());
+
+        if (restored.seatAnchors().size() != 1) {
+            helper.fail("expected exactly one SeatAnchor to roundtrip, got " + restored.seatAnchors().size());
+            return;
+        }
+        ShipBlueprint.SeatAnchor anchor = restored.seatAnchors().get(0);
+        if (anchor.dx() != 0 || anchor.dy() != 0 || anchor.dz() != 1) {
+            helper.fail("expected SeatAnchor offset (0,0,1) to roundtrip unchanged, got ("
+                    + anchor.dx() + "," + anchor.dy() + "," + anchor.dz() + ")");
+            return;
+        }
+        if (restored.schemaVersion() != ShipBlueprint.CURRENT_SCHEMA_VERSION) {
+            helper.fail("expected schemaVersion=" + ShipBlueprint.CURRENT_SCHEMA_VERSION
+                    + ", got " + restored.schemaVersion());
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void legacyPreV3NbtDefaultsSeatAnchorsToEmpty(GameTestHelper helper) {
+        ShipBlueprint original = oneBlockBlueprint(helper)
+                .withSeatAnchors(List.of(new ShipBlueprint.SeatAnchor(0, 0, 1)));
+        CompoundTag tag = original.toNbt();
+        // Simulate a pre-REQ-006 (v1/v2) save: strip the field v1/v2 never wrote, exactly
+        // like legacyV1NbtDefaultsAssemblyYawToZero does for AssemblyYaw above (NFR-004:
+        // conservative migration, never a fabricated/guessed anchor position).
+        tag.remove("SeatAnchors");
+
+        ShipBlueprint restored = ShipBlueprint.fromNbt(tag, helper.getLevel().registryAccess());
+
+        if (!restored.seatAnchors().isEmpty()) {
+            helper.fail("expected seatAnchors=[] as the pre-v3 default when the NBT tag is "
+                    + "absent, got " + restored.seatAnchors());
+            return;
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_STRUCTURE)
     public void fromNbtIgnoresCorruptStoredBlockCount(GameTestHelper helper) {
         ShipBlueprint original = oneBlockBlueprint(helper); // 1 real block
         CompoundTag tag = original.toNbt();
@@ -114,10 +164,11 @@ public final class BlueprintPersistenceGameTest implements FabricGameTest {
         helper.setBlock(wheelPos.north(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.south(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.east(), Blocks.OAK_PLANKS);
-        helper.setBlock(wheelPos.west(), Blocks.OAK_PLANKS);
+        // REQ-006: the BUG below faces WEST, so the pilot seat must sit exactly one block
+        // west of the wheel (the deterministic front-of-wheel anchor) -- it doubles as the
+        // west core-neighbor, same as any other ship_eligible block would.
+        helper.setBlock(wheelPos.west(), ModBlocks.PILOT_SEAT);
         helper.setBlock(wheelPos.above(), ModBlocks.THRUSTER);
-        // REQ-005: assembly now also requires exactly one pilot seat.
-        helper.setBlock(wheelPos.west().west(), ModBlocks.PILOT_SEAT);
         // BUG facing WEST (directionToYaw: WEST=90) instead of the usual SOUTH.
         BlockState bugState = ModBlocks.BUG.defaultBlockState().setValue(BugBlock.FACING, Direction.WEST);
         helper.setBlock(wheelPos.north().north(), bugState);
@@ -134,6 +185,19 @@ public final class BlueprintPersistenceGameTest implements FabricGameTest {
         if (Math.abs(blueprint.assemblyYaw() - 90f) > 1e-6) {
             helper.fail("expected blueprint.assemblyYaw()=90 for a WEST-facing BUG, got "
                     + blueprint.assemblyYaw());
+            return;
+        }
+        // REQ-006: the seat anchor must be exactly the WEST-facing front offset (-1, 0, 0),
+        // matching Direction.WEST's own normal vector -- not a fallback/alternate position.
+        if (blueprint.seatAnchors().size() != 1) {
+            helper.fail("expected exactly one SeatAnchor for a WEST-facing BUG with a "
+                    + "correctly-placed seat, got " + blueprint.seatAnchors().size());
+            return;
+        }
+        ShipBlueprint.SeatAnchor anchor = blueprint.seatAnchors().get(0);
+        if (anchor.dx() != -1 || anchor.dy() != 0 || anchor.dz() != 0) {
+            helper.fail("expected SeatAnchor offset (-1,0,0) for a WEST-facing BUG, got ("
+                    + anchor.dx() + "," + anchor.dy() + "," + anchor.dz() + ")");
             return;
         }
         helper.succeed();

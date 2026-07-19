@@ -54,18 +54,19 @@ public final class BuildSessionAuthorizationGameTest implements FabricGameTest {
             new BlockPos(-1, 0, 0),
             new BlockPos(0, 1, 0),
             new BlockPos(0, 0, -2),
-            new BlockPos(-2, 0, 0),
     };
 
     private static void placeValidStructure(GameTestHelper helper, BlockPos wheelPos) {
         helper.setBlock(wheelPos, ModBlocks.STEERING_WHEEL);
         helper.setBlock(wheelPos.north(), Blocks.OAK_PLANKS);
-        helper.setBlock(wheelPos.south(), Blocks.OAK_PLANKS);
+        // REQ-006: the BUG below faces SOUTH, so the pilot seat must sit exactly one block
+        // south of the wheel (the deterministic front-of-wheel anchor) -- it doubles as the
+        // south core-neighbor (already tracked by the (0,0,1) STRUCTURE_OFFSETS entry above),
+        // same as any other ship_eligible block would.
+        helper.setBlock(wheelPos.south(), ModBlocks.PILOT_SEAT);
         helper.setBlock(wheelPos.east(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.west(), Blocks.OAK_PLANKS);
         helper.setBlock(wheelPos.above(), ModBlocks.THRUSTER);
-        // REQ-005: assembly now also requires exactly one pilot seat.
-        helper.setBlock(wheelPos.west().west(), ModBlocks.PILOT_SEAT);
         BlockState bug = ModBlocks.BUG.defaultBlockState().setValue(BugBlock.FACING, Direction.SOUTH);
         helper.setBlock(wheelPos.north().north(), bug);
     }
