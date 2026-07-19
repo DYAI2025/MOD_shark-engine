@@ -1,5 +1,6 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.net.ShipBlueprintS2CPayload;
 import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import dev.sharkengine.ship.part.ShipStats;
@@ -367,6 +368,99 @@ public final class ShipEntity extends Entity {
             passengerMountCounts.clear();
         }
         passengerMountCounts.merge(passenger.getUUID(), 1, Integer::sum);
+        // REQ-007/AC-007 (T08): server-side-only cockpit visibility check, wired into the real
+        // seat-occupancy event -- not a client-only render-layer trick (test-plan's named
+        // counter-thesis risk for REQ-007). By the time this fires, both mount call sites
+        // (ShipAssemblyService#tryAssemble's initial pilot mount and #mountCopilot) have already
+        // assigned #pilot/#copilot, so isPilot/isCopilot below correctly resolve the seat this
+        // passenger just occupied.
+        if (!level().isClientSide) {
+            logIfCockpitVisibilityNonCompliant(passenger);
+        }
+    }
+
+    /**
+     * REQ-007/AC-007 (T08, OQ-003 resolved 2026-07-18): logs a warning when the seat
+     * {@code passenger} just occupied leaves them fully exposed above the hull. Deliberately
+     * ignores armor/skin/third-person camera entirely -- the only per-player input threaded
+     * through is {@code passenger.getEyeHeight()} (a plain {@code double}, pose-dependent only;
+     * vanilla armor/skin never change it), fed into {@link
+     * CockpitVisibility#isFullyExposedAboveHull}, whose signature structurally cannot accept
+     * armor or skin data at all (see {@code CockpitVisibilityTest}).
+     *
+     * <p><b>T08 remediation:</b> AC-007's actual promise is now enforced structurally for the
+     * PILOT seat -- {@code ShipAssemblyService.StructureScan#cockpitVisibilityCompliant} rejects
+     * assembly outright (see {@code ShipAssemblyService#tryAssemble}) whenever this same check
+     * would report non-compliant, so a successfully-assembled ship's pilot seat can never reach
+     * this method in a non-compliant state. This log call therefore never fires for a
+     * production-assembled PILOT seat and remains purely defense-in-depth for it; it still does
+     * real work for the COPILOT seat, whose {@code SeatAnchor} position (wherever the {@code
+     * copilot_seat} block was actually placed, T07) is NOT gated by assembly the way the pilot's
+     * deterministic front-of-wheel anchor is. Still does not reposition the passenger or reject
+     * the mount itself -- only computes and surfaces the check server-side.</p>
+     */
+    private void logIfCockpitVisibilityNonCompliant(Entity passenger) {
+        if (blueprint == null || !(passenger instanceof Player player)) {
+            return;
+        }
+        ShipBlueprint.SeatRole role;
+        if (isPilot(player)) {
+            role = ShipBlueprint.SeatRole.PILOT;
+        } else if (isCopilot(player)) {
+            role = ShipBlueprint.SeatRole.COPILOT;
+        } else {
+            return; // untracked passenger (shouldn't happen post-T07 fix) -- nothing to check
+        }
+        if (!isSeatVisibilityCompliant(role, passenger.getEyeHeight())) {
+            SharkEngineMod.LOGGER.warn(
+                    "REQ-007: {} seat on ship {} leaves player {} fully exposed above the hull "
+                            + "(eyeHeight={})",
+                    role, this.getId(), player.getGameProfile().getName(), passenger.getEyeHeight());
+        }
+    }
+
+    /**
+     * REQ-007/AC-007 (T08): whether {@code role}'s {@code SeatAnchor} -- if this ship's
+     * blueprint carries one -- keeps an occupant with the given {@code eyeHeight} concealed
+     * below the tallest adjacent hull block (the inverse of {@link
+     * CockpitVisibility#isFullyExposedAboveHull}). Returns {@code true} (compliant) when the
+     * role has no {@code SeatAnchor} at all -- nothing to check. {@code eyeHeight} is a plain
+     * {@code double}, never a {@code Player}/armor/skin value (OQ-003) -- callers resolve a real
+     * occupant's eye height themselves, exactly like {@link #logIfCockpitVisibilityNonCompliant}
+     * does for an actual mount event.
+     */
+    public boolean isSeatVisibilityCompliant(ShipBlueprint.SeatRole role, double eyeHeight) {
+        if (blueprint == null) {
+            return true;
+        }
+        for (ShipBlueprint.SeatAnchor anchor : blueprint.seatAnchors()) {
+            if (anchor.role() != role) {
+                continue;
+            }
+            double tallestAdjacentHullTopY = tallestAdjacentHullTopY(anchor);
+            return !CockpitVisibility.isFullyExposedAboveHull(anchor.dy(), eyeHeight, tallestAdjacentHullTopY);
+        }
+        return true;
+    }
+
+    /**
+     * REQ-007: the Y-offset of the top face of the tallest block in this ship's blueprint
+     * adjacent (one of the 4 horizontal neighbor columns, at any height) to {@code anchor}'s
+     * (dx, dz) column -- the "hull wall" that could conceal a seated player. Falls back to the
+     * seat block's own top face ({@code anchor.dy() + 1}) when no adjacent block exists, so an
+     * unwalled seat is correctly treated as having nothing to hide behind.
+     */
+    private double tallestAdjacentHullTopY(ShipBlueprint.SeatAnchor anchor) {
+        int tallestAdjacentDy = Integer.MIN_VALUE;
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            boolean northSouthNeighbor = block.dx() == anchor.dx() && Math.abs(block.dz() - anchor.dz()) == 1;
+            boolean eastWestNeighbor = block.dz() == anchor.dz() && Math.abs(block.dx() - anchor.dx()) == 1;
+            if (northSouthNeighbor || eastWestNeighbor) {
+                tallestAdjacentDy = Math.max(tallestAdjacentDy, block.dy());
+            }
+        }
+        int effectiveDy = tallestAdjacentDy == Integer.MIN_VALUE ? anchor.dy() : tallestAdjacentDy;
+        return effectiveDy + 1.0;
     }
 
     /**

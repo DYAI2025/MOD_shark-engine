@@ -148,6 +148,13 @@ final class SharkEngineLangProvider {
             // REQ-009/T07: craftable copilot seat
             b.add("block.sharkengine.copilot_seat", "Copilot Seat");
             b.add("item.sharkengine.copilot_seat", "Copilot Seat");
+            // REQ-007/AC-007 (T08 remediation): cockpit visibility enforcement -- the pilot
+            // seat's adjacent hull must conceal a standard-eye-height occupant, or assembly
+            // fails explicitly instead of merely logging.
+            b.add("message.sharkengine.assembly_fail_cockpit_visibility",
+                    "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
+            b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
+                    "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
         }
     }
 
@@ -277,6 +284,15 @@ final class SharkEngineLangProvider {
             // REQ-009/T07: craftable copilot seat
             b.add("block.sharkengine.copilot_seat", "Copilotensitz");
             b.add("item.sharkengine.copilot_seat", "Copilotensitz");
+            // REQ-007/AC-007 (T08 remediation): cockpit visibility enforcement -- the pilot
+            // seat's adjacent hull must conceal a standard-eye-height occupant, or assembly
+            // fails explicitly instead of merely logging.
+            b.add("message.sharkengine.assembly_fail_cockpit_visibility",
+                    "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – "
+                            + "mehr Rumpf um den Sitz ergänzen.");
+            b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
+                    "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – "
+                            + "mehr Rumpf um den Sitz ergänzen.");
         }
     }
 }

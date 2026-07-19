@@ -1,5 +1,6 @@
 {
   "assembly_issue.sharkengine.bug_inside": "Bug muss an der Außenkante platziert werden – aktuell im Inneren.",
+  "assembly_issue.sharkengine.cockpit_visibility_insufficient": "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – mehr Rumpf um den Sitz ergänzen.",
   "assembly_issue.sharkengine.empty_structure": "Nichts zu montieren (prüfe erlaubte Blöcke).",
   "assembly_issue.sharkengine.invalid_attachments": "Markierte Blöcke entfernen (%s ungültige Teile).",
   "assembly_issue.sharkengine.multi_bug": "Konfigurationsfehler: Mehrere Bug-Blöcke gefunden (%s). Nur genau einer erlaubt.",
@@ -46,6 +47,7 @@
   "message.sharkengine.anchor_off": "Anker: AUS",
   "message.sharkengine.anchor_on": "Anker: EIN",
   "message.sharkengine.assembly_fail_bug_inside": "Bug muss an der Außenkante platziert werden – aktuell im Inneren.",
+  "message.sharkengine.assembly_fail_cockpit_visibility": "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – mehr Rumpf um den Sitz ergänzen.",
   "message.sharkengine.assembly_fail_contact": "Montage blockiert: Bodenkontakt an %s Punkten.",
   "message.sharkengine.assembly_fail_core": "Vier Blöcke um das Steuerrad anbauen (%s/4).",
   "message.sharkengine.assembly_fail_empty": "Nichts zu montieren (prüfe erlaubte Blöcke).",

@@ -36,6 +36,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * per-facing offset math are covered by {@code dev.sharkengine.gametest.PilotSeatAnchorGameTest}
  * (needs a real {@code ServerLevel} to check an actual block at a computed world position)
  * and {@link ShipTransformTest} (pure rotation math) respectively, not here.</p>
+ *
+ * <p>REQ-007/AC-007 (T08 remediation): {@code makeScan} additionally takes an explicit
+ * {@code cockpitVisibilityCompliant} parameter — same isolation treatment again, defaulting
+ * to {@code true} in every shorter overload. The real hull-height computation feeding this
+ * flag (the tallest block adjacent to the resolved seat anchor) is exercised end-to-end
+ * against a real {@code ServerLevel} by {@code dev.sharkengine.gametest.CockpitVisibilityGameTest},
+ * not here; this file only proves {@code StructureScan#canAssemble()}/{@code #issues()} react
+ * correctly to the flag once computed.</p>
  */
 @DisplayName("ShipAssembly / StructureScan / BUG Tests")
 class ShipAssemblyServiceTest {
@@ -58,6 +66,22 @@ class ShipAssemblyServiceTest {
             List<net.minecraft.core.BlockPos> invalidAttachments,
             int contactPoints, int propulsionCount, int pilotSeatCount, int coreNeighbors,
             int bugCount, boolean bugOnEdge, boolean seatAnchorValid) {
+        return makeScan(blocks, invalidAttachments, contactPoints, propulsionCount,
+                pilotSeatCount, coreNeighbors, bugCount, bugOnEdge, seatAnchorValid, true);
+    }
+
+    /**
+     * Helper to build a valid scan with BUG defaults, with explicit seat-anchor validity (REQ-006)
+     * AND explicit cockpit-visibility compliance (REQ-007/T08) -- same isolation treatment again:
+     * every pre-existing test that exercises a DIFFERENT failure condition reaches this via one
+     * of the shorter overloads above, which default {@code cockpitVisibilityCompliant=true} (the
+     * "otherwise valid" baseline), keeping those tests isolated from this new condition.
+     */
+    private static ShipAssemblyService.StructureScan makeScan(
+            List<ShipBlueprint.ShipBlock> blocks,
+            List<net.minecraft.core.BlockPos> invalidAttachments,
+            int contactPoints, int propulsionCount, int pilotSeatCount, int coreNeighbors,
+            int bugCount, boolean bugOnEdge, boolean seatAnchorValid, boolean cockpitVisibilityCompliant) {
         ShipStats stats = new ShipStats(0, 0, 0, 0, 0, propulsionCount, pilotSeatCount);
         // REQ-009/T07: copilotSeatAnchors always empty here -- every test in this file
         // exercises a condition independent of the copilot seat, same isolation treatment
@@ -65,7 +89,7 @@ class ShipAssemblyServiceTest {
         return new ShipAssemblyService.StructureScan(
                 null, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, 0.0f, seatAnchorValid, List.of()
+                bugCount, bugOnEdge, 0.0f, seatAnchorValid, cockpitVisibilityCompliant, List.of()
         );
     }
 
@@ -241,6 +265,31 @@ class ShipAssemblyServiceTest {
         assertTrue(scan.canAssemble());
     }
 
+    // Mirrors the seatAnchorValid coverage above one-to-one, but for cockpitVisibilityCompliant
+    // (REQ-007/AC-007, T08 remediation): even with a valid seat anchor (REQ-006's own invariant
+    // satisfied), assembly still requires that anchor to keep a standard-eye-height occupant
+    // concealed below the tallest adjacent hull block -- not merely occupy the right position.
+
+    @Test
+    @DisplayName("canAssemble: false when cockpitVisibilityCompliant=false, even with an otherwise-valid "
+            + "structure and a valid seat anchor (REQ-007/AC-007, T08)")
+    void structureScan_cannotAssemble_cockpitVisibilityInsufficient() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, true, false);
+        assertFalse(scan.canAssemble(),
+                "A seat anchor that is positionally valid but leaves the pilot fully exposed above "
+                        + "the hull must not assemble");
+    }
+
+    @Test
+    @DisplayName("canAssemble: true when cockpitVisibilityCompliant=true and every other condition is "
+            + "met (REQ-007/AC-007, T08)")
+    void structureScan_canAssemble_cockpitVisibilityCompliant() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, true, true);
+        assertTrue(scan.canAssemble());
+    }
+
     // ─── issues() — structured assembly validation codes (AIR-022, REQ-S3) ────────────────
     //
     // One test per AssemblyIssue.Code, mirroring canAssemble()'s conditions one-to-one:
@@ -354,6 +403,26 @@ class ShipAssemblyServiceTest {
         var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
                 0, 1, 1, 4, 0, false, false);
         assertFalse(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID)));
+    }
+
+    @Test
+    @DisplayName("issues(): COCKPIT_VISIBILITY_INSUFFICIENT when the seat anchor is valid but leaves "
+            + "the pilot fully exposed above the hull (REQ-007/AC-007, T08)")
+    void issues_cockpitVisibilityInsufficient() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, true, false);
+        assertTrue(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.COCKPIT_VISIBILITY_INSUFFICIENT)));
+    }
+
+    @Test
+    @DisplayName("issues(): COCKPIT_VISIBILITY_INSUFFICIENT is NOT reported when seatAnchorValid=false "
+            + "(SEAT_ANCHOR_INVALID already covers the no-coherent-anchor case; would otherwise be "
+            + "redundant noise, REQ-007/AC-007, T08)")
+    void issues_cockpitVisibilityNotReportedWithoutAValidSeatAnchor() {
+        var scan = makeScan(List.of(fakeBlock()), Collections.emptyList(),
+                0, 1, 1, 4, 1, true, false, false);
+        assertFalse(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.COCKPIT_VISIBILITY_INSUFFICIENT)));
+        assertTrue(scan.issues().contains(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID)));
     }
 
     @Test

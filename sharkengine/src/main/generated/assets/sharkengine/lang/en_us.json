@@ -1,5 +1,6 @@
 {
   "assembly_issue.sharkengine.bug_inside": "Bow must be on the outer edge – currently placed inside.",
+  "assembly_issue.sharkengine.cockpit_visibility_insufficient": "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.",
   "assembly_issue.sharkengine.empty_structure": "Nothing to assemble (check eligible tag).",
   "assembly_issue.sharkengine.invalid_attachments": "Remove highlighted blocks (%s invalid parts).",
   "assembly_issue.sharkengine.multi_bug": "Configuration error: Multiple bow blocks found (%s). Only one allowed.",
@@ -46,6 +47,7 @@
   "message.sharkengine.anchor_off": "Anchor: OFF",
   "message.sharkengine.anchor_on": "Anchor: ON",
   "message.sharkengine.assembly_fail_bug_inside": "Bow must be on the outer edge – currently placed inside.",
+  "message.sharkengine.assembly_fail_cockpit_visibility": "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.",
   "message.sharkengine.assembly_fail_contact": "Assembly blocked: world contact at %s points.",
   "message.sharkengine.assembly_fail_core": "Connect four blocks around the wheel (%s/4).",
   "message.sharkengine.assembly_fail_empty": "Nothing to assemble (check eligible tag).",

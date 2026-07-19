@@ -102,7 +102,15 @@ public record AssemblyIssue(Code code, BlockPos pos, List<Integer> args) {
          * non-seat block" and "empty/otherwise invalid": there is no fallback search for an
          * alternate position, only this exact position is ever consulted.
          */
-        SEAT_ANCHOR_INVALID("seat_anchor_invalid");
+        SEAT_ANCHOR_INVALID("seat_anchor_invalid"),
+        /**
+         * The pilot seat anchor is valid (resolves to a real {@link PartRole#PILOT_SEAT} part),
+         * but leaves an occupant with a standard eye height fully exposed above the hull -- no
+         * adjacent block conceals them (REQ-007/AC-007, T08 remediation). Only reported once
+         * {@link #SEAT_ANCHOR_INVALID} does not already apply -- an invalid/missing anchor has
+         * nothing coherent to check visibility on top of.
+         */
+        COCKPIT_VISIBILITY_INSUFFICIENT("cockpit_visibility_insufficient");
 
         private final String id;
 

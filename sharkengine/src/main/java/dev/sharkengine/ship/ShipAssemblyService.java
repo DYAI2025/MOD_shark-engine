@@ -79,6 +79,7 @@ public final class ShipAssemblyService {
                                 boolean bugOnEdge,
                                 float bugYawDeg,
                                 boolean seatAnchorValid,
+                                boolean cockpitVisibilityCompliant,
                                 List<ShipBlueprint.SeatAnchor> copilotSeatAnchors) {
         public boolean isEmpty() {
             return blocks.isEmpty();
@@ -123,7 +124,8 @@ public final class ShipAssemblyService {
                     && coreNeighbors >= 4
                     && bugCount == 1
                     && bugOnEdge
-                    && seatAnchorValid;
+                    && seatAnchorValid
+                    && cockpitVisibilityCompliant;
         }
 
         public ShipBlueprint toBlueprint() {
@@ -192,6 +194,11 @@ public final class ShipAssemblyService {
             // already cover that case and this would just be redundant noise.
             if (bugCount == 1 && !seatAnchorValid) {
                 issues.add(AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID));
+            } else if (bugCount == 1 && !cockpitVisibilityCompliant) {
+                // REQ-007/AC-007 (T08 remediation): only meaningful once the seat anchor itself
+                // is valid -- SEAT_ANCHOR_INVALID above already covers "no coherent seat position
+                // exists yet", so reporting visibility on top of that would be redundant noise.
+                issues.add(AssemblyIssue.of(AssemblyIssue.Code.COCKPIT_VISIBILITY_INSUFFICIENT));
             }
             return issues;
         }
@@ -260,6 +267,18 @@ public final class ShipAssemblyService {
         // ═══════════════════════════════════════════════════════════════════
         if (!scan.seatAnchorValid()) {
             return new AssembleResult("message.sharkengine.assembly_fail_seat_anchor", "");
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // COCKPIT VISIBILITY VALIDATION (REQ-007/AC-007, T08 remediation): the pilot seat's
+        // resolved position must keep a standard-eye-height occupant concealed below the
+        // tallest hull block adjacent to the seat -- otherwise the pilot would be permanently,
+        // fully exposed above the hull (AC-007's promise). Rejected explicitly here, same
+        // discipline as SEAT_ANCHOR_INVALID above: world is still unchanged at this point (no
+        // blocks removed, no entity spawned) -- no fallback reposition, no silent bypass.
+        // ═══════════════════════════════════════════════════════════════════
+        if (!scan.cockpitVisibilityCompliant()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_cockpit_visibility", "");
         }
 
         ShipBlueprint blueprint = scan.toBlueprint();
@@ -441,17 +460,60 @@ public final class ShipAssemblyService {
         // silently reinterpreted as "look for a seat somewhere else nearby".
         // ═══════════════════════════════════════════════════════════════════
         boolean seatAnchorValid = false;
+        // REQ-007/AC-007 (T08 remediation): defaults to true (compliant) exactly like
+        // seatAnchorValid's own "nothing to check yet" baseline -- only ever computed below
+        // once the seat anchor itself resolves to a real PILOT_SEAT part.
+        boolean cockpitVisibilityCompliant = true;
         if (bugCount == 1) {
             int[] frontOffset = frontOffset(bugYawDeg);
             BlockPos seatAnchorPos = wheelPos.offset(frontOffset[0], 0, frontOffset[1]);
             BlockState seatAnchorState = level.getBlockState(seatAnchorPos);
             String seatAnchorId = BuiltInRegistries.BLOCK.getKey(seatAnchorState.getBlock()).toString();
             seatAnchorValid = VehiclePartRegistry.resolve(seatAnchorId).role() == PartRole.PILOT_SEAT;
+            // REQ-007/AC-007 (T08 remediation): only meaningful once the pilot seat anchor
+            // itself resolves to a real position -- an invalid/missing anchor is already
+            // rejected by SEAT_ANCHOR_INVALID, so there is nothing coherent to check yet.
+            // Uses CockpitVisibility.STANDARD_PLAYER_EYE_HEIGHT (a fixed constant), NOT the
+            // attempting player's live eye height/pose (OQ-003) -- whether a structure can
+            // assemble must not depend on who is attempting it or their momentary stance.
+            if (seatAnchorValid) {
+                double tallestAdjacentHullTopY =
+                        tallestAdjacentHullTopY(blocks, frontOffset[0], frontOffset[1]);
+                cockpitVisibilityCompliant = !CockpitVisibility.isFullyExposedAboveHull(
+                        0.0, CockpitVisibility.STANDARD_PLAYER_EYE_HEIGHT, tallestAdjacentHullTopY);
+            }
         }
 
         return new StructureScan(wheelPos, blocks, invalidAttachments, contactPoints,
                 stats, coreNeighbors,
-                bugCount, bugOnEdge, bugYawDeg, seatAnchorValid, copilotSeatAnchors);
+                bugCount, bugOnEdge, bugYawDeg, seatAnchorValid, cockpitVisibilityCompliant,
+                copilotSeatAnchors);
+    }
+
+    /**
+     * REQ-007/AC-007 (T08 remediation): the Y-offset of the top face of the tallest block in
+     * {@code blocks} adjacent (one of the 4 horizontal neighbor columns, at any height) to the
+     * pilot seat anchor's {@code (anchorDx, anchorDz)} column -- the "hull wall" that could
+     * conceal a seated pilot. Falls back to the seat anchor's own level (dy=0, since the pilot
+     * SeatAnchor's dy is always 0 -- see {@link StructureScan#toBlueprint()}) when no adjacent
+     * block exists, so an unwalled seat is correctly treated as having nothing to hide behind.
+     * Mirrors {@code ShipEntity#tallestAdjacentHullTopY} exactly, but operates on this scan's raw
+     * {@code ShipBlueprint.ShipBlock} list (pre-blueprint) instead of an assembled {@code
+     * ShipBlueprint} -- there is deliberately only ONE such computation shared in spirit between
+     * assembly-time gating and mount-time logging, not two independently-maintained copies of
+     * the adjacency math.
+     */
+    private static double tallestAdjacentHullTopY(List<ShipBlueprint.ShipBlock> blocks, int anchorDx, int anchorDz) {
+        int tallestAdjacentDy = Integer.MIN_VALUE;
+        for (ShipBlueprint.ShipBlock block : blocks) {
+            boolean northSouthNeighbor = block.dx() == anchorDx && Math.abs(block.dz() - anchorDz) == 1;
+            boolean eastWestNeighbor = block.dz() == anchorDz && Math.abs(block.dx() - anchorDx) == 1;
+            if (northSouthNeighbor || eastWestNeighbor) {
+                tallestAdjacentDy = Math.max(tallestAdjacentDy, block.dy());
+            }
+        }
+        int effectiveDy = tallestAdjacentDy == Integer.MIN_VALUE ? 0 : tallestAdjacentDy;
+        return effectiveDy + 1.0;
     }
 
     /**
