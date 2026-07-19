@@ -89,6 +89,9 @@ final class SharkEngineLangProvider {
             b.add("hud.sharkengine.onboarding.fuel", "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.");
             b.add("hud.sharkengine.onboarding.dismiss", "Press X to dismiss this card.");
             b.add("message.sharkengine.not_pilot", "You are not the pilot of this ship.");
+            // REQ-003: server-owned build session rejection (non-owner, wrong dimension,
+            // out-of-range, expired, wrong/absent session id, or already-consumed/replayed).
+            b.add("message.sharkengine.session_invalid", "Build session invalid or expired — reopen the vehicle menu at the wheel.");
             b.add("screen.sharkengine.builder.issues_header", "Blocking issues:");
             b.add("assembly_issue.sharkengine.empty_structure", "Nothing to assemble (check eligible tag).");
             b.add("assembly_issue.sharkengine.invalid_attachments", "Remove highlighted blocks (%s invalid parts).");
@@ -195,6 +198,9 @@ final class SharkEngineLangProvider {
             b.add("hud.sharkengine.onboarding.fuel", "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.");
             b.add("hud.sharkengine.onboarding.dismiss", "Drücke X, um diese Karte auszublenden.");
             b.add("message.sharkengine.not_pilot", "Du bist nicht der Pilot dieses Schiffs.");
+            // REQ-003: server-owned build session rejection (non-owner, wrong dimension,
+            // out-of-range, expired, wrong/absent session id, or already-consumed/replayed).
+            b.add("message.sharkengine.session_invalid", "Bau-Sitzung ungültig oder abgelaufen – öffne das Fahrzeugmenü erneut am Steuerrad.");
             b.add("screen.sharkengine.builder.issues_header", "Blockierende Probleme:");
             b.add("assembly_issue.sharkengine.empty_structure", "Nichts zu montieren (prüfe erlaubte Blöcke).");
             b.add("assembly_issue.sharkengine.invalid_attachments", "Markierte Blöcke entfernen (%s ungültige Teile).");

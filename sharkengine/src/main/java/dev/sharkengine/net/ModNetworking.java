@@ -1,5 +1,7 @@
 package dev.sharkengine.net;
 
+import dev.sharkengine.SharkEngineMod;
+import dev.sharkengine.ship.BuildSessionGate;
 import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.ShipEntity;
 import dev.sharkengine.tutorial.TutorialService;
@@ -55,10 +57,23 @@ public final class ModNetworking {
                 if (!(sp.level() instanceof ServerLevel serverLevel)) {
                     return;
                 }
-                ShipAssemblyService.AssembleResult result = ShipAssemblyService.tryAssemble(serverLevel, payload.wheelPos(), sp);
+                // REQ-003: every assemble request must pass the server-owned VehicleBuildSession
+                // gate (owner, dimension, distance, expiry, session id, not-already-consumed)
+                // BEFORE ShipAssemblyService ever scans/removes a single block. See
+                // BuildSessionGate#tryAssemble.
+                BuildSessionGate.AssembleAttemptResult attempt =
+                        BuildSessionGate.tryAssemble(serverLevel, payload.wheelPos(), sp, payload.sessionId());
+                if (!attempt.isAuthorized()) {
+                    SharkEngineMod.LOGGER.warn("Rejected assembly request from {} at {}: {}",
+                            sp.getGameProfile().getName(), payload.wheelPos(), attempt.authorization().reasons());
+                    sp.sendSystemMessage(Component.translatable("message.sharkengine.session_invalid"));
+                    return;
+                }
+
+                ShipAssemblyService.AssembleResult result = attempt.assembleResult();
                 sp.sendSystemMessage(Component.translatable(result.translationKey(), result.arg()));
 
-                boolean success = "message.sharkengine.assembly_ok".equals(result.translationKey());
+                boolean success = result.isSuccess();
                 if (success) {
                     ServerPlayNetworking.send(sp, BuilderPreviewS2CPayload.close());
                 } else {

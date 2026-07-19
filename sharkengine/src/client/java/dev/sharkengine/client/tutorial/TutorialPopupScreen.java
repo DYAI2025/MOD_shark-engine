@@ -56,7 +56,7 @@ public final class TutorialPopupScreen extends Screen {
                 // "Assemble & Launch" button in the builder screen behind this popup.
                 PreviewState preview = BuilderModeClient.getPreview();
                 if (preview != null && preview.canAssemble()) {
-                    ClientPlayNetworking.send(new BuilderAssembleC2SPayload(preview.wheelPos()));
+                    ClientPlayNetworking.send(new BuilderAssembleC2SPayload(preview.wheelPos(), preview.sessionId()));
                 }
                 onClose();
             }).bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20).build());

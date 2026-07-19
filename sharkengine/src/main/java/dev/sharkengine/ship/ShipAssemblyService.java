@@ -23,7 +23,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Service for scanning ship structures, validating BUG placement,
@@ -40,9 +43,29 @@ public final class ShipAssemblyService {
     public static final int MAX_BLOCKS = 512;
     public static final int MAX_RADIUS = 32;
 
+    /**
+     * REQ-003 test/inspection hook: the most recent {@link BuilderPreviewS2CPayload} sent to each
+     * player via {@link #openBuilderPreview} — mirrors {@code TutorialService#lastPopupSent}'s
+     * established pattern. Lets GameTests assert on exactly what a given player was actually sent
+     * (in particular, whether a session id was echoed back to them) without intercepting the
+     * network layer itself. See {@code BuildSessionGate#sessionIdForOwner}'s javadoc for the
+     * security property this exists to prove.
+     */
+    private static final Map<UUID, BuilderPreviewS2CPayload> lastPreviewSent = new HashMap<>();
+
     private ShipAssemblyService() {}
 
-    public record AssembleResult(String translationKey, Object arg) {}
+    public record AssembleResult(String translationKey, Object arg) {
+        /**
+         * Whether this result represents an actual, structurally-successful assembly (as opposed
+         * to any of the {@code assembly_fail_*} rejections). {@link
+         * dev.sharkengine.ship.BuildSessionGate#tryAssemble} consumes the REQ-003 build session
+         * only when this is {@code true} — see that method's javadoc for why.
+         */
+        public boolean isSuccess() {
+            return "message.sharkengine.assembly_ok".equals(translationKey);
+        }
+    }
 
     public record StructureScan(BlockPos origin,
                                 List<ShipBlueprint.ShipBlock> blocks,
@@ -200,6 +223,15 @@ public final class ShipAssemblyService {
         ShipBlueprint blueprint = new ShipBlueprint(wheelPos, scan.blocks(), scan.blockCount())
                 .withAssemblyYaw(scan.bugYawDeg());
 
+        // REQ-003 (security fix, reviewer-reported): embed the session id bound to this wheel
+        // ONLY if `player` is that session's own owner -- sessionIdForOwner returns null for
+        // anyone else (or when no session exists), so a non-owner who merely reopens/advances the
+        // builder UI at someone ELSE's wheel is never handed that owner's real, still-usable
+        // session id. This call path is reached both from ModNetworking's assemble-failure branch
+        // (where the caller is always already-authorized) AND from TutorialService's
+        // handleAdvanceStage (which has no ownership check of its own) -- sessionIdForOwner is the
+        // single choke point that protects both.
+        UUID sessionId = BuildSessionGate.sessionIdForOwner(level, wheelPos, player);
         BuilderPreviewS2CPayload payload = BuilderPreviewS2CPayload.open(
                 wheelPos,
                 blueprint.toNbt(),
@@ -209,13 +241,22 @@ public final class ShipAssemblyService {
                 scan.thrusterCount(),
                 scan.coreNeighbors(),
                 scan.bugCount(),
-                scan.issues()
+                scan.issues(),
+                sessionId
         );
+        lastPreviewSent.put(player.getUUID(), payload);
         ServerPlayNetworking.send(player, payload);
 
         if (scan.canAssemble()) {
             TutorialService.notifyReady(player);
         }
+    }
+
+    /**
+     * REQ-003 test/inspection hook: see {@link #lastPreviewSent} for why this exists.
+     */
+    public static BuilderPreviewS2CPayload lastPreviewSent(UUID playerId) {
+        return lastPreviewSent.get(playerId);
     }
 
     public static StructureScan scanStructure(ServerLevel level, BlockPos wheelPos) {

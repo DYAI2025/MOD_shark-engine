@@ -12,6 +12,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * AIR-022 (REQ-S3): {@link BuilderPreviewS2CPayload}'s wire encoding for the new
@@ -35,8 +36,9 @@ public final class BuilderPreviewPayloadGameTest implements FabricGameTest {
                 AssemblyIssue.of(AssemblyIssue.Code.NO_PROPULSION),
                 AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE, bugPos)
         );
+        UUID sessionId = UUID.randomUUID();
         BuilderPreviewS2CPayload original = BuilderPreviewS2CPayload.open(
-                wheelPos, new CompoundTag(), List.of(), 0, false, 0, 2, 1, issues);
+                wheelPos, new CompoundTag(), List.of(), 0, false, 0, 2, 1, issues, sessionId);
 
         BuilderPreviewS2CPayload decoded = roundtrip(helper, original);
 
@@ -51,6 +53,11 @@ public final class BuilderPreviewPayloadGameTest implements FabricGameTest {
         AssemblyIssue withPos = decoded.issues().get(2);
         if (!bugPos.equals(withPos.pos())) {
             helper.fail("expected BUG_INSIDE issue's pos to roundtrip as " + bugPos + ", got " + withPos.pos());
+            return;
+        }
+        // REQ-003: the session id (a new field on this payload) must roundtrip unchanged too.
+        if (!sessionId.equals(decoded.sessionId())) {
+            helper.fail("expected sessionId=" + sessionId + " to roundtrip unchanged, got " + decoded.sessionId());
             return;
         }
         helper.succeed();
@@ -68,6 +75,10 @@ public final class BuilderPreviewPayloadGameTest implements FabricGameTest {
         }
         if (decoded.active()) {
             helper.fail("expected active=false to roundtrip false");
+            return;
+        }
+        if (decoded.sessionId() != null) {
+            helper.fail("expected a null sessionId to roundtrip null, got " + decoded.sessionId());
             return;
         }
         helper.succeed();

@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                                        CompoundTag blueprintNbt,
@@ -23,7 +24,8 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                                        int coreNeighbors,
                                        int bugCount,
                                        List<AssemblyIssue> issues,
-                                       boolean active) implements CustomPacketPayload {
+                                       boolean active,
+                                       UUID sessionId) implements CustomPacketPayload {
 
     public static final Type<BuilderPreviewS2CPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(SharkEngineMod.MOD_ID, "builder_preview"));
@@ -31,6 +33,14 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
     public static final StreamCodec<RegistryFriendlyByteBuf, BuilderPreviewS2CPayload> CODEC =
             StreamCodec.of(BuilderPreviewS2CPayload::write, BuilderPreviewS2CPayload::read);
 
+    /**
+     * @param sessionId the REQ-003 {@code VehicleBuildSession} id bound to {@code wheelPos}, but
+     *                   ONLY if the recipient player is that session's own owner (see {@code
+     *                   dev.sharkengine.ship.BuildSessionGate#sessionIdForOwner} — a non-owner or
+     *                   an absent session both produce {@code null} here, never someone else's
+     *                   real id). The client must echo this back verbatim in {@link
+     *                   BuilderAssembleC2SPayload} — the server never trusts a client-invented id.
+     */
     public static BuilderPreviewS2CPayload open(BlockPos wheelPos,
                                                 CompoundTag blueprintNbt,
                                                 List<BlockPos> invalidBlocks,
@@ -39,14 +49,15 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
                                                 int thrusterCount,
                                                 int coreNeighbors,
                                                 int bugCount,
-                                                List<AssemblyIssue> issues) {
+                                                List<AssemblyIssue> issues,
+                                                UUID sessionId) {
         return new BuilderPreviewS2CPayload(wheelPos, blueprintNbt, List.copyOf(invalidBlocks),
                 contactPoints, canAssemble, thrusterCount, coreNeighbors, bugCount,
-                List.copyOf(issues), true);
+                List.copyOf(issues), true, sessionId);
     }
 
     public static BuilderPreviewS2CPayload close() {
-        return new BuilderPreviewS2CPayload(BlockPos.ZERO, null, List.of(), 0, false, 0, 0, 0, List.of(), false);
+        return new BuilderPreviewS2CPayload(BlockPos.ZERO, null, List.of(), 0, false, 0, 0, 0, List.of(), false, null);
     }
 
     private static void write(RegistryFriendlyByteBuf buf, BuilderPreviewS2CPayload payload) {
@@ -65,6 +76,11 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
         buf.writeInt(payload.bugCount());
         writeIssues(buf, payload.issues());
         buf.writeBoolean(payload.active());
+        boolean hasSessionId = payload.sessionId() != null;
+        buf.writeBoolean(hasSessionId);
+        if (hasSessionId) {
+            buf.writeUUID(payload.sessionId());
+        }
     }
 
     private static BuilderPreviewS2CPayload read(RegistryFriendlyByteBuf buf) {
@@ -82,8 +98,9 @@ public record BuilderPreviewS2CPayload(BlockPos wheelPos,
         int bugCount = buf.readInt();
         List<AssemblyIssue> issues = readIssues(buf);
         boolean active = buf.readBoolean();
+        UUID sessionId = buf.readBoolean() ? buf.readUUID() : null;
         return new BuilderPreviewS2CPayload(wheelPos, blueprint, invalidBlocks, contacts,
-                canAssemble, thrusterCount, coreNeighbors, bugCount, issues, active);
+                canAssemble, thrusterCount, coreNeighbors, bugCount, issues, active, sessionId);
     }
 
     // ─── AssemblyIssue wire encoding (AIR-022, REQ-S3) ────────────────────────────────────

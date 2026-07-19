@@ -2,8 +2,10 @@ package dev.sharkengine.tutorial;
 
 import dev.sharkengine.net.TutorialAdvanceC2SPayload;
 import dev.sharkengine.net.TutorialPopupS2CPayload;
+import dev.sharkengine.ship.BuildSessionGate;
 import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.VehicleClass;
+import dev.sharkengine.ship.session.VehicleBuildSession;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -61,6 +63,23 @@ public final class TutorialService {
             return;
         }
         pendingBuilder.put(player.getUUID(), wheelPos);
+        // REQ-003: AIR is the only route that ever creates a server-owned VehicleBuildSession
+        // (REQ-002/T03's LAND/WATER paths above return early and never reach here).
+        VehicleBuildSession created = BuildSessionGate.createAirSession(player, wheelPos);
+        if (created == null) {
+            // REQ-003 session-theft fix (reviewer-reported): another player's session is still
+            // ACTIVE and unexpired at this exact wheel -- BuildSessionGate.createAirSession
+            // refused to evict it. Do NOT silently hand this player a "build guide" flow for a
+            // session/structure they don't actually own (the eventual openBuilderPreview call
+            // would correctly withhold the real session id per sessionIdForOwner, but this player
+            // would still be looking at a builder screen for someone else's in-progress build
+            // with no way to ever successfully assemble it). Tell them plainly and let them pick
+            // again instead.
+            pendingBuilder.remove(player.getUUID());
+            player.sendSystemMessage(Component.translatable("message.sharkengine.session_invalid"));
+            sendPopup(player, TutorialPopupS2CPayload.forModeSelection(List.of(VehicleClass.values())));
+            return;
+        }
         sendPopup(player, TutorialPopupS2CPayload.forStage(TutorialPopupStage.BUILD_GUIDE));
     }
 

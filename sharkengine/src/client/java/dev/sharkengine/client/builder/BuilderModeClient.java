@@ -80,7 +80,8 @@ public final class BuilderModeClient {
                 payload.thrusterCount(),
                 payload.coreNeighbors(),
                 payload.bugCount(),
-                List.copyOf(payload.issues())
+                List.copyOf(payload.issues()),
+                payload.sessionId()
         );
         preview = state;
         mc.setScreen(new BuilderScreen(state));
