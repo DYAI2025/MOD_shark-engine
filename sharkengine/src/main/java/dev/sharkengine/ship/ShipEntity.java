@@ -113,6 +113,17 @@ public final class ShipEntity extends Entity {
     private UUID copilot;
 
     /**
+     * REQ-012/T12: whether AIR "Edit Mode" is currently open on this ship. Transient, in-memory
+     * only for T12's scope (the gate itself) — persisting this across a server restart is
+     * REQ-017's job, not this field's, matching the PRD's own note that "Edit-Zustand" belongs to
+     * REQ-017's persistence sweep. Flipped {@code true} only via a fully-ACCEPTED {@link
+     * #tryEnterEditMode}; never set anywhere else, so it also doubles as the "conflict-free"
+     * precondition {@link EditModeDistanceGate} checks — a second concurrent open attempt while
+     * this is already {@code true} is rejected ({@link EditModeDistanceGate.Reason#REJECTED_CONFLICT}).
+     */
+    private boolean editModeActive;
+
+    /**
      * REQ-009/T07 remediation (QA finding: {@code secondPlayerCannotDisplaceFirstCopilot}'s
      * javadoc/fail-messages claimed to rule out "even an internal dismount-and-remount cycle"
      * for the first copilot, but every assertion was a post-hoc end-state check with zero
@@ -344,6 +355,71 @@ public final class ShipEntity extends Entity {
 
     public boolean isCopilot(Player p) {
         return copilot != null && copilot.equals(p.getUUID());
+    }
+
+    /** REQ-012/T12: whether AIR Edit Mode is currently open on this ship. See {@link #editModeActive}'s javadoc. */
+    public boolean isEditModeActive() {
+        return editModeActive;
+    }
+
+    /**
+     * REQ-012/AC-012 (T12): attempts to open AIR "Edit Mode" for {@code player} on this
+     * already-assembled, already-launched ship. This is the single production entry point tying
+     * together every REQ-012 precondition — callers must call this rather than mutating {@link
+     * #editModeActive} directly.
+     *
+     * <p><b>Control Anchor (PRD OQ-001/ASM-001):</b> the "Fünf-Block-Regel" measures distance from
+     * the player to the vehicle's Control Anchor. This ship's own world position IS that anchor —
+     * {@link ShipAssemblyService#tryAssemble} spawns every {@link ShipEntity} at exactly the
+     * Steering Wheel's world position ({@code shipEntity.setPos(wheelPos.getX() + 0.5, ...)}), and
+     * this entity's {@code move(MoverType.SELF, ...)} in {@link #updatePhysics()}/the tick loop
+     * translates the whole entity (and therefore this origin) uniformly with the rest of the
+     * structure — so {@link #getX()}/{@link #getY()}/{@link #getZ()} always resolve to wherever
+     * the wheel currently is, in flight or at rest, exactly the reference point the term implies.</p>
+     *
+     * <p>Delegates the actual accept/reject decision to the pure {@link
+     * EditModeDistanceGate#evaluate} (genuinely Euclidean distance, OQ-001 — see that class's
+     * javadoc for why {@code ShipAssemblyService#scanStructure}'s existing Manhattan
+     * {@code distManhattan} radius-check idiom is deliberately NOT reused here) after resolving
+     * this ship's own live preconditions: {@code isPilot(player)} (REQ-008: "Edit" is one of the
+     * pilot-exclusive command classes), {@link #isDestroyed()}, "stationary" ({@link
+     * #getCurrentSpeed()} below {@link EditModeDistanceGate#STATIONARY_SPEED_EPSILON}, the same
+     * threshold {@link #updatePhysics()} itself already snaps residual speed to zero at), and
+     * "conflict-free" ({@link #editModeActive} not already {@code true}).</p>
+     *
+     * <p><b>Security fix (reviewer-reported, attempt-1 finding):</b> {@code dx}/{@code dy}/{@code
+     * dz} are raw numeric per-axis offsets ({@code player.getX() - this.getX()}, etc.), and every
+     * Minecraft dimension shares the exact same coordinate space — a player standing in the Nether
+     * or the End at coordinates that numerically match this ship's Overworld position previously
+     * resolved to offset (0,0,0) and was wrongly ACCEPTED as "physically next to the ship." This
+     * method now resolves {@code sameDimension} via {@code player.level() == this.level()} — a live
+     * reference-equality check on the current {@link net.minecraft.world.level.Level} instance,
+     * which on a running server is a per-dimension singleton — and passes it to {@link
+     * EditModeDistanceGate#evaluate} as an independent precondition axis ({@link
+     * EditModeDistanceGate.Reason#REJECTED_WRONG_DIMENSION}), checked before the distance offsets
+     * are treated as meaningful at all. Mirrors the same dimension axis {@link BuildSessionGate}
+     * already checks for the analogous build-session Control Anchor proximity gate (REQ-003/T02).</p>
+     *
+     * <p>On {@link EditModeDistanceGate.Reason#ACCEPTED}, flips {@link #editModeActive} to {@code
+     * true} — world/session mutation stops there; opening the actual builder menu populated with
+     * the vehicle's live structure is REQ-013/T13's scope, not this method's. On any rejection,
+     * this ship's state is left completely unchanged (AC-012: "erfolgt keine Zustandsänderung").</p>
+     */
+    public EditModeDistanceGate.Reason tryEnterEditMode(ServerPlayer player) {
+        boolean authorized = isPilot(player);
+        boolean stationary = getCurrentSpeed() < EditModeDistanceGate.STATIONARY_SPEED_EPSILON;
+        boolean sameDimension = player.level() == this.level();
+        double dx = player.getX() - this.getX();
+        double dy = player.getY() - this.getY();
+        double dz = player.getZ() - this.getZ();
+
+        EditModeDistanceGate.Reason reason = EditModeDistanceGate.evaluate(
+                authorized, isDestroyed(), stationary, editModeActive, sameDimension, dx, dy, dz);
+
+        if (reason == EditModeDistanceGate.Reason.ACCEPTED) {
+            editModeActive = true;
+        }
+        return reason;
     }
 
     /**
