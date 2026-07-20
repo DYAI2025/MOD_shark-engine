@@ -158,6 +158,20 @@ final class SharkEngineLangProvider {
             // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
             // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
             b.add("message.sharkengine.edit_mode_rejected", "Cannot enter Edit Mode: %s");
+            // REQ-014/T14: atomic edit-mode commit (ShipAssemblyService#commitEdit).
+            b.add("message.sharkengine.edit_commit_ok", "Edit committed (%s blocks).");
+            b.add("message.sharkengine.edit_commit_invalid",
+                    "Edit rejected: structure invalid (%s issues). Fix the structure and reopen Edit Mode to retry.");
+            b.add("message.sharkengine.edit_commit_not_active", "No active edit session to commit.");
+            b.add("message.sharkengine.edit_commit_not_pilot", "Only the pilot may commit edits.");
+            // REQ-014/T14 remediation (RISK-004): disassembly is rejected while Edit Mode is open
+            // (ShipEntity#interact's shift-click branch) -- see that branch's own comment.
+            b.add("message.sharkengine.disassembly_blocked_edit_mode",
+                    "Cannot disassemble while Edit Mode is open – commit or let the edit be rejected first.");
+            // REQ-014/T14 remediation round 3 (security-review BLOCKER): a non-pilot's break/place
+            // attempt on a ship's materialized Edit Mode footprint (EditModeBlockProtection).
+            b.add("message.sharkengine.edit_footprint_protected",
+                    "This vehicle is being edited by its pilot and cannot be changed right now.");
         }
     }
 
@@ -299,6 +313,22 @@ final class SharkEngineLangProvider {
             // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
             // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
             b.add("message.sharkengine.edit_mode_rejected", "Edit-Modus nicht möglich: %s");
+            // REQ-014/T14: atomic edit-mode commit (ShipAssemblyService#commitEdit).
+            b.add("message.sharkengine.edit_commit_ok", "Änderung übernommen (%s Blöcke).");
+            b.add("message.sharkengine.edit_commit_invalid",
+                    "Änderung abgelehnt: Struktur ungültig (%s Probleme). Struktur beheben und Edit-Modus erneut öffnen zum erneuten Versuch.");
+            b.add("message.sharkengine.edit_commit_not_active", "Keine aktive Bearbeitungssitzung zum Übernehmen.");
+            b.add("message.sharkengine.edit_commit_not_pilot", "Nur der Pilot darf Änderungen übernehmen.");
+            // REQ-014/T14 remediation (RISK-004): disassembly is rejected while Edit Mode is open
+            // (ShipEntity#interact's shift-click branch) -- see that branch's own comment.
+            b.add("message.sharkengine.disassembly_blocked_edit_mode",
+                    "Zerlegen nicht möglich, solange der Edit-Modus geöffnet ist – zuerst übernehmen "
+                            + "oder die Änderung ablehnen lassen.");
+            // REQ-014/T14 remediation round 3 (security-review BLOCKER): a non-pilot's break/place
+            // attempt on a ship's materialized Edit Mode footprint (EditModeBlockProtection).
+            b.add("message.sharkengine.edit_footprint_protected",
+                    "Dieses Fahrzeug wird gerade vom Piloten bearbeitet und kann derzeit nicht "
+                            + "verändert werden.");
         }
     }
 }

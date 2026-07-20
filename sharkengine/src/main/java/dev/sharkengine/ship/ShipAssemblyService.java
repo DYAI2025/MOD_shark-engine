@@ -19,7 +19,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
@@ -370,19 +372,241 @@ public final class ShipAssemblyService {
      * dev.sharkengine.ship.BuildSessionGate#tryAssemble} layers session authorization on top of
      * {@link #tryAssemble} rather than folding it into that method itself.
      *
-     * <p><b>No close/reset path exists yet:</b> see {@link ShipEntity#editModeActive}'s and {@link
-     * ShipEntity#tryEnterEditMode}'s javadoc. This method inherits that limitation unchanged — a
-     * ship whose Edit Mode was already opened once (by any caller, through any of the entry
-     * points wired to this method) permanently rejects every later call with {@link
-     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}, until REQ-014/T14 ships a real close path.
-     * This is disclosed, not silently absorbed — do not add a workaround reset here.</p>
+     * <p><b>Close/reset path (REQ-014/T14):</b> a ship whose Edit Mode is already open rejects a
+     * concurrent second open attempt with {@link EditModeDistanceGate.Reason#REJECTED_CONFLICT},
+     * exactly as intended ("conflict-free" precondition, see {@link ShipEntity#editModeActive}'s
+     * javadoc) — this is no longer a permanent lockout: {@link #commitEdit} calls {@link
+     * ShipEntity#exitEditMode()} at the end of every commit attempt (success or rejection), after
+     * which this method can open Edit Mode again.</p>
+     *
+     * <p><b>REQ-014/T14 remediation — materialization ("nothing to actually edit" gap):</b> on
+     * {@link EditModeDistanceGate.Reason#ACCEPTED}, this method now ALSO calls {@link
+     * #materializeForEdit} before sending the preview — the missing counterpart to pre-launch
+     * building (a player places blocks, {@link #tryAssemble} scans/clears them) that makes {@link
+     * #commitEdit}'s "valid" path reachable by an actual player action for the first time. See
+     * {@link #materializeForEdit}'s own javadoc for exactly what gets placed and how rotation is
+     * handled.</p>
+     *
+     * <p><b>REQ-014/T14 remediation round 6 (IMPORTANT finding, fixed): a footprint position
+     * obstructed since the ship parked is a REJECTION, not a silent overwrite.</b> {@link
+     * #materializeForEdit} returns {@code false} (having placed nothing at all — see its own
+     * javadoc) when something occupies a target position that should be air. On that outcome this
+     * method rolls back the {@code editModeActive} flag {@link ShipEntity#tryEnterEditMode} already
+     * flipped {@code true} (via {@link ShipEntity#exitEditMode()} — the same close/reset path
+     * {@link #commitEdit} uses, so Edit Mode is never left "stuck" open), skips the builder preview
+     * entirely, and reports {@link EditModeDistanceGate.Reason#REJECTED_FOOTPRINT_OBSTRUCTED} —
+     * which both of {@code ShipEntity#interact}'s edit-mode-requesting branches already handle
+     * generically (any non-{@code ACCEPTED} reason gets echoed to the player as {@code
+     * message.sharkengine.edit_mode_rejected}), so no new client/message plumbing was needed for
+     * this to be player-visible.</p>
      */
     public static EditModeDistanceGate.Reason openEditMode(ShipEntity ship, ServerPlayer player) {
         EditModeDistanceGate.Reason reason = ship.tryEnterEditMode(player);
         if (EditModeDistanceGate.isAccepted(reason)) {
+            if (ship.level() instanceof ServerLevel level) {
+                if (!materializeForEdit(level, ship)) {
+                    ship.exitEditMode();
+                    return EditModeDistanceGate.Reason.REJECTED_FOOTPRINT_OBSTRUCTED;
+                }
+            }
             openEditModePreview(ship, player);
         }
         return reason;
+    }
+
+    /**
+     * REQ-013/REQ-014 (T14 remediation): materializes {@code ship}'s CURRENT blueprint into real
+     * world blocks at its CURRENT position/orientation. Called exactly once, by {@link
+     * #openEditMode} on every {@link EditModeDistanceGate.Reason#ACCEPTED} open — both of T13's
+     * player-reachable entry gestures ({@code ShipEntity#interact}'s mounted-pilot and
+     * dismounted-but-anchored-and-nearby branches) route through that one method, so both get this
+     * for free from a single choke point, not two independently-maintained call sites.
+     *
+     * <p><b>The gap this closes:</b> {@link #tryAssemble} clears EVERY scanned block, including
+     * the Steering Wheel itself, to {@link Blocks#AIR} at launch — an already-launched ship's
+     * structure exists ONLY as {@link ShipEntity#getBlueprint()} data, never as real world blocks.
+     * Without this method, a player entering Edit Mode saw an empty area with nothing to build
+     * against; {@link #commitEdit}'s "valid" path could only be exercised by test-only {@code
+     * level.setBlock} calls placing an entire replica structure, something no real player action
+     * produced. Once materialized, ORDINARY vanilla block placement/breaking by the player near
+     * the ship IS the editing mechanism — no custom in-game block-editing UI is needed, mirroring
+     * this mod's existing pre-launch-build precedent exactly (REQ-013's own text: "...eine
+     * Erweiterung erlauben").</p>
+     *
+     * <p><b>Rotation (AIR-010, single authority — no second rotation path):</b> a ship's live
+     * {@code getYRot()} can differ from the yaw it was originally assembled at ({@code
+     * blueprint.assemblyYaw()}) — it turns freely in flight and can land facing any direction, and
+     * {@link EditModeDistanceGate} only requires "stationary" (speed ~0), never "facing its
+     * original assembly direction." Placing the blueprint's raw, un-rotated {@code (dx, dy, dz)}
+     * offsets here would materialize the OLD, pre-turn footprint at the ship's CURRENT position —
+     * visibly disagreeing with the ALREADY-rotated footprint {@link ShipPhysics}/{@code
+     * ShipEntityRenderer} use for this exact ship (the B1/B2 class of bug AIR-010 exists to
+     * prevent). Offsets are therefore rotated by {@code
+     * ShipTransform.effectiveYaw(ship.getYRot(), blueprint.assemblyYaw())} through {@link
+     * ShipTransform#rotateOffset} via {@link #rotatedWorldPositions} — the SAME computation
+     * {@link ShipEntity#updatePhysics()} already feeds {@link ShipPhysics#checkCollision}, not a
+     * second, independently-invented formula.</p>
+     *
+     * <p><b>Snapped to the nearest cardinal ({@link ShipTransform#snapToCardinal}):</b> real
+     * Minecraft blocks are axis-aligned; a raw, non-cardinal {@code effectiveYaw} (the ship can
+     * stop mid-turn at any float degree — nothing snaps {@code getYRot()} itself) cannot rotate an
+     * integer block lattice without rounding gaps/overlaps that would break the BFS connectivity
+     * {@link #scanStructure} depends on the moment materialization ran. Snapping first, then
+     * rotating, guarantees every offset lands on an exact grid cell — see {@link
+     * #snappedEffectiveYaw}.</p>
+     *
+     * <p><b>Only the BUG's {@code FACING} is corrected for rotation; every OTHER directional block
+     * is placed with its ORIGINAL stored {@link BlockState} verbatim (disclosed, not a new gap):
+     * </b> {@link #scanStructure} derives the NEXT {@code assemblyYaw} solely from whatever {@code
+     * FACING} the BUG block reads back as on commit. Leaving the BUG's facing un-rotated while its
+     * POSITION is rotated would silently double-apply the rotation on every future render (the
+     * freshly re-scanned blueprint's "raw" offsets are already the CURRENT, rotated layout, so an
+     * {@code assemblyYaw} that still claims the OLD pre-turn facing would make {@link
+     * ShipTransform#effectiveYaw} rotate an already-rotated footprint a second time) — correcting
+     * it (via {@link Rotation#rotate(Direction)}, vanilla's own directional-rotation primitive, not
+     * a hand-rolled formula) is required for internal consistency, not optional polish. Every OTHER
+     * directional block (e.g. a thruster's nozzle) keeps its stored facing unrotated — purely
+     * cosmetic (nothing in assembly/physics reads it), and the EXACT SAME already-disclosed gap
+     * {@code ShipEntity#disassemble()} has always had (see {@code
+     * docs/plans/aircraft-extension-implementation.md}'s AIR-012 entry: "disassembly rotation...
+     * NOT done") — not a new one introduced here, and out of this task's scope to fix everywhere
+     * at once.</p>
+     *
+     * <p><b>REQ-014/T14 remediation round 6 (IMPORTANT finding, fixed): preflight-checked, not
+     * blind, against a footprint position that stopped being air while the ship sat parked.</b> A
+     * parked ship's footprint is ordinary real-world air from the moment {@link #tryAssemble}
+     * cleared it (at launch, or at the end of any prior {@link #commitEdit}) until Edit Mode is
+     * next opened — nothing in this codebase prevents SURVIVAL gameplay from placing something into
+     * that space in the meantime (a player building nearby, a falling block landing, sand/gravel
+     * settling, in principle even a player-placed chest full of items). This method used to call
+     * {@code level.setBlock} unconditionally for every position with no {@code isAir()}/
+     * {@code canBeReplaced()} check first — {@code setBlock} never drops items, so that would
+     * silently destroy whatever was there, without warning or compensation. This method now runs a
+     * READ-ONLY preflight over every target position first (mirroring this class's own existing "is
+     * this position safely available" idiom — the {@code state.isAir()} checks {@link
+     * #scanStructure}/{@link #countWorldContacts} already use, not a new pattern): if ANY target
+     * position is not air, NOTHING is placed at all (not even the positions that WERE clear — a
+     * partial materialization would desync the world from {@code preEditBlueprint}, breaking
+     * {@link #commitEdit}'s own footprint-clearing union) and this method returns {@code false}.
+     * {@link #openEditMode} treats {@code false} as a rejection — see its own javadoc for the
+     * close/reset handling. Returns {@code true} on an outright missing blueprint too (nothing to
+     * materialize is not an obstruction) and on ordinary successful placement.</p>
+     */
+    public static boolean materializeForEdit(ServerLevel level, ShipEntity ship) {
+        ShipBlueprint blueprint = ship.getBlueprint();
+        if (blueprint == null) {
+            return true;
+        }
+        BlockPos shipPos = ship.blockPosition();
+        float shipYawDeg = ship.getYRot();
+        List<BlockPos> positions = rotatedWorldPositions(blueprint, shipPos, shipYawDeg);
+
+        // REQ-014/T14 remediation round 6 (IMPORTANT finding, fixed): a parked ship's footprint is
+        // real-world AIR from the moment #tryAssemble cleared it until Edit Mode is next opened (see
+        // this method's own "gap this closes" paragraph below) -- ordinary survival gameplay can
+        // place something into that space in the meantime (a player builds nearby, water/sand
+        // flows in, a falling block lands, ...). Blindly overwriting every position with
+        // level.setBlock (as this method used to, unconditionally) would silently destroy whatever
+        // is there first, with zero item drops (setBlock never drops) -- in the worst case, a
+        // chest full of a player's items, gone without a trace or a warning. Mirrors this class's
+        // OWN existing "is this position safely available" discipline (#countWorldContacts /
+        // #scanStructure's own state.isAir() checks below) rather than inventing a new one: every
+        // target position is checked for isAir() FIRST, as a read-only preflight over the WHOLE
+        // list, before a single level.setBlock call runs -- so a blocked position aborts the ENTIRE
+        // materialization, not just skips that one block (a partial materialization would silently
+        // desync the world from preEditBlueprint, breaking #commitEdit's own footprint-clearing
+        // union). {@link #openEditMode} treats a {@code false} return as a rejection (rolls back
+        // the {@code editModeActive} flag {@link ShipEntity#tryEnterEditMode} already flipped, and
+        // never sends the builder preview) rather than silently proceeding into an inconsistent
+        // state.
+        for (BlockPos pos : positions) {
+            if (!level.getBlockState(pos).isAir()) {
+                return false;
+            }
+        }
+
+        Rotation rotation = rotationForYaw(snappedEffectiveYaw(blueprint, shipYawDeg));
+
+        List<ShipBlueprint.ShipBlock> blocks = blueprint.blocks();
+        for (int i = 0; i < blocks.size(); i++) {
+            BlockState state = blocks.get(i).state();
+            if (state.hasProperty(BugBlock.FACING)) {
+                state = state.setValue(BugBlock.FACING, rotation.rotate(state.getValue(BugBlock.FACING)));
+            }
+            level.setBlock(positions.get(i), state, 3);
+        }
+        return true;
+    }
+
+    /**
+     * REQ-014/T14: {@code blueprint}'s own {@code assemblyYaw} vs. {@code shipYawDeg}'s effective
+     * rotation ({@link ShipTransform#effectiveYaw}), snapped to the nearest cardinal ({@link
+     * ShipTransform#snapToCardinal}) — the one shared computation {@link #materializeForEdit} and
+     * {@link #rotatedWorldPositions} both use, so the two are never able to independently drift
+     * apart into two different rotation answers for the same (blueprint, position, yaw) triple.
+     */
+    private static int snappedEffectiveYaw(ShipBlueprint blueprint, float shipYawDeg) {
+        float effectiveYaw = ShipTransform.effectiveYaw(shipYawDeg, blueprint.assemblyYaw());
+        return ShipTransform.snapToCardinal(effectiveYaw);
+    }
+
+    /**
+     * REQ-014/T14: the world position each of {@code blueprint.blocks()} currently occupies (or
+     * would occupy if (re-)materialized) given {@code shipPos}/{@code shipYawDeg} — same order,
+     * same size as {@code blueprint.blocks()}, so callers may zip the two lists by index. Shared by
+     * {@link #materializeForEdit} (placement) and {@link #commitEdit}'s rejection path (knowing
+     * exactly what to clear again) — one computation, not two independently-maintained copies of
+     * the rotation math.
+     */
+    private static List<BlockPos> rotatedWorldPositions(ShipBlueprint blueprint, BlockPos shipPos, float shipYawDeg) {
+        int snappedYaw = snappedEffectiveYaw(blueprint, shipYawDeg);
+        List<BlockPos> positions = new ArrayList<>(blueprint.blocks().size());
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            double[] rotated = ShipTransform.rotateOffset(block.dx(), block.dz(), snappedYaw);
+            int rx = (int) Math.round(rotated[0]);
+            int rz = (int) Math.round(rotated[1]);
+            positions.add(shipPos.offset(rx, block.dy(), rz));
+        }
+        return positions;
+    }
+
+    /**
+     * REQ-014/T14 remediation round 3 (security-review BLOCKER, RISK-004 third-party case): the
+     * world positions {@code ship}'s CURRENT materialized footprint occupies right now — the exact
+     * same {@link #rotatedWorldPositions} computation {@link #materializeForEdit} used to place
+     * those blocks and {@link #commitEdit}'s rejection path uses to clear them, reused here
+     * (not duplicated) so {@link EditModeBlockProtection} can look up exactly what a ship's active
+     * Edit Mode session covers without inventing a second, independently-computed footprint
+     * definition. Returns an empty list when {@code ship} has no blueprint (nothing materialized)
+     * — callers should treat that as "protects nothing," not an error.
+     *
+     * <p>Public (unlike {@link #rotatedWorldPositions} itself) specifically so a caller outside
+     * this class — a block-break/place event listener — can reuse it; still takes only {@code
+     * ship} (deriving blueprint/position/yaw from it), so callers never risk passing a stale or
+     * mismatched triple of those three values by hand.</p>
+     */
+    public static List<BlockPos> materializedFootprint(ShipEntity ship) {
+        ShipBlueprint blueprint = ship.getBlueprint();
+        if (blueprint == null) {
+            return List.of();
+        }
+        return rotatedWorldPositions(blueprint, ship.blockPosition(), ship.getYRot());
+    }
+
+    /**
+     * REQ-014/T14: maps a snapped-to-cardinal degree value (0/90/180/270, see {@link
+     * #snappedEffectiveYaw}) to vanilla's {@link Rotation} enum — ground-truthed the same way
+     * {@link ShipTransform}'s own class javadoc documents ({@code rotateOffset(+90)} is
+     * bytecode-verified identical to {@code BlockPos.rotate(Rotation.CLOCKWISE_90)}), so this
+     * mapping and {@link ShipTransform#rotateOffset} agree on which direction is "positive."
+     */
+    private static Rotation rotationForYaw(int normalizedDeg) {
+        return switch (normalizedDeg) {
+            case 90 -> Rotation.CLOCKWISE_90;
+            case 180 -> Rotation.CLOCKWISE_180;
+            case 270 -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
     }
 
     /**
@@ -404,15 +628,14 @@ public final class ShipAssemblyService {
      * BuilderPreviewS2CPayload} or the resolved {@link ShipBlueprint} across calls — that is exactly
      * the false positive this REQ exists to rule out.</p>
      *
-     * <p><b>Known scope gap (T14, not this method's job):</b> the resulting payload's {@code
-     * wheelPos} is {@code ship.blockPosition()} and {@code sessionId} is always {@code null} — there
-     * is no REQ-014 "edit session" id concept yet, and this payload's {@code wheelPos} field
-     * (designed for the pre-launch, world-block flow) does not by itself uniquely identify WHICH
-     * ship entity a future commit should apply to. {@code BuilderScreen}'s existing "Assemble" button
-     * will need real REQ-014 wiring (a distinct commit path, not {@link
-     * dev.sharkengine.ship.BuildSessionGate#tryAssemble}, which safely no-ops/rejects a null session
-     * today rather than crashing) before it does anything meaningful against an edit-mode-reopened
-     * ship — out of scope here.</p>
+     * <p><b>REQ-014/T14 wiring:</b> the payload's {@code wheelPos} is {@code ship.blockPosition()}
+     * and {@code sessionId} is always {@code null} (no REQ-003 build-session concept applies to an
+     * edit-mode commit). {@link #findEditModeShip} is what turns that {@code wheelPos} back into
+     * WHICH ship entity a commit should apply to — {@code ModNetworking}'s
+     * {@code BuilderAssembleC2SPayload} handler tries {@link #findEditModeShip} first and routes to
+     * {@link #commitEdit} on a hit, falling back to the pre-launch {@link
+     * dev.sharkengine.ship.BuildSessionGate#tryAssemble} flow (which still safely no-ops/rejects a
+     * null session) only when no edit-mode ship matches.</p>
      */
     public static void openEditModePreview(ShipEntity ship, ServerPlayer player) {
         ShipBlueprint blueprint = ship.getBlueprint();
@@ -451,6 +674,224 @@ public final class ShipAssemblyService {
         );
         lastPreviewSent.put(player.getUUID(), payload);
         ServerPlayNetworking.send(player, payload);
+    }
+
+    /**
+     * REQ-014/T14 (AC-014): result of a {@link #commitEdit} attempt — the same {@code
+     * (translationKey, arg)} shape {@link AssembleResult} already established for {@link
+     * #tryAssemble}, not a second, differently-shaped result type.
+     */
+    public record EditCommitResult(String translationKey, Object arg) {
+        /** Whether this result represents a genuinely committed structural change. */
+        public boolean isSuccess() {
+            return "message.sharkengine.edit_commit_ok".equals(translationKey);
+        }
+    }
+
+    /**
+     * REQ-014/T14: resolves the {@link ShipEntity} (if any) that {@code player}'s {@code wheelPos}
+     * refers to for the purpose of committing an Edit Mode change. {@code wheelPos} here is exactly
+     * what {@link #openEditModePreview} handed the client as the preview's echo-back anchor ({@code
+     * ship.blockPosition()} at the moment Edit Mode opened) — see that method's javadoc.
+     *
+     * <p>Fails closed on every axis: returns {@code null} (not some other player's ship) unless a
+     * {@link ShipEntity} exists whose OWN current {@code blockPosition()} exactly equals {@code
+     * wheelPos} (not merely "nearby" — an edit commit must target the exact ship the preview was
+     * opened against), whose {@link ShipEntity#isEditModeActive()} is {@code true} (no ship with a
+     * closed/never-opened edit session is ever returned), AND whose {@link ShipEntity#isPilot}
+     * accepts {@code player} (a bystander's {@code BuilderAssembleC2SPayload} sharing someone else's
+     * wheelPos coordinate can never resolve to that other player's active edit session). {@link
+     * #commitEdit} re-checks {@code isEditModeActive}/{@code isPilot} again on the returned ship
+     * regardless — this lookup's own filtering is defense-in-depth, not the sole gate.</p>
+     *
+     * @return the matching edit-mode ship, or {@code null} if this is not a REQ-014 edit commit at
+     *         all (the caller should fall back to the ordinary pre-launch assembly flow)
+     */
+    public static ShipEntity findEditModeShip(ServerLevel level, BlockPos wheelPos, ServerPlayer player) {
+        List<ShipEntity> nearby = level.getEntities(ModEntities.SHIP, new AABB(wheelPos).inflate(1), e -> true);
+        for (ShipEntity candidate : nearby) {
+            if (candidate.blockPosition().equals(wheelPos)
+                    && candidate.isEditModeActive()
+                    && candidate.isPilot(player)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * REQ-014/AC-014 (T14): the real "Beenden des Edit-Modus" (ending Edit Mode) production entry
+     * point — validates the structure {@code player} has been editing against the SAME AIR-policy
+     * criteria {@link #tryAssemble} itself enforces ({@link StructureScan#canAssemble()}), commits
+     * it atomically on success, or rejects and rolls the WORLD back to a clean baseline on
+     * failure — {@code ship.getBlueprint()} itself is provably untouched either way until success
+     * is certain. Reuses {@link #scanStructure}'s existing BFS scan verbatim — the SAME
+     * preflight-validate-then-mutate discipline {@link #tryAssemble} already established in this
+     * class — rather than inventing a second validation mechanism.
+     *
+     * <p><b>What "atomic" means here, updated for materialization (T14 remediation): the
+     * BLUEPRINT, not the world, is the atomic unit.</b> Before {@link #materializeForEdit} existed,
+     * an Edit Mode session had no real world footprint at all, so "zero {@code level.setBlock}
+     * calls on rejection" and "the ship's blueprint is untouched on rejection" were the SAME
+     * falsifiable claim. They no longer are: {@link #openEditMode} now places real blocks into the
+     * world the moment Edit Mode opens, so by the time a player commits, the world already
+     * necessarily differs from its pre-edit state (that is the whole point — real blocks are what
+     * the player edited). Demanding "the world is byte-identical to before" on rejection would
+     * therefore be demanding the IMPOSSIBLE (materialization itself is a mutation), not a
+     * meaningful atomicity guarantee. What actually matters for AC-014 ("die vorherige Struktur
+     * vollständig erhalten") and RISK-004 ("Blöcke duplizieren oder verlieren") is: (1) {@code
+     * ship.setBlueprint} — the ship's own persisted source of truth — is reached ONLY past {@code
+     * scan.canAssemble()}, exactly as before (still provably true: every {@code
+     * ship.setBlueprint} call in this method is textually and control-flow-reachably below that
+     * check); and (2) a REJECTED commit leaves NO dangling world state that matches neither the
+     * old nor the new structure — see the next paragraph for how.</p>
+     *
+     * <p><b>Rejection now clears the world instead of leaving it untouched (design decision, see
+     * this task's own instructions to make this explicit rather than silently pick one):</b> the
+     * counter-thesis test that used to prove "zero world mutation" on rejection ({@code
+     * AtomicEditReassemblyGameTest}) has been rewritten to prove the NEW invariant instead: on
+     * rejection, this method clears every block {@link #materializeForEdit} originally placed
+     * (recomputed from {@code ship}'s still-pre-edit blueprint/position/yaw — see {@link
+     * #rotatedWorldPositions}) UNION whatever {@code scan.blocks()} just found genuinely CONNECTED
+     * to {@code shipPos} (covers additions the player made elsewhere in the structure that the
+     * original footprint alone wouldn't include). {@code ship.getBlueprint()} itself is left
+     * COMPLETELY UNCHANGED (the pre-edit value) — never patched, never partially applied. The
+     * alternative considered and REJECTED: restoring the OLD valid blocks into the world on a
+     * rejected commit (instead of clearing to air). That would leave a non-editing ship with real
+     * world blocks sitting at its position — a state that, outside of an active Edit Mode session,
+     * has never existed anywhere else in this codebase (the entire premise this task's gap report
+     * opens with is "an already-launched ship's structure exists ONLY as data ... never as real
+     * world blocks") — and would require {@link #openEditMode}'s NEXT invocation to somehow detect
+     * and clear that leftover restoration before re-materializing, a second bespoke path this
+     * class doesn't need. Clearing to air on rejection returns the world to the EXACT SAME
+     * baseline every other non-editing ship already has; the player must re-request Edit Mode
+     * (T13's real triggers) to try again, which re-materializes the SAME still-unchanged blueprint
+     * fresh — a rejected edit is therefore not resumable in-place by design, not by omission.</p>
+     *
+     * <p><b>SUCCESS clears the exact same union, not just {@code newBlueprint.blocks()} (T14
+     * remediation round 6, BLOCKER fix — RISK-004 block-duplication exploit): a committed structure
+     * can legitimately be a strict SUBSET of what was materialized.</b> A player can break the one
+     * connector joining a non-load-bearing branch to the rest of the (already-materialized)
+     * structure without breaking anything else: {@link #scanStructure}'s BFS from {@code shipPos}
+     * then simply never reaches that now-disconnected branch, so it is silently absent from {@code
+     * scan.blocks()}/{@code newBlueprint.blocks()} — while the wheel-connected remainder can still
+     * independently satisfy {@code scan.canAssemble()} and commit successfully. If the success
+     * branch cleared only {@code newBlueprint.blocks()}'s world positions (as it used to, the bug
+     * this remediation fixes), the detached branch's real blocks would never be reached by the
+     * clearing loop at all — they would stand in the world FOREVER as free, ownerless material,
+     * while {@code ship.setBlueprint(newBlueprint)} simultaneously drops their mass/parts from the
+     * ship's data for good: a real, reproducible duplication bug, not a hypothetical one. The fix is
+     * to clear the SAME union the rejection branch above already computes correctly — {@link
+     * #rotatedWorldPositions} of the still-pre-edit {@code preEditBlueprint} (every position
+     * materialization originally touched) UNION {@code newBlueprint.blocks()}'s world positions
+     * (covers anything newly added that ended up connected) — before {@code ship.setBlueprint} runs.
+     * Falsifying-test contract: {@code AtomicEditReassemblyGameTest#detachedBranchClearedOnSuccessfulCommit}.</p>
+     *
+     * <p><b>{@link ShipEntity#editModeActive} close/reset path (T14's other job, per that field's
+     * own javadoc):</b> {@link ShipEntity#exitEditMode()} is called UNCONDITIONALLY at the end of
+     * this method for both outcomes — success AND rejection — never leaving Edit Mode "stuck"
+     * open. A rejected commit does NOT get a special "still open, keep trying" state: the player
+     * must re-request Edit Mode (walk back within OQ-001's 5-block range, right-click again, or
+     * remount) before their next attempt. This is a deliberate choice over "leave it active so the
+     * player can silently retry without re-requesting": leaving it active on rejection would
+     * resurrect T13's originally-disclosed "permanently stuck" failure mode for the specific case
+     * of a player who abandons a broken edit without ever producing a valid structure — {@link
+     * ShipEntity#tryEnterEditMode}'s own conflict check ({@code editModeActive} already {@code
+     * true}) would then reject every future open attempt forever on that one ship, with no other
+     * path to clear it. Resetting on every outcome guarantees Edit Mode can always be re-requested,
+     * at the (minor, disclosed) UX cost of one extra right-click to retry after a rejected edit —
+     * the same "try again from scratch" shape every other rejected gate in this codebase already
+     * has (a rejected {@link #tryAssemble} or {@code BuildSessionGate} attempt doesn't leave any
+     * special half-open state behind either).</p>
+     *
+     * <p>Early precondition failures (not editing / not the pilot) return immediately WITHOUT
+     * calling {@link ShipEntity#exitEditMode()} — a bystander sending a bogus commit must not be
+     * able to terminate the ACTUAL pilot's still-open edit session out from under them.</p>
+     *
+     * @param level  the ship's current level
+     * @param ship   the edit-mode-active ship being committed
+     * @param player the requester; must be {@code ship}'s assigned pilot
+     */
+    public static EditCommitResult commitEdit(ServerLevel level, ShipEntity ship, ServerPlayer player) {
+        if (!ship.isEditModeActive()) {
+            return new EditCommitResult("message.sharkengine.edit_commit_not_active", "");
+        }
+        if (!ship.isPilot(player)) {
+            return new EditCommitResult("message.sharkengine.edit_commit_not_pilot", "");
+        }
+
+        BlockPos shipPos = ship.blockPosition();
+        // Captured BEFORE any scan/mutation below -- this is the ship's genuinely pre-edit
+        // blueprint, the one #materializeForEdit placed into the world when Edit Mode opened
+        // (the ship cannot have moved/turned since then; ShipEntity#tick() freezes movement and
+        // turning whenever editModeActive is true -- see that method's own comment).
+        ShipBlueprint preEditBlueprint = ship.getBlueprint();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // PREFLIGHT (READ-ONLY): scanStructure() never calls level.setBlock -- see its own body.
+        // Everything up to and including this call only reads world state; nothing has been
+        // mutated yet.
+        // ═══════════════════════════════════════════════════════════════════
+        StructureScan scan = scanStructure(level, shipPos);
+
+        if (!scan.canAssemble()) {
+            int issueCount = scan.issues().size();
+
+            // ROLLBACK (REQ-014/T14 remediation, RISK-004 mitigation): clear every real world
+            // block this abandoned edit attempt could have touched -- see this method's own
+            // class-level javadoc ("Rejection now clears the world...") for the full reasoning.
+            // ship.setBlueprint is NEVER called on this branch -- preEditBlueprint remains the
+            // ship's live blueprint, completely unchanged.
+            Set<BlockPos> toClear = new HashSet<>(
+                    rotatedWorldPositions(preEditBlueprint, shipPos, ship.getYRot()));
+            for (ShipBlueprint.ShipBlock block : scan.blocks()) {
+                toClear.add(shipPos.offset(block.dx(), block.dy(), block.dz()));
+            }
+            for (BlockPos pos : toClear) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
+
+            ship.exitEditMode();
+            return new EditCommitResult("message.sharkengine.edit_commit_invalid", issueCount);
+        }
+
+        ShipBlueprint newBlueprint = scan.toBlueprint();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MUTATION -- only reached once every AIR-policy condition above has passed. Mirrors
+        // #tryAssemble's own clear-scanned-blocks-then-adopt-blueprint order exactly (same idiom,
+        // not a second one).
+        //
+        // REQ-014/T14 remediation round 6 (BLOCKER, RISK-004 block-duplication exploit): clearing
+        // ONLY newBlueprint.blocks()'s world positions is WRONG on its own -- a player can break the
+        // single connector joining a non-load-bearing branch to the rest of the materialized
+        // structure, leaving that branch BFS-disconnected (scanStructure never reaches it, so it is
+        // simply absent from newBlueprint.blocks()) while the WHEEL-connected remainder still
+        // satisfies scan.canAssemble(). The branch's real blocks are still standing in the world at
+        // this point; ship.setBlueprint(newBlueprint) below permanently drops their mass/parts from
+        // the ship's own data. Clearing only newBlueprint.blocks() would leave those branch blocks
+        // in the world FOREVER -- free, ownerless, duplicated material, exactly the "Blöcke
+        // duplizieren" failure AC-014/RISK-004 exist to rule out. The fix mirrors the REJECTION
+        // branch above EXACTLY: clear the UNION of (1) every position #materializeForEdit originally
+        // placed for the pre-edit structure (recomputed from preEditBlueprint/shipPos/ship.getYRot()
+        // via #rotatedWorldPositions -- preEditBlueprint itself is never mutated) and (2) every
+        // position newBlueprint.blocks() now occupies (already covered by (1) for anything the
+        // player didn't touch, but also covers any NEW block the player added elsewhere that ended
+        // up connected). This is the same union computation as the rejection branch, not a second,
+        // independently-invented one.
+        // ═══════════════════════════════════════════════════════════════════
+        Set<BlockPos> toClear = new HashSet<>(
+                rotatedWorldPositions(preEditBlueprint, shipPos, ship.getYRot()));
+        for (ShipBlueprint.ShipBlock block : newBlueprint.blocks()) {
+            toClear.add(shipPos.offset(block.dx(), block.dy(), block.dz()));
+        }
+        for (BlockPos pos : toClear) {
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+        }
+        ship.setBlueprint(newBlueprint);
+        ship.exitEditMode();
+
+        return new EditCommitResult("message.sharkengine.edit_commit_ok", newBlueprint.blockCount());
     }
 
     /**

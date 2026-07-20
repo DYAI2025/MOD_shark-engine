@@ -80,7 +80,23 @@ public final class EditModeDistanceGate {
          */
         REJECTED_WRONG_DIMENSION,
         /** The requester is farther than {@link #MAX_DISTANCE_BLOCKS} (Euclidean) from the Control Anchor. */
-        REJECTED_TOO_FAR
+        REJECTED_TOO_FAR,
+        /**
+         * REQ-014/T14 remediation round 6 (IMPORTANT finding, fixed): {@link
+         * ShipAssemblyService#materializeForEdit} found something other than air occupying at
+         * least one position of the ship's footprint (something was placed into the parked ship's
+         * phantom footprint space between when it stopped moving and when Edit Mode was next
+         * requested) and refused to overwrite it. Unlike every other {@code Reason} here, this one
+         * is never produced by {@link #evaluate} itself — this pure, no-Minecraft-dependency gate
+         * has no way to inspect world block state; {@link ShipAssemblyService#openEditMode} returns
+         * it directly, after {@code evaluate} has already returned {@link #ACCEPTED} and {@link
+         * ShipEntity#tryEnterEditMode} has already flipped {@code editModeActive} true (which
+         * {@code openEditMode} rolls back via {@link ShipEntity#exitEditMode()} before returning
+         * this). Both of {@code ShipEntity#interact}'s edit-mode-requesting branches already report
+         * any non-{@code ACCEPTED} reason generically, so this needed no new client/message
+         * plumbing to become player-visible.
+         */
+        REJECTED_FOOTPRINT_OBSTRUCTED
     }
 
     /**

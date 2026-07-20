@@ -121,22 +121,18 @@ public final class ShipEntity extends Entity {
      * precondition {@link EditModeDistanceGate} checks — a second concurrent open attempt while
      * this is already {@code true} is rejected ({@link EditModeDistanceGate.Reason#REJECTED_CONFLICT}).
      *
-     * <p><b>Known, ACCEPTED limitation — no close/reset path exists yet (disclosed, not a bug to
-     * silently work around):</b> nothing anywhere in this class ever flips this back to {@code
-     * false}. There is no "exit Edit Mode"/"cancel"/timeout/dismount handler that clears it, and
-     * disassembly ({@link #disassemble()}) discards the whole entity rather than resetting this
-     * flag on it. The practical consequence: once a ship's Edit Mode is opened successfully even
-     * ONCE, every subsequent open attempt on that same ship — from any player, at any distance,
-     * for the rest of that entity's lifetime — is permanently rejected with {@link
-     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}, indistinguishable from a genuinely
-     * still-open edit session. This is REQ-014/T14's job to fix, not this task's: REQ-014's own
-     * PRD text is literally "Beenden des Edit-Modus... atomar committen oder vollständig
-     * zurückrollen" (ending Edit Mode, atomically committing or fully rolling back), and T14 is
-     * the next task in this queue. Do NOT add a stopgap/workaround reset here — that was
-     * evaluated and explicitly rejected as this task's job (user decision) precisely because a
-     * hand-rolled reset here would either duplicate or conflict with T14's real atomic
-     * commit-or-rollback close path once it exists. Any caller must NOT assume a ship's Edit Mode
-     * can be reopened after a first successful entry until T14 ships.</p>
+     * <p><b>REQ-014/T14 remediation — the close/reset path now exists:</b> this field used to have
+     * NO way back to {@code false} (see the pre-T14 revision of this javadoc, preserved in git
+     * history, for the exact disclosed gap: opening Edit Mode successfully even ONCE permanently
+     * rejected every later open attempt on that ship with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}). {@link #exitEditMode()} is the fix — the
+     * ONLY other place in this class allowed to flip this field, mirroring how {@link
+     * #tryEnterEditMode} is the ONLY place that flips it to {@code true}. {@link
+     * ShipAssemblyService#commitEdit} calls {@link #exitEditMode()} unconditionally at the end of
+     * EVERY commit attempt it processes — successful AND rejected alike (see that method's own
+     * javadoc for why a rejected commit still ends the session rather than leaving it "open for
+     * retry": leaving it active on rejection would resurrect this exact permanently-stuck failure
+     * mode for a player who abandons a broken edit without ever producing a valid structure).</p>
      */
     private boolean editModeActive;
 
@@ -380,6 +376,21 @@ public final class ShipEntity extends Entity {
     }
 
     /**
+     * REQ-014/T14: the real close/reset path for {@link #editModeActive}, filling the gap that
+     * field's (and {@link #tryEnterEditMode}'s) javadoc used to disclose. This is the ONLY method
+     * in this class that flips {@link #editModeActive} back to {@code false} — symmetric with
+     * {@link #tryEnterEditMode} being the only method that flips it to {@code true}. Idempotent
+     * (calling it when already {@code false} is a harmless no-op) and deliberately dumb: it does
+     * not itself decide WHETHER a session should end, only performs the state transition once a
+     * caller has already decided it should — {@link ShipAssemblyService#commitEdit} is that
+     * caller in production, for both its success and rejection outcomes (see that method's
+     * javadoc for the reasoning).
+     */
+    public void exitEditMode() {
+        editModeActive = false;
+    }
+
+    /**
      * REQ-012/AC-012 (T12): attempts to open AIR "Edit Mode" for {@code player} on this
      * already-assembled, already-launched ship. This is the single production entry point tying
      * together every REQ-012 precondition — callers must call this rather than mutating {@link
@@ -422,14 +433,13 @@ public final class ShipEntity extends Entity {
      * the vehicle's live structure is REQ-013/T13's scope, not this method's. On any rejection,
      * this ship's state is left completely unchanged (AC-012: "erfolgt keine Zustandsänderung").</p>
      *
-     * <p><b>No close/reset path exists yet — see {@link #editModeActive}'s javadoc.</b> This
-     * method can only ever transition Edit Mode false→true; nothing in this class can transition
-     * it back. Calling this a second time on a ship whose first call already ACCEPTED is
-     * therefore permanently rejected with {@link EditModeDistanceGate.Reason#REJECTED_CONFLICT},
-     * indistinguishable from a genuinely still-open session — a disclosed, intentional gap owned
-     * by not-yet-built REQ-014/T14 ("Beenden des Edit-Modus... atomar committen oder vollständig
-     * zurückrollen"), not something this method silently works around. Callers must not assume a
-     * ship's Edit Mode can be reopened after a first successful entry until T14 ships.</p>
+     * <p><b>Close/reset path (REQ-014/T14):</b> this method only ever transitions Edit Mode
+     * false→true; {@link #exitEditMode()} is the sole path back to {@code false}, called by
+     * {@link ShipAssemblyService#commitEdit} at the end of every commit attempt it processes
+     * (success or rejection). Calling this method a second time on a ship whose Edit Mode is
+     * still genuinely open (no commit attempt has run yet) is correctly rejected with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT} — that is the "conflict-free" precondition
+     * working as intended, not the old permanently-stuck gap.</p>
      */
     public EditModeDistanceGate.Reason tryEnterEditMode(ServerPlayer player) {
         boolean authorized = isPilot(player);
@@ -962,6 +972,24 @@ public final class ShipEntity extends Entity {
                 }
                 return InteractionResult.CONSUME;
             }
+            // REQ-014/T14 remediation (RISK-004): disassembly must not run concurrently with an
+            // open Edit Mode session. ShipAssemblyService#materializeForEdit has placed real world
+            // blocks representing this ship's (possibly mid-edit) structure; disassemble() would
+            // try to place the ORIGINAL pre-edit blueprint on top of them, hit "blocked" wherever
+            // they conflict (silently dropped, not returned as items -- the pre-existing,
+            // still-open AIR-012/B13 gap), then discard() this entity regardless -- leaving a
+            // self-contradictory mix of materialized/edited and disassembled blocks in the world
+            // with no ship entity left to ever reconcile it, exactly the "duplicate/lose blocks"
+            // failure RISK-004 names. The only sanctioned way out of an open Edit Mode session is
+            // ShipAssemblyService#commitEdit (valid or rejected, both of which own clearing the
+            // world themselves) -- so this is rejected here with a clear message instead of being
+            // silently allowed to race with it.
+            if (editModeActive) {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.translatable("message.sharkengine.disassembly_blocked_edit_mode"));
+                }
+                return InteractionResult.CONSUME;
+            }
             if (isAnchored()) {
                 disassemble();
             } else {
@@ -1443,6 +1471,23 @@ public final class ShipEntity extends Entity {
 
         // ━━━ Anchor ━━━
         if (isAnchored()) {
+            setDeltaMovement(Vec3.ZERO);
+            return;
+        }
+
+        // ━━━ Edit Mode (REQ-014/T14 remediation, RISK-004) ━━━
+        // ShipAssemblyService#materializeForEdit places REAL world blocks at this ship's CURRENT
+        // blockPosition()/getYRot() the moment Edit Mode opens (ShipAssemblyService#openEditMode).
+        // Those blocks are never re-synced while editing is in progress -- commitEdit's rollback
+        // path (on a rejected commit) recomputes exactly where they were placed FROM this ship's
+        // still-pre-edit blueprint/position/yaw, which is only correct if none of the three moved
+        // in between. The MOUNTED edit-mode entry gesture (ShipEntity#interact) does not itself
+        // require isAnchored() (only the DISMOUNTED one does), so without this, a mounted pilot
+        // could throttle/turn away mid-edit and leave their materialized blocks orphaned in the
+        // world -- a real, easily-reachable "Blöcke ... verlieren" failure (RISK-004) that only
+        // became possible once materialization was added here. Same "stop everything, bail out"
+        // shape as the isAnchored() branch above, just gated on a different flag.
+        if (editModeActive) {
             setDeltaMovement(Vec3.ZERO);
             return;
         }

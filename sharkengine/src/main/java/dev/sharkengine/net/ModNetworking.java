@@ -186,6 +186,31 @@ public final class ModNetworking {
                 if (!(sp.level() instanceof ServerLevel serverLevel)) {
                     return;
                 }
+
+                // ═══════════════════════════════════════════════════════════════════
+                // REQ-014/T14: this SAME C2S payload (wheelPos + sessionId) is also how the
+                // BuilderScreen "Assemble" button commits an EDIT-MODE change on an
+                // already-launched ship -- ShipAssemblyService#openEditModePreview hands the
+                // client ship.blockPosition() as this payload's wheelPos, with sessionId always
+                // null (no REQ-003 build session applies to an edit commit). Try that resolution
+                // FIRST; only fall through to the ordinary pre-launch BuildSessionGate flow below
+                // when wheelPos does not resolve to an edit-mode ship this player pilots.
+                // ═══════════════════════════════════════════════════════════════════
+                ShipEntity editingShip =
+                        ShipAssemblyService.findEditModeShip(serverLevel, payload.wheelPos(), sp);
+                if (editingShip != null) {
+                    ShipAssemblyService.EditCommitResult commit =
+                            ShipAssemblyService.commitEdit(serverLevel, editingShip, sp);
+                    sp.sendSystemMessage(Component.translatable(commit.translationKey(), commit.arg()));
+                    if (commit.isSuccess()) {
+                        ServerPlayNetworking.send(sp, BuilderPreviewS2CPayload.close());
+                    } else {
+                        SharkEngineMod.LOGGER.warn("Rejected edit-mode commit from {} at {}: {}",
+                                sp.getGameProfile().getName(), payload.wheelPos(), commit.translationKey());
+                    }
+                    return;
+                }
+
                 // REQ-003: every assemble request must pass the server-owned VehicleBuildSession
                 // gate (owner, dimension, distance, expiry, session id, not-already-consumed)
                 // BEFORE ShipAssemblyService ever scans/removes a single block. See
