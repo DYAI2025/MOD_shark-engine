@@ -1,0 +1,2856 @@
+{
+  "feature_slug": "shark-engine-air-release-1",
+  "language": "de",
+  "mode": "PLUMBLINE_READY_PACKAGE",
+  "readiness_level": "READY_FOR_USER_CONFIRMATION",
+  "source_map": [
+    {
+      "source_id": "SRC-001",
+      "source_kind": "user_provided",
+      "summary": "Vom Nutzer sequenziell bestätigte Produktanforderungen: AIR Release 1 abschließen; AIR/LAND/WATER-Auswahl beibehalten; generischer Pilotensitz; Copilotensitz; Wiedereinstieg; Weiterbau; Fuel/Flugsteuerung; farbige Kondensstreifen; Looping nachgelagert; Zieltermin 30.07.2026."
+    },
+    {
+      "source_id": "SRC-002",
+      "source_kind": "user_provided",
+      "summary": "Finalisiertes AI-Native PRD für Shark Engine AIR Release 1 mit Architektur, Akzeptanzkriterien, Tests, Risiken und Agent-Handoff."
+    },
+    {
+      "source_id": "SRC-003",
+      "source_kind": "repository_evidence",
+      "summary": "Anforderungsevaluation zur Vehicle-Plattform, Cockpit und Looping; statisch aus dem Repository und den Nutzeranforderungen abgeleitet."
+    },
+    {
+      "source_id": "SRC-004",
+      "source_kind": "repository_evidence",
+      "summary": "Codebase-Audit der Shark Engine mit statischen Findings; vollständiger Gradle-/Runtime-Nachweis blieb offen."
+    },
+    {
+      "source_id": "SRC-005",
+      "source_kind": "repository_evidence",
+      "summary": "Gepatchter Shark-Engine-Repository-Snapshot; als Quellbasis vorhanden, aber nicht als vollständig runtime-verifiziert zu behandeln."
+    },
+    {
+      "source_id": "SRC-006",
+      "source_kind": "standard_or_framework",
+      "summary": "Minecraft-Java-Modding-Leitfaden: Java 21, Gradle/Fabric, serverseitige Autorität, gestufte Test- und Profiling-Workflows."
+    },
+    {
+      "source_id": "SRC-007",
+      "source_kind": "standard_or_framework",
+      "summary": "Plumbline AgileTeam Intake Contracts für getrennte Vision-, Canvas-, PRD- und Traceability-Artefakte sowie explizite Nutzerbestätigung."
+    }
+  ],
+  "artifacts": {
+    "prd": {
+      "title": "Shark Engine AIR Release 1 — Plumbline AgileTeam PRD",
+      "status": "ready-for-user-confirmation",
+      "feature_slug": "shark-engine-air-release-1",
+      "owner": {
+        "value": "Ben als Anforderungsgeber; formale Product-Owner-Rolle für das Repository ist nicht separat bestätigt.",
+        "source_type": "ASSUMPTION",
+        "source_refs": [
+          "SRC-001"
+        ]
+      },
+      "source_summary": "Konsolidiert aus der sequenziellen Nutzerklärung, dem finalisierten AI-Native PRD, der Anforderungsevaluation und dem statischen Repository-Audit. Runtime-Verhalten bleibt bis zu Build-/GameTest-/Client-/Server-Nachweisen UNVERIFIED.",
+      "problem_statement": {
+        "id": "CAN-001",
+        "value": "Der AIR-Prototyp deckt wesentliche Teile des Flugzeug-Gameplays ab, ist aber noch nicht als durchgängiger, runtime-verifizierter Release abgeschlossen. Sitzlogik, Copilot, Wiedereinstieg, sicherer Weiterbau, persistente Trail-Farben und eine begrenzte Vehicle-Core-Trennung fehlen oder sind nicht vollständig nachgewiesen.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-002",
+          "SRC-003",
+          "SRC-004"
+        ]
+      },
+      "target_users": [
+        {
+          "id": "CAN-002",
+          "value": "Primär: Minecraft-Spieler, die eigene blockbasierte Fluggeräte bauen und steuern.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-003",
+          "value": "Sekundär: Mitspieler, die als passive Copiloten mitfliegen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "goals": [
+        {
+          "id": "GOAL-001",
+          "value": "AIR-Fahrzeug bis 30.07.2026 als vollständigen, runtime-verifizierten Release abschließen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "GOAL-002",
+          "value": "Crafting, Bau, Assembly, Cockpit, Flug, Fuel, Aus-/Wiedereinstieg, Weiterbau, Multiplayer und Persistenz zu einem kohärenten End-to-End-Flow verbinden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "GOAL-003",
+          "value": "Nur die minimale gemeinsame Vehicle-Core-Architektur schaffen, die spätere LAND/WATER-Routen ohne Kern-Duplikation ermöglicht.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        }
+      ],
+      "non_goals": [
+        {
+          "id": "CAN-012",
+          "value": "Keine ausführbaren LAND- oder WATER-Fahrzeuge in Release 1.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-013",
+          "value": "Kein Looping als Release-1-MVP-Anforderung.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-014",
+          "value": "Keine physikalisch vollständige Aerodynamiksimulation.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "id": "ASM-001",
+          "value": "Bis zur Nutzerpräzisierung wird die Fünf-Block-Regel als maximale räumliche Distanz vom Spieler zum Control Anchor im stationären sicheren Zustand behandelt.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-002",
+          "value": "Der Pilotensitz wird anhand des Steering-Wheel-Facings auf eine deterministische angrenzende Position 'vor' dem Steuerrad abgebildet.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-003",
+          "value": "Release 1 unterstützt die 16 normalen Minecraft-Farbstoffe; der genaue Crafting-/Recolor-Flow ist vor Implementierung zu bestätigen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-004",
+          "value": "Ein Copilotensitz trägt genau einen Spieler; Release 1 garantiert mindestens einen zusätzlichen Passagier.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-005",
+          "value": "Vehicle Core wird nur bis zu den für AIR unmittelbar benötigten Seams extrahiert; keine vorsorgliche LAND/WATER-Physikabstraktion.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "OQ-001",
+          "value": "Bedeutet die Fünf-Block-Regel euklidische Distanz zum Control Anchor, horizontale Distanz oder ausschließlich maximale vertikale Höhe?",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-002",
+          "value": "Soll die Trail-Farbe durch Crafting eines neuen Thrusters, durch nachträgliches Färben eines platzierten Thrusters oder durch beide Wege geändert werden?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "OQ-003",
+          "value": "Welche sichtbare Körpergrenze gilt für 'nur der Kopf schaut heraus' bei Rüstung, unterschiedlichen Skins und Third-Person-Kamera?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-004",
+          "value": "Wie wird 'Sitz vor dem Steering Wheel' exakt aus dessen Facing abgeleitet, wenn mehrere gültige angrenzende Positionen existieren?",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-005",
+          "value": "Welches reproduzierbare Hardware-/Szenario-Baseline gilt für die Performance-Abnahme farbiger Partikel und maximaler AIR-Blueprints?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "requirements": [
+        {
+          "id": "REQ-001",
+          "title": "Vehicle route popup",
+          "priority": "P0",
+          "statement": "Beim Platzieren oder Interagieren mit dem Steering Wheel muss das bestehende Popup die Routen AIR, LAND und WATER anzeigen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-001",
+            "VIS-004"
+          ],
+          "canvas_ids": [
+            "CAN-006",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-001"
+          ],
+          "evidence_ids": [
+            "EV-001"
+          ]
+        },
+        {
+          "id": "REQ-002",
+          "title": "Release route availability",
+          "priority": "P0",
+          "statement": "Release 1 darf nur AIR als ausführbare Route aktivieren; LAND und WATER bleiben sichtbar, aber nicht fahrzeugerzeugend und werden als zukünftige Routen gekennzeichnet.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-009"
+          ],
+          "canvas_ids": [
+            "CAN-006",
+            "CAN-012"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-002"
+          ],
+          "evidence_ids": [
+            "EV-002"
+          ]
+        },
+        {
+          "id": "REQ-003",
+          "title": "Server-owned build session",
+          "priority": "P0",
+          "statement": "Auswahl und Assembly müssen an eine serverseitig validierte VehicleBuildSession mit Spieler, Dimension, Steering-Wheel-Position, Fahrzeugklasse, Status und Ablaufzeit gebunden sein.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003",
+            "SRC-004"
+          ],
+          "vision_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-011",
+            "CAN-017",
+            "CAN-018"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-003"
+          ],
+          "evidence_ids": [
+            "EV-003"
+          ]
+        },
+        {
+          "id": "REQ-004",
+          "title": "Complete craft/resource closure",
+          "priority": "P0",
+          "statement": "Alle Release-1-AIR-Komponenten müssen registriert, craftbar oder bewusst anderweitig erhältlich, platzierbar, lokalisiert und mit vollständigen Ressourcen/Datagen versehen sein.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-007",
+            "CAN-009",
+            "CAN-010",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-004"
+          ],
+          "evidence_ids": [
+            "EV-004"
+          ]
+        },
+        {
+          "id": "REQ-005",
+          "title": "Generic pilot seat",
+          "priority": "P0",
+          "statement": "Ein generischer craftbarer Pilotensitz/Cockpit muss für AIR verwendet und architektonisch auch für spätere LAND/WATER-Profile wiederverwendbar sein; AIR-Assembly erfordert genau einen gültigen Pilotensitz.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-001",
+            "VIS-005"
+          ],
+          "canvas_ids": [
+            "CAN-007",
+            "CAN-011"
+          ],
+          "risk_ids": [
+            "RISK-003",
+            "RISK-005"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-005"
+          ],
+          "evidence_ids": [
+            "EV-005"
+          ]
+        },
+        {
+          "id": "REQ-006",
+          "title": "Pilot seat anchor",
+          "priority": "P0",
+          "statement": "Der Pilotensitz muss einen orientierungsabhängigen SeatAnchor nahe beziehungsweise vor dem Steering Wheel auflösen und im Blueprint speichern.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004"
+          ],
+          "canvas_ids": [
+            "CAN-007",
+            "CAN-016"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-006"
+          ],
+          "evidence_ids": [
+            "EV-006"
+          ]
+        },
+        {
+          "id": "REQ-007",
+          "title": "Cockpit visibility",
+          "priority": "P0",
+          "statement": "Der Pilot muss lokal und für andere Clients so im Cockpit positioniert sein, dass die Figur nicht dauerhaft vollständig auf dem Fahrzeug steht und primär der Kopf sichtbar ist.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-007",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-007"
+          ],
+          "evidence_ids": [
+            "EV-007"
+          ]
+        },
+        {
+          "id": "REQ-008",
+          "title": "Pilot control authority",
+          "priority": "P0",
+          "statement": "Nur der serverseitig zugewiesene Pilot darf Bewegungs-, Throttle-, Anchor-, Edit- und vergleichbare Steuerbefehle wirksam auslösen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ],
+          "vision_ids": [
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-007",
+            "CAN-017"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-008"
+          ],
+          "evidence_ids": [
+            "EV-008"
+          ]
+        },
+        {
+          "id": "REQ-009",
+          "title": "Craftable copilot seat",
+          "priority": "P0",
+          "statement": "Ein craftbarer Copilotensitz muss mindestens einen zusätzlichen Passagier aufnehmen und als SeatAnchor im Blueprint repräsentiert werden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-003",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-003",
+            "CAN-007"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-009"
+          ],
+          "evidence_ids": [
+            "EV-009"
+          ]
+        },
+        {
+          "id": "REQ-010",
+          "title": "Passive copilot behavior",
+          "priority": "P0",
+          "statement": "Ein Copilot darf mitfliegen, normal aussteigen und später wieder einsteigen, erhält aber durch die Belegung keine Steuerberechtigung.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-003",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-003",
+            "CAN-007"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-010"
+          ],
+          "evidence_ids": [
+            "EV-010"
+          ]
+        },
+        {
+          "id": "REQ-011",
+          "title": "Vehicle re-entry",
+          "priority": "P0",
+          "statement": "Nach dem Ausstieg muss ein berechtigter Spieler einen freien Pilot- oder Copilotensitz erneut besteigen können, ohne das Fahrzeug neu zu bauen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-008",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-011"
+          ],
+          "evidence_ids": [
+            "EV-011"
+          ]
+        },
+        {
+          "id": "REQ-012",
+          "title": "Safe edit-mode gate",
+          "priority": "P0",
+          "statement": "Ein Fahrzeug darf nur im stationären, nicht zerstörten und konfliktfreien Zustand in den Edit-Modus wechseln; der autorisierte Spieler muss innerhalb der Fünf-Block-Grenze zum Control Anchor sein.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-008",
+            "CAN-017",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-012"
+          ],
+          "evidence_ids": [
+            "EV-012"
+          ]
+        },
+        {
+          "id": "REQ-013",
+          "title": "Builder reopen",
+          "priority": "P0",
+          "statement": "Der erfolgreiche Wechsel in den Edit-Modus muss das Baumenü mit der bestehenden Fahrzeugstruktur öffnen und eine Erweiterung erlauben.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-008",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-013"
+          ],
+          "evidence_ids": [
+            "EV-013"
+          ]
+        },
+        {
+          "id": "REQ-014",
+          "title": "Atomic edit/reassembly",
+          "priority": "P0",
+          "statement": "Das Beenden des Edit-Modus muss die geänderte Struktur gegen die AIR-Policy prüfen und Änderungen atomar committen oder vollständig zurückrollen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ],
+          "vision_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-008",
+            "CAN-017",
+            "CAN-018"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-014"
+          ],
+          "evidence_ids": [
+            "EV-014"
+          ]
+        },
+        {
+          "id": "REQ-015",
+          "title": "AIR flight controls",
+          "priority": "P0",
+          "statement": "AIR muss Vorwärtsbeschleunigung, Geschwindigkeitsänderung, Steigflug, Sinkflug, Neigung und Kurvenflug über die bestehende oder äquivalent rebindbare Steuerung unterstützen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-009",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-015"
+          ],
+          "evidence_ids": [
+            "EV-015"
+          ]
+        },
+        {
+          "id": "REQ-016",
+          "title": "Fuel and speed loop",
+          "priority": "P0",
+          "statement": "Fuel muss craftbar/refillbar sein, während angetriebenem Flug verbraucht, im HUD sichtbar und über Save/Load erhalten werden; Geschwindigkeit muss wirksam und nachvollziehbar steuerbar sein.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-009",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-016"
+          ],
+          "evidence_ids": [
+            "EV-016"
+          ]
+        },
+        {
+          "id": "REQ-017",
+          "title": "Persistence and restart",
+          "priority": "P0",
+          "statement": "VehicleClass, Blueprint, Pilot-/Copilot-Sitze, Belegungseignung, Fuel, Schaden, Trail-Konfiguration und Edit-Zustand müssen konsistent serialisiert und nach Serverneustart wiederhergestellt werden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-017",
+            "CAN-019",
+            "CAN-021"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-017"
+          ],
+          "evidence_ids": [
+            "EV-017"
+          ]
+        },
+        {
+          "id": "REQ-018",
+          "title": "Dye-based trail configuration",
+          "priority": "P1",
+          "statement": "Spieler müssen Triebwerke oder deren Trail-Konfiguration mit unterstützten Minecraft-Farbstoffen craften beziehungsweise färben können.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-001",
+            "VIS-004"
+          ],
+          "canvas_ids": [
+            "CAN-010",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-018"
+          ],
+          "evidence_ids": [
+            "EV-018"
+          ]
+        },
+        {
+          "id": "REQ-019",
+          "title": "Persistent colored trail",
+          "priority": "P1",
+          "statement": "Ein konfiguriertes Triebwerk muss während des Flugs die gespeicherte Trail-Farbe anzeigen; ungefärbte Triebwerke verwenden den bestehenden Standardtrail.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-010",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-019"
+          ],
+          "evidence_ids": [
+            "EV-019"
+          ]
+        },
+        {
+          "id": "REQ-020",
+          "title": "Trail isolation and bounded rendering",
+          "priority": "P1",
+          "statement": "Trail-Farbe darf Schub, Fuelverbrauch oder Autorität nicht verändern; Partikelemission muss pro aktivem Fahrzeug begrenzt und im definierten Baseline-Szenario geprüft werden.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ],
+          "vision_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-010",
+            "CAN-017",
+            "CAN-020"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-020"
+          ],
+          "evidence_ids": [
+            "EV-020"
+          ]
+        },
+        {
+          "id": "REQ-021",
+          "title": "Transactional world mutation",
+          "priority": "P0",
+          "statement": "Assembly, Disassembly und Edit-Reassembly müssen Preflight-Validierung und Rollback verwenden, sodass Fehler keine Blöcke duplizieren oder löschen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ],
+          "vision_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_ids": [
+            "CAN-017",
+            "CAN-018",
+            "CAN-019"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-021"
+          ],
+          "evidence_ids": [
+            "EV-021"
+          ]
+        },
+        {
+          "id": "REQ-022",
+          "title": "Minimal Vehicle Core",
+          "priority": "P0",
+          "statement": "Release 1 muss nur die für AIR benötigten gemeinsamen Seams dokumentieren/implementieren: BuildSession, VehicleClassProfile, AssemblyPolicy, MovementController, SeatController, versionierte Persistenz und TrailEmitter; keine drei kopierten Entity-/Pipeline-Implementierungen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ],
+          "vision_ids": [
+            "VIS-005",
+            "VIS-009"
+          ],
+          "canvas_ids": [
+            "CAN-011",
+            "CAN-018",
+            "CAN-024"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-022"
+          ],
+          "evidence_ids": [
+            "EV-022"
+          ]
+        },
+        {
+          "id": "REQ-023",
+          "title": "Looping backlog only",
+          "priority": "P2",
+          "statement": "Der manuell beziehungsweise halbautomatisch übersteuerte Looping mit Eintrittsbedingungen und fatalen Crash-Folgen wird als Post-Release-Anforderung dokumentiert, aber nicht in Release 1 implementiert oder als DoD-Gate verwendet.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ],
+          "vision_ids": [
+            "VIS-010"
+          ],
+          "canvas_ids": [
+            "CAN-013"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-023"
+          ],
+          "evidence_ids": [
+            "EV-023"
+          ]
+        },
+        {
+          "id": "REQ-024",
+          "title": "Release evidence gate",
+          "priority": "P0",
+          "statement": "Ein Release-Artefakt darf erst freigegeben werden, wenn der exakte Commit Build, Unit-/Resource-Tests, Fabric GameTests, Client-Smoke, Dedicated-Server-Smoke, Zwei-Spieler-Smoke und Restart-Nachweis bestanden hat.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ],
+          "vision_ids": [
+            "VIS-006",
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_ids": [
+            "CAN-015",
+            "CAN-017",
+            "CAN-019",
+            "CAN-020",
+            "CAN-021",
+            "CAN-023"
+          ],
+          "risk_ids": [
+            "RISK-001",
+            "RISK-002"
+          ],
+          "acceptance_criteria_ids": [
+            "AC-024"
+          ],
+          "evidence_ids": [
+            "EV-024"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "requirement_id": "REQ-001",
+          "given": "ein Spieler platziert oder benutzt ein Steering Wheel",
+          "when": "die Fahrzeugauswahl geöffnet wird",
+          "then": "sind AIR, LAND und WATER als drei erkennbare Routen sichtbar.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-002",
+          "requirement_id": "REQ-002",
+          "given": "Release 1 ist installiert",
+          "when": "der Spieler AIR, LAND oder WATER auswählt",
+          "then": "erzeugt nur AIR eine aktive Build-Session; LAND und WATER zeigen einen nicht irreführenden Zukunftsstatus und verändern die Welt nicht.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-003",
+          "requirement_id": "REQ-003",
+          "given": "ein Client sendet eine Fahrzeugauswahl oder Assembly-Anfrage",
+          "when": "Spieler, Dimension, Position, Distanz, Sessionstatus oder Ablaufzeit ungültig sind",
+          "then": "lehnt der Server die Anfrage ohne Weltmutation ab.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "AC-004",
+          "requirement_id": "REQ-004",
+          "given": "der Release-Build wird geprüft",
+          "when": "Rezepte, Modelle, Loot, Texturen, Datagen und EN/DE-Sprachschlüssel validiert werden",
+          "then": "sind alle Release-1-AIR-Komponenten vollständig auflösbar und craftbar beziehungsweise bewusst dokumentiert erhältlich.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-005",
+          "requirement_id": "REQ-005",
+          "given": "eine AIR-Struktur besitzt keinen oder mehr als einen gültigen Pilotensitz",
+          "when": "Assembly gestartet wird",
+          "then": "schlägt die Assembly mit verständlicher Meldung fehl und lässt die Welt unverändert; genau ein gültiger Sitz wird akzeptiert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-006",
+          "requirement_id": "REQ-006",
+          "given": "ein gültiger Pilotensitz liegt in der akzeptierten relativen Position zum Steering Wheel",
+          "when": "das Fahrzeug assembliert, gedreht, gespeichert und geladen wird",
+          "then": "bleibt der orientierte SeatAnchor deterministisch erhalten.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-007",
+          "requirement_id": "REQ-007",
+          "given": "ein Pilot sitzt im Cockpit",
+          "when": "lokale Third-Person- und Remote-Client-Sicht geprüft werden",
+          "then": "steht die vollständige Figur nicht dauerhaft oberhalb des Fahrzeugs und der definierte sichtbare Kopfbereich bleibt am Sitzanker ausgerichtet.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-008",
+          "requirement_id": "REQ-008",
+          "given": "ein Nichtpilot oder Copilot sendet Steuerbefehle",
+          "when": "der Server die Payload verarbeitet",
+          "then": "ändern sich Geschwindigkeit, Richtung, Anchor-, Edit- oder Fuelzustand nicht und der Versuch wird begrenzt protokolliert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "AC-009",
+          "requirement_id": "REQ-009",
+          "given": "ein Fahrzeug enthält einen gültigen Copilotensitz",
+          "when": "ein zweiter Spieler interagiert",
+          "then": "kann genau ein zusätzlicher Passagier diesen Sitz belegen und wird auf allen Clients korrekt angezeigt.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-010",
+          "requirement_id": "REQ-010",
+          "given": "ein Copilot ist während des Flugs eingestiegen",
+          "when": "er Steuerinputs sendet oder normal aussteigt",
+          "then": "bleiben Steuerinputs wirkungslos und der Ausstieg beschädigt weder Rollen- noch Fahrzeugzustand.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-011",
+          "requirement_id": "REQ-011",
+          "given": "Pilot oder Copilot hat einen Sitz verlassen",
+          "when": "ein berechtigter Spieler mit dem freien Sitz interagiert",
+          "then": "kann er ohne Rekonstruktion wieder einsteigen und erhält ausschließlich die zum Sitz gehörige Rolle.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-012",
+          "requirement_id": "REQ-012",
+          "given": "ein Fahrzeug ist stationär, sicher und konfliktfrei",
+          "when": "der autorisierte Spieler innerhalb der bestätigten Fünf-Block-Metrik Edit Mode anfordert",
+          "then": "wird Edit Mode geöffnet; außerhalb der Grenze oder im unsicheren Zustand erfolgt keine Zustandsänderung.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-013",
+          "requirement_id": "REQ-013",
+          "given": "Edit Mode wurde erfolgreich gestartet",
+          "when": "das Baumenü geöffnet wird",
+          "then": "zeigt es die bestehende Fahrzeugstruktur und erlaubt zulässige Erweiterungen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-014",
+          "requirement_id": "REQ-014",
+          "given": "der Spieler beendet eine gültige oder ungültige Änderung",
+          "when": "die AIR-Policy und Kollisions-/Weltprüfungen ausgeführt werden",
+          "then": "wird die gültige Struktur vollständig übernommen oder die vorherige Struktur vollständig erhalten.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "AC-015",
+          "requirement_id": "REQ-015",
+          "given": "ein Pilot besitzt Fuel und sitzt im Cockpit",
+          "when": "er Geschwindigkeit, Steigen, Sinken, Neigung und Kurvenflug steuert",
+          "then": "reagiert das Fluggerät nachvollziehbar und ohne NaN-/Infinity- oder Autoritätsfehler.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-016",
+          "requirement_id": "REQ-016",
+          "given": "das Fluggerät besitzt Fuel",
+          "when": "es angetrieben fliegt, gespeichert und erneut geladen wird",
+          "then": "sinkt Fuel nach der definierten Logik, Geschwindigkeit reagiert auf Inputs und HUD/gespeicherter Wert stimmen überein.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-017",
+          "requirement_id": "REQ-017",
+          "given": "ein Fahrzeug mit Sitzen, Fuel, Schaden und Trail-Konfiguration existiert",
+          "when": "Welt und Dedicated Server gespeichert, beendet und neu gestartet werden",
+          "then": "wird ein konsistenter, weiter nutzbarer Fahrzeugzustand wiederhergestellt.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-018",
+          "requirement_id": "REQ-018",
+          "given": "ein unterstützter Farbstoff und ein Thruster beziehungsweise Trail-Konfiguration liegen vor",
+          "when": "der bestätigte Färbe-Workflow ausgeführt wird",
+          "then": "entsteht eine eindeutig farbcodierte und lokalisierte Trail-Konfiguration ohne kopierte Physikdefinition.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-019",
+          "requirement_id": "REQ-019",
+          "given": "ein gefärbtes und ein ungefärbtes Triebwerk fliegen",
+          "when": "lokale und beobachtende Clients die Trails sehen und der Server neu gestartet wird",
+          "then": "zeigt das gefärbte Triebwerk seine persistente Farbe und das ungefärbte den Standardtrail.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-020",
+          "requirement_id": "REQ-020",
+          "given": "identische Fahrzeuge unterscheiden sich nur in der Trail-Farbe",
+          "when": "Fuel-, Schub-, Autoritäts- und Performance-Tests laufen",
+          "then": "sind Gameplaywerte identisch und die Partikelemission bleibt innerhalb des bestätigten Baseline-Limits.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "AC-021",
+          "requirement_id": "REQ-021",
+          "given": "Assembly, Disassembly oder Reassembly trifft auf ungültige Struktur, Blockade oder Spawnfehler",
+          "when": "die Operation abbricht",
+          "then": "gibt es weder Blockverlust noch Duplikation und der vorherige Zustand bleibt kohärent.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "AC-022",
+          "requirement_id": "REQ-022",
+          "given": "der Release-Code und die Architekturunterlagen werden geprüft",
+          "when": "AIR/LAND/WATER-Abhängigkeiten analysiert werden",
+          "then": "existiert ein gemeinsamer Kern mit AIR-spezifischen Policies/Controllern und keine duplizierte Entity-, Assembly-, Persistenz- oder Netzwerkpipeline für nicht implementierte Klassen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "AC-023",
+          "requirement_id": "REQ-023",
+          "given": "Release-1-Backlog und DoD werden geprüft",
+          "when": "Looping gesucht wird",
+          "then": "ist es als Post-Release-Feature mit den bestätigten Designnotizen dokumentiert und blockiert keinen Release-1-Test.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "AC-024",
+          "requirement_id": "REQ-024",
+          "given": "ein Release Candidate soll freigegeben werden",
+          "when": "ein P0-Test, Build, Client-/Server-Smoke, Multiplayer- oder Restart-Gate fehlt oder fehlschlägt",
+          "then": "bleibt der Release blockiert; nur ein vollständig evidenzierter exakter Commit kann freigegeben werden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ]
+        }
+      ],
+      "non_functional_requirements": [
+        {
+          "id": "NFR-001",
+          "value": "Serverautorität: C2S-Anfragen validieren Identität, Rolle, Distanz, Dimension, geladenes Ziel, endliche Werte, Session und Zustandsübergang.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "NFR-002",
+          "value": "Kompatibilität: Fabric, Minecraft 1.21.1, Java 21 und persistierte Entity-ID bleiben für Release 1 stabil, sofern keine explizite Migration beschlossen wird.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-005"
+          ]
+        },
+        {
+          "id": "NFR-003",
+          "value": "Maintainability: Keine wachsenden AIR/LAND/WATER-Bedingungsblöcke in ShipEntity.tick(); fachliches Verhalten wird über begrenzte Policies/Controller delegiert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "NFR-004",
+          "value": "Persistenzänderungen sind schema-versioniert und migrieren Legacy-Blueprints konservativ oder scheitern kontrolliert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "NFR-005",
+          "value": "Multiplayer-Konsistenz: Sitzpositionen, Rollen, Fuel, Geschwindigkeit und Trail-Farbe müssen auf Server und Beobachterclients konsistent sein.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "NFR-006",
+          "value": "Performance: Particle-Emission und Passenger-Transforms sind begrenzt; numerischer Grenzwert bleibt MISSING bis ein reproduzierbares Baseline-Szenario bestätigt ist.",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "NFR-007",
+          "value": "Lokalisierung: Neue UI-, Item-, Fehler- und Control-Texte besitzen EN/DE-Parität.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "NFR-008",
+          "value": "Accessibility: Neue Aktionen verwenden rebindbare Minecraft-Keybindings; Statusfeedback verlässt sich nicht ausschließlich auf Farbe.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "NFR-009",
+          "value": "Recoverability: Fehlgeschlagene World-Mutations und Sitzübergänge hinterlassen einen kohärenten vorherigen Zustand oder eine klare Fehlermeldung.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        }
+      ],
+      "risks": [
+        {
+          "id": "RISK-001",
+          "value": "Der bisherige Build-/Runtime-Status ist nicht vollständig verifiziert; Feature-Arbeit auf fehlerhafter Basis kann Folgeschäden erzeugen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-004",
+            "SRC-005"
+          ]
+        },
+        {
+          "id": "RISK-002",
+          "value": "Der Termin kann zu parallelen Änderungen in Entity, Networking, Persistenz und Rendering verleiten und Integrationsfehler erhöhen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "RISK-003",
+          "value": "Cockpit- und Passenger-Transforms können zwischen Clients desynchronisieren oder mit Vanilla-Riding/Camera kollidieren.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "RISK-004",
+          "value": "Edit-Modus und Reassembly können bei nicht-atomarer Umsetzung Blöcke duplizieren oder verlieren.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "RISK-005",
+          "value": "Vorzeitige Generalisierung des Vehicle Core kann das AIR-MVP verzögern.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "RISK-006",
+          "value": "Farbige Partikel können Client-Performance beeinträchtigen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "RISK-007",
+          "value": "Unklare Fünf-Block-Metrik kann zu falscher Interaktionslogik und untestbaren Grenzfällen führen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "RISK-008",
+          "value": "Nicht bestätigter Färbe-Workflow kann unnötige Item-Varianten oder inkompatible Migrationen erzeugen.",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "evidence_needed": [
+        {
+          "id": "EV-001",
+          "value": "UI-/GameTest-Nachweis des dreiteiligen Popups",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-002",
+          "value": "GameTest/Serverlog für AIR-Aktivierung und LAND/WATER-No-op",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-003",
+          "value": "Unit-/Integrationstests der VehicleBuildSession und Servervalidierung",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-004",
+          "value": "Resource-Closure-Report, Recipe-/Datagen-/Lang-Parität",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-005",
+          "value": "AIR-Assembly-GameTests für Pilotensitz-Invariante",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-006",
+          "value": "Blueprint-v3-Roundtrip und Rotationstest für SeatAnchor",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-007",
+          "value": "Screenshots/Video oder reproduzierbarer visueller Client-Test lokal und remote",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-008",
+          "value": "C2S-Autorisierungstests für Nichtpilot/Copilot",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-009",
+          "value": "Zwei-Client-Smoke für Copilotensitz und Occupancy-Sync",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-010",
+          "value": "Zwei-Client-Smoke für Copilot-Control-Denial und Dismount",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-011",
+          "value": "Re-entry-GameTest/Multiplayer-Smoke",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-012",
+          "value": "Edit-Mode-Grenztests bei 0, 5 und >5 Blöcken nach bestätigter Metrik",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-013",
+          "value": "Builder-UI-Smoke mit bestehender Blueprint-Struktur",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-014",
+          "value": "Transaktions-/Rollback-GameTests für gültige und ungültige Änderungen",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-015",
+          "value": "Unit-/Client-Smoke für Geschwindigkeit, Steigen, Sinken, Bank und Turn",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-016",
+          "value": "Fuel-/HUD-/SaveLoad-Regressionstest",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-017",
+          "value": "Dedicated-Server-Restart-Test mit vollständigem VehicleState",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-018",
+          "value": "Recipe-/Datagen-Test für bestätigte Farbstoffe und Färbe-UX",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-019",
+          "value": "Trail-Rendering- und Persistenz-Smoke auf Beobachterclient",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-020",
+          "value": "Invariantentest für Physik/Fuel plus reproduzierbarer Performance-Vergleich",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-021",
+          "value": "Assembly-/Disassembly-/Reassembly-Rollback-GameTests",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-022",
+          "value": "Architekturregel oder deterministischer Quellcheck gegen Duplikation/Branches",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-023",
+          "value": "Backlog-/DoD-Dokumentationsreview",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "EV-024",
+          "value": "CI-/Command-Outputs für clean build, Tests, GameTests, Client, Dedicated Server, Multiplayer, Restart, JAR-Inspektion und SHA-256",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "links": {
+        "vision": "../vision/shark-engine-air-release-1.vision.md",
+        "canvas": "../canvas/shark-engine-air-release-1.canvas.md",
+        "traceability": "../traceability.md"
+      },
+      "user_confirmation_required": true
+    },
+    "vision": {
+      "title": "Shark Engine AIR Release 1 — Product Vision",
+      "feature_slug": "shark-engine-air-release-1",
+      "confirmation_status": "pending-user-confirmation",
+      "product_vision_statement": {
+        "id": "VIS-001",
+        "label": "Product Vision Statement",
+        "value": "Shark Engine AIR Release 1 ermöglicht Minecraft-Spielern, ein eigenes blockbasiertes Fluggerät zu craften, zusammenzubauen, zu erweitern, zu betanken und allein oder mit einem passiven Mitspieler zuverlässig zu fliegen; zugleich wird nur die minimale gemeinsame Vehicle-Core-Architektur dokumentiert, die spätere Land- und Wasserfahrzeuge ohne Duplikation ermöglicht.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      "target_group": {
+        "id": "VIS-002",
+        "label": "Target Group",
+        "value": "Minecraft-Spieler, die eigene Fahrzeuge aus Blöcken bauen, verändern und steuern möchten.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001"
+        ]
+      },
+      "secondary_target_group": {
+        "id": "VIS-003",
+        "label": "Secondary Target Group",
+        "value": "Mitspieler, die über einen craftbaren Copilotensitz als passive Passagiere mitfliegen.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001"
+        ]
+      },
+      "user_needs": [
+        {
+          "id": "VIS-004",
+          "label": "User Need",
+          "value": "Der gesamte AIR-Spielablauf muss zusammenhängend funktionieren: Auswahl, Crafting, Bau, Assembly, Cockpit, Flug, Fuel, Ausstieg, Wiedereinstieg, Weiterbau und Persistenz.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        }
+      ],
+      "product_value": {
+        "id": "VIS-005",
+        "label": "Product Value",
+        "value": "Ein selbstgebautes Fluggerät wird zu einem belastbaren, wiederverwendbaren Gameplay-System statt zu einem einmaligen Prototyp; Erweiterbarkeit für LAND und WATER wird vorbereitet, ohne Release 1 durch deren Implementierung zu überladen.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      "business_project_goals": [
+        {
+          "id": "VIS-006",
+          "label": "Project Goal",
+          "value": "AIR Release 1 soll bis zum 30. Juli 2026 alle P0-Akzeptanz- und Runtime-Gates erfüllen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "success_signals": [
+        {
+          "id": "VIS-007",
+          "label": "Success Signal",
+          "value": "Ein Spieler kann das AIR-Fahrzeug auf Client und Dedicated Server end-to-end craften, bauen, fliegen, verlassen, wieder besteigen, im sicheren Edit-Modus erweitern und nach Serverneustart weiterverwenden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-008",
+          "label": "Multiplayer Success Signal",
+          "value": "Mindestens ein Copilot kann sichtbar mitfliegen, aussteigen und wieder einsteigen, ohne Steuerberechtigung zu erhalten oder den Fahrzeugzustand zu beschädigen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "boundaries": [
+        {
+          "id": "VIS-009",
+          "label": "Boundary",
+          "value": "LAND- und WATER-Fahrzeuge werden in Release 1 nicht ausführbar implementiert; nur Auswahlroute und Erweiterungsarchitektur werden erhalten beziehungsweise dokumentiert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-010",
+          "label": "Boundary",
+          "value": "Der Looping ist ein nachgelagertes Feature und kein Release-1-Abnahmekriterium.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "id": "ASM-001",
+          "value": "Bis zur Nutzerpräzisierung wird die Fünf-Block-Regel als maximale räumliche Distanz vom Spieler zum Control Anchor im stationären sicheren Zustand behandelt.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-002",
+          "value": "Der Pilotensitz wird anhand des Steering-Wheel-Facings auf eine deterministische angrenzende Position 'vor' dem Steuerrad abgebildet.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-003",
+          "value": "Release 1 unterstützt die 16 normalen Minecraft-Farbstoffe; der genaue Crafting-/Recolor-Flow ist vor Implementierung zu bestätigen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-004",
+          "value": "Ein Copilotensitz trägt genau einen Spieler; Release 1 garantiert mindestens einen zusätzlichen Passagier.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "ASM-005",
+          "value": "Vehicle Core wird nur bis zu den für AIR unmittelbar benötigten Seams extrahiert; keine vorsorgliche LAND/WATER-Physikabstraktion.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        }
+      ],
+      "missing_items": [
+        {
+          "id": "OQ-001",
+          "value": "Bedeutet die Fünf-Block-Regel euklidische Distanz zum Control Anchor, horizontale Distanz oder ausschließlich maximale vertikale Höhe?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "OQ-002",
+          "value": "Soll die Trail-Farbe durch Crafting eines neuen Thrusters, durch nachträgliches Färben eines platzierten Thrusters oder durch beide Wege geändert werden?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "OQ-003",
+          "value": "Welche sichtbare Körpergrenze gilt für 'nur der Kopf schaut heraus' bei Rüstung, unterschiedlichen Skins und Third-Person-Kamera?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "vision_items": [
+        {
+          "id": "VIS-001",
+          "label": "Product Vision Statement",
+          "value": "Shark Engine AIR Release 1 ermöglicht Minecraft-Spielern, ein eigenes blockbasiertes Fluggerät zu craften, zusammenzubauen, zu erweitern, zu betanken und allein oder mit einem passiven Mitspieler zuverlässig zu fliegen; zugleich wird nur die minimale gemeinsame Vehicle-Core-Architektur dokumentiert, die spätere Land- und Wasserfahrzeuge ohne Duplikation ermöglicht.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-002",
+          "label": "Target Group",
+          "value": "Minecraft-Spieler, die eigene Fahrzeuge aus Blöcken bauen, verändern und steuern möchten.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "VIS-003",
+          "label": "Secondary Target Group",
+          "value": "Mitspieler, die über einen craftbaren Copilotensitz als passive Passagiere mitfliegen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "VIS-004",
+          "label": "User Need",
+          "value": "Der gesamte AIR-Spielablauf muss zusammenhängend funktionieren: Auswahl, Crafting, Bau, Assembly, Cockpit, Flug, Fuel, Ausstieg, Wiedereinstieg, Weiterbau und Persistenz.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-005",
+          "label": "Product Value",
+          "value": "Ein selbstgebautes Fluggerät wird zu einem belastbaren, wiederverwendbaren Gameplay-System statt zu einem einmaligen Prototyp; Erweiterbarkeit für LAND und WATER wird vorbereitet, ohne Release 1 durch deren Implementierung zu überladen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-006",
+          "label": "Project Goal",
+          "value": "AIR Release 1 soll bis zum 30. Juli 2026 alle P0-Akzeptanz- und Runtime-Gates erfüllen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "VIS-007",
+          "label": "Success Signal",
+          "value": "Ein Spieler kann das AIR-Fahrzeug auf Client und Dedicated Server end-to-end craften, bauen, fliegen, verlassen, wieder besteigen, im sicheren Edit-Modus erweitern und nach Serverneustart weiterverwenden.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-008",
+          "label": "Multiplayer Success Signal",
+          "value": "Mindestens ein Copilot kann sichtbar mitfliegen, aussteigen und wieder einsteigen, ohne Steuerberechtigung zu erhalten oder den Fahrzeugzustand zu beschädigen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "VIS-009",
+          "label": "Boundary",
+          "value": "LAND- und WATER-Fahrzeuge werden in Release 1 nicht ausführbar implementiert; nur Auswahlroute und Erweiterungsarchitektur werden erhalten beziehungsweise dokumentiert.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "VIS-010",
+          "label": "Boundary",
+          "value": "Der Looping ist ein nachgelagertes Feature und kein Release-1-Abnahmekriterium.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ]
+    },
+    "canvas": {
+      "feature_slug": {
+        "value": "shark-engine-air-release-1",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001"
+        ]
+      },
+      "problem": {
+        "id": "CAN-001",
+        "value": "Der AIR-Prototyp deckt wesentliche Teile des Flugzeug-Gameplays ab, ist aber noch nicht als durchgängiger, runtime-verifizierter Release abgeschlossen. Sitzlogik, Copilot, Wiedereinstieg, sicherer Weiterbau, persistente Trail-Farben und eine begrenzte Vehicle-Core-Trennung fehlen oder sind nicht vollständig nachgewiesen.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-002",
+          "SRC-003",
+          "SRC-004"
+        ]
+      },
+      "users_customers": [
+        {
+          "id": "CAN-002",
+          "value": "Primär: Minecraft-Spieler, die eigene blockbasierte Fluggeräte bauen und steuern.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-003",
+          "value": "Sekundär: Mitspieler, die als passive Copiloten mitfliegen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        }
+      ],
+      "value_promise": {
+        "id": "CAN-004",
+        "value": "Ein vollständiges, craftbares, erweiterbares und persistentes AIR-Fahrzeug mit Cockpit, Fuel, Multiplayer-Passagier und individualisierbarer Kondensstreifenfarbe – ohne die spätere LAND/WATER-Erweiterung durch kopierte Kernlogik zu verbauen.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      "current_alternatives": [
+        {
+          "id": "CAN-005",
+          "value": "Aktueller Projektzustand: AIR-fokussierter Prototyp mit vorhandener Grundlogik, aber ohne vollständig nachgewiesenen Release-Flow und ohne ausreichend getrennte Fahrzeugklassen-Architektur.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-003",
+            "SRC-004",
+            "SRC-005"
+          ]
+        }
+      ],
+      "key_capabilities": [
+        {
+          "id": "CAN-006",
+          "value": "AIR/LAND/WATER-Popup mit nur AIR als ausführbarer Route in Release 1.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-007",
+          "value": "Generischer Pilotensitz/Cockpit und craftbarer Copilotensitz mit serverseitiger Rollenautorität.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-008",
+          "value": "Ausstieg, Wiedereinstieg und sicherer Edit-Modus zum Weiterbauen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-009",
+          "value": "Geschwindigkeit, Fuel, Steigflug, Sinkflug, Neigung und Kurvenflug.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-010",
+          "value": "Craftbare, persistente farbige Kondensstreifen beziehungsweise Thruster-Trails.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-011",
+          "value": "Minimale gemeinsame Vehicle-Core-Schnittstellen für spätere AIR/LAND/WATER-Profile.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        }
+      ],
+      "non_goals": [
+        {
+          "id": "CAN-012",
+          "value": "Keine ausführbaren LAND- oder WATER-Fahrzeuge in Release 1.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-013",
+          "value": "Kein Looping als Release-1-MVP-Anforderung.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-014",
+          "value": "Keine physikalisch vollständige Aerodynamiksimulation.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "id": "CAN-015",
+          "value": "Zieltermin 30. Juli 2026.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "CAN-016",
+          "value": "Platform Lock: Fabric, Minecraft 1.21.1, Java 21 und Gradle; Änderungen nur nach expliziter Migrationsentscheidung.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-005"
+          ]
+        },
+        {
+          "id": "CAN-017",
+          "value": "Runtime-, Build- und GameTest-Nachweise sind vor Release zwingend; statische Prüfung allein genügt nicht.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "CAN-018",
+          "value": "Keine duplizierten AIR/LAND/WATER-Entities oder kopierten Assembly-, Persistence- und Networking-Pipelines.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        }
+      ],
+      "risks": [
+        {
+          "id": "RISK-001",
+          "value": "Der bisherige Build-/Runtime-Status ist nicht vollständig verifiziert; Feature-Arbeit auf fehlerhafter Basis kann Folgeschäden erzeugen.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-004",
+            "SRC-005"
+          ]
+        },
+        {
+          "id": "RISK-002",
+          "value": "Der Termin kann zu parallelen Änderungen in Entity, Networking, Persistenz und Rendering verleiten und Integrationsfehler erhöhen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "RISK-003",
+          "value": "Cockpit- und Passenger-Transforms können zwischen Clients desynchronisieren oder mit Vanilla-Riding/Camera kollidieren.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "RISK-004",
+          "value": "Edit-Modus und Reassembly können bei nicht-atomarer Umsetzung Blöcke duplizieren oder verlieren.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ]
+        },
+        {
+          "id": "RISK-005",
+          "value": "Vorzeitige Generalisierung des Vehicle Core kann das AIR-MVP verzögern.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "RISK-006",
+          "value": "Farbige Partikel können Client-Performance beeinträchtigen.",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "success_signal": {
+        "id": "CAN-019",
+        "value": "Alle P0-Anforderungen und Akzeptanzkriterien sind auf dem exakten Release-Commit durch Build, Tests, Client-/Dedicated-Server-Smoke, Multiplayer und Restart nachgewiesen; der Product Owner akzeptiert den Release bis 30.07.2026.",
+        "source_type": "EXPLICIT",
+        "source_refs": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      "evidence": [
+        {
+          "id": "CAN-020",
+          "value": "Erfolgreicher ./gradlew clean build, Unit-/Resource-Tests und Fabric GameTests.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "CAN-021",
+          "value": "Dokumentierte Client-, Dedicated-Server-, Zwei-Spieler- und Restart-Smokes.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "CAN-022",
+          "value": "Architekturprüfung gegen LAND/WATER-Branches und Kern-Duplikation.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "id": "CAN-023",
+          "value": "Release-JAR-Inspektion, SHA-256 und Versionsmatrix.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ],
+      "allowed_scope": [
+        {
+          "id": "CAN-024",
+          "value": "AIR Release 1: Stabilisierung, Vehicle-Build-Session, minimale Vehicle-Core-Seams, Pilotensitz/Cockpit, Copilot, Wiedereinstieg, Edit-Modus, Fuel/Flugsteuerung, farbige Trails, Persistenz, Multiplayer, Tests und Dokumentation.",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        }
+      ],
+      "unresolved_questions": [
+        {
+          "id": "OQ-001",
+          "value": "Bedeutet die Fünf-Block-Regel euklidische Distanz zum Control Anchor, horizontale Distanz oder ausschließlich maximale vertikale Höhe?",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-002",
+          "value": "Soll die Trail-Farbe durch Crafting eines neuen Thrusters, durch nachträgliches Färben eines platzierten Thrusters oder durch beide Wege geändert werden?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001"
+          ]
+        },
+        {
+          "id": "OQ-003",
+          "value": "Welche sichtbare Körpergrenze gilt für 'nur der Kopf schaut heraus' bei Rüstung, unterschiedlichen Skins und Third-Person-Kamera?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-004",
+          "value": "Wie wird 'Sitz vor dem Steering Wheel' exakt aus dessen Facing abgeleitet, wenn mehrere gültige angrenzende Positionen existieren?",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ]
+        },
+        {
+          "id": "OQ-005",
+          "value": "Welches reproduzierbare Hardware-/Szenario-Baseline gilt für die Performance-Abnahme farbiger Partikel und maximaler AIR-Blueprints?",
+          "source_type": "MISSING",
+          "source_refs": [
+            "SRC-002"
+          ]
+        }
+      ]
+    },
+    "traceability": {
+      "feature_slug": "shark-engine-air-release-1",
+      "rows": [
+        {
+          "trace_id": "TRC-001",
+          "vision_item_ids": [
+            "VIS-001",
+            "VIS-004"
+          ],
+          "canvas_item_ids": [
+            "CAN-006",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-001",
+          "acceptance_criteria_ids": [
+            "AC-001"
+          ],
+          "evidence_needed": "EV-001: UI-/GameTest-Nachweis des dreiteiligen Popups",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-002",
+          "vision_item_ids": [
+            "VIS-009"
+          ],
+          "canvas_item_ids": [
+            "CAN-006",
+            "CAN-012"
+          ],
+          "requirement_id": "REQ-002",
+          "acceptance_criteria_ids": [
+            "AC-002"
+          ],
+          "evidence_needed": "EV-002: GameTest/Serverlog für AIR-Aktivierung und LAND/WATER-No-op",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ]
+        },
+        {
+          "trace_id": "TRC-003",
+          "vision_item_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-011",
+            "CAN-017",
+            "CAN-018"
+          ],
+          "requirement_id": "REQ-003",
+          "acceptance_criteria_ids": [
+            "AC-003"
+          ],
+          "evidence_needed": "EV-003: Unit-/Integrationstests der VehicleBuildSession und Servervalidierung",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-003",
+            "SRC-004"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ]
+        },
+        {
+          "trace_id": "TRC-004",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-007",
+            "CAN-009",
+            "CAN-010",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-004",
+          "acceptance_criteria_ids": [
+            "AC-004"
+          ],
+          "evidence_needed": "EV-004: Resource-Closure-Report, Recipe-/Datagen-/Lang-Parität",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-005",
+          "vision_item_ids": [
+            "VIS-001",
+            "VIS-005"
+          ],
+          "canvas_item_ids": [
+            "CAN-007",
+            "CAN-011"
+          ],
+          "requirement_id": "REQ-005",
+          "acceptance_criteria_ids": [
+            "AC-005"
+          ],
+          "evidence_needed": "EV-005: AIR-Assembly-GameTests für Pilotensitz-Invariante",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003",
+            "RISK-005"
+          ]
+        },
+        {
+          "trace_id": "TRC-006",
+          "vision_item_ids": [
+            "VIS-004"
+          ],
+          "canvas_item_ids": [
+            "CAN-007",
+            "CAN-016"
+          ],
+          "requirement_id": "REQ-006",
+          "acceptance_criteria_ids": [
+            "AC-006"
+          ],
+          "evidence_needed": "EV-006: Blueprint-v3-Roundtrip und Rotationstest für SeatAnchor",
+          "status": "linked",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ]
+        },
+        {
+          "trace_id": "TRC-007",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-007",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-007",
+          "acceptance_criteria_ids": [
+            "AC-007"
+          ],
+          "evidence_needed": "EV-007: Screenshots/Video oder reproduzierbarer visueller Client-Test lokal und remote",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ]
+        },
+        {
+          "trace_id": "TRC-008",
+          "vision_item_ids": [
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-007",
+            "CAN-017"
+          ],
+          "requirement_id": "REQ-008",
+          "acceptance_criteria_ids": [
+            "AC-008"
+          ],
+          "evidence_needed": "EV-008: C2S-Autorisierungstests für Nichtpilot/Copilot",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-009",
+          "vision_item_ids": [
+            "VIS-003",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-003",
+            "CAN-007"
+          ],
+          "requirement_id": "REQ-009",
+          "acceptance_criteria_ids": [
+            "AC-009"
+          ],
+          "evidence_needed": "EV-009: Zwei-Client-Smoke für Copilotensitz und Occupancy-Sync",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ]
+        },
+        {
+          "trace_id": "TRC-010",
+          "vision_item_ids": [
+            "VIS-003",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-003",
+            "CAN-007"
+          ],
+          "requirement_id": "REQ-010",
+          "acceptance_criteria_ids": [
+            "AC-010"
+          ],
+          "evidence_needed": "EV-010: Zwei-Client-Smoke für Copilot-Control-Denial und Dismount",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ]
+        },
+        {
+          "trace_id": "TRC-011",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-008",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-011",
+          "acceptance_criteria_ids": [
+            "AC-011"
+          ],
+          "evidence_needed": "EV-011: Re-entry-GameTest/Multiplayer-Smoke",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-003"
+          ]
+        },
+        {
+          "trace_id": "TRC-012",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-008",
+            "CAN-017",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-012",
+          "acceptance_criteria_ids": [
+            "AC-012"
+          ],
+          "evidence_needed": "EV-012: Edit-Mode-Grenztests bei 0, 5 und >5 Blöcken nach bestätigter Metrik",
+          "status": "linked",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ]
+        },
+        {
+          "trace_id": "TRC-013",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-008",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-013",
+          "acceptance_criteria_ids": [
+            "AC-013"
+          ],
+          "evidence_needed": "EV-013: Builder-UI-Smoke mit bestehender Blueprint-Struktur",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ]
+        },
+        {
+          "trace_id": "TRC-014",
+          "vision_item_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-008",
+            "CAN-017",
+            "CAN-018"
+          ],
+          "requirement_id": "REQ-014",
+          "acceptance_criteria_ids": [
+            "AC-014"
+          ],
+          "evidence_needed": "EV-014: Transaktions-/Rollback-GameTests für gültige und ungültige Änderungen",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ]
+        },
+        {
+          "trace_id": "TRC-015",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-009",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-015",
+          "acceptance_criteria_ids": [
+            "AC-015"
+          ],
+          "evidence_needed": "EV-015: Unit-/Client-Smoke für Geschwindigkeit, Steigen, Sinken, Bank und Turn",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-016",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-009",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-016",
+          "acceptance_criteria_ids": [
+            "AC-016"
+          ],
+          "evidence_needed": "EV-016: Fuel-/HUD-/SaveLoad-Regressionstest",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-017",
+          "vision_item_ids": [
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-017",
+            "CAN-019",
+            "CAN-021"
+          ],
+          "requirement_id": "REQ-017",
+          "acceptance_criteria_ids": [
+            "AC-017"
+          ],
+          "evidence_needed": "EV-017: Dedicated-Server-Restart-Test mit vollständigem VehicleState",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-001"
+          ]
+        },
+        {
+          "trace_id": "TRC-018",
+          "vision_item_ids": [
+            "VIS-001",
+            "VIS-004"
+          ],
+          "canvas_item_ids": [
+            "CAN-010",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-018",
+          "acceptance_criteria_ids": [
+            "AC-018"
+          ],
+          "evidence_needed": "EV-018: Recipe-/Datagen-Test für bestätigte Farbstoffe und Färbe-UX",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ]
+        },
+        {
+          "trace_id": "TRC-019",
+          "vision_item_ids": [
+            "VIS-004",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-010",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-019",
+          "acceptance_criteria_ids": [
+            "AC-019"
+          ],
+          "evidence_needed": "EV-019: Trail-Rendering- und Persistenz-Smoke auf Beobachterclient",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ]
+        },
+        {
+          "trace_id": "TRC-020",
+          "vision_item_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-010",
+            "CAN-017",
+            "CAN-020"
+          ],
+          "requirement_id": "REQ-020",
+          "acceptance_criteria_ids": [
+            "AC-020"
+          ],
+          "evidence_needed": "EV-020: Invariantentest für Physik/Fuel plus reproduzierbarer Performance-Vergleich",
+          "status": "linked",
+          "source_type": "ASSUMPTION",
+          "source_refs": [
+            "SRC-002"
+          ],
+          "risk_ids": [
+            "RISK-006"
+          ]
+        },
+        {
+          "trace_id": "TRC-021",
+          "vision_item_ids": [
+            "VIS-005",
+            "VIS-007"
+          ],
+          "canvas_item_ids": [
+            "CAN-017",
+            "CAN-018",
+            "CAN-019"
+          ],
+          "requirement_id": "REQ-021",
+          "acceptance_criteria_ids": [
+            "AC-021"
+          ],
+          "evidence_needed": "EV-021: Assembly-/Disassembly-/Reassembly-Rollback-GameTests",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-002",
+            "SRC-004"
+          ],
+          "risk_ids": [
+            "RISK-004"
+          ]
+        },
+        {
+          "trace_id": "TRC-022",
+          "vision_item_ids": [
+            "VIS-005",
+            "VIS-009"
+          ],
+          "canvas_item_ids": [
+            "CAN-011",
+            "CAN-018",
+            "CAN-024"
+          ],
+          "requirement_id": "REQ-022",
+          "acceptance_criteria_ids": [
+            "AC-022"
+          ],
+          "evidence_needed": "EV-022: Architekturregel oder deterministischer Quellcheck gegen Duplikation/Branches",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ]
+        },
+        {
+          "trace_id": "TRC-023",
+          "vision_item_ids": [
+            "VIS-010"
+          ],
+          "canvas_item_ids": [
+            "CAN-013"
+          ],
+          "requirement_id": "REQ-023",
+          "acceptance_criteria_ids": [
+            "AC-023"
+          ],
+          "evidence_needed": "EV-023: Backlog-/DoD-Dokumentationsreview",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ],
+          "risk_ids": [
+            "RISK-005"
+          ]
+        },
+        {
+          "trace_id": "TRC-024",
+          "vision_item_ids": [
+            "VIS-006",
+            "VIS-007",
+            "VIS-008"
+          ],
+          "canvas_item_ids": [
+            "CAN-015",
+            "CAN-017",
+            "CAN-019",
+            "CAN-020",
+            "CAN-021",
+            "CAN-023"
+          ],
+          "requirement_id": "REQ-024",
+          "acceptance_criteria_ids": [
+            "AC-024"
+          ],
+          "evidence_needed": "EV-024: CI-/Command-Outputs für clean build, Tests, GameTests, Client, Dedicated Server, Multiplayer, Restart, JAR-Inspektion und SHA-256",
+          "status": "linked",
+          "source_type": "EXPLICIT",
+          "source_refs": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-004"
+          ],
+          "risk_ids": [
+            "RISK-001",
+            "RISK-002"
+          ]
+        }
+      ]
+    }
+  },
+  "missing_blocker_ledger": [
+    {
+      "id": "LED-001",
+      "field": "Edit-Mode-Fünf-Block-Metrik",
+      "source_type": "ASSUMPTION",
+      "severity": "warning",
+      "reason": "Die Nutzerformulierung schwankte zwischen Höhe und Abstand. Die Implementierung darf die Metrik nicht selbst wählen.",
+      "source_ref": "OQ-001 / REQ-012"
+    },
+    {
+      "id": "LED-002",
+      "field": "Trail-Färbe-Workflow",
+      "source_type": "MISSING",
+      "severity": "warning",
+      "reason": "Farbe per neues Crafting-Rezept, Recolor des Items oder Recolor am platzierten Block ist nicht entschieden.",
+      "source_ref": "OQ-002 / REQ-018"
+    },
+    {
+      "id": "LED-003",
+      "field": "Cockpit-Sichttoleranz",
+      "source_type": "MISSING",
+      "severity": "warning",
+      "reason": "'Nur der Kopf' ist visuell beschrieben, aber nicht für Rüstung, Skins und Kameraperspektiven metrisch festgelegt.",
+      "source_ref": "OQ-003 / REQ-007"
+    },
+    {
+      "id": "LED-004",
+      "field": "Pilotensitz-Position relativ zum Steering Wheel",
+      "source_type": "ASSUMPTION",
+      "severity": "warning",
+      "reason": "'Vor dem Steuerrad' benötigt eine deterministische Facing-Regel und Konfliktbehandlung.",
+      "source_ref": "OQ-004 / REQ-006"
+    },
+    {
+      "id": "LED-005",
+      "field": "Performance-Baseline",
+      "source_type": "MISSING",
+      "severity": "warning",
+      "reason": "Hardware, maximaler Blueprint und numerischer Grenzwert sind nicht bestätigt; Release darf deshalb keine erfundene Prozentzahl verwenden.",
+      "source_ref": "OQ-005 / NFR-006 / REQ-020"
+    },
+    {
+      "id": "LED-006",
+      "field": "Runtime-/Build-Beweis",
+      "source_type": "MISSING",
+      "severity": "warning",
+      "reason": "Die Ausgangsbasis wurde statisch geprüft, aber der vollständige Fabric-Build und In-Game-Run waren nicht nachgewiesen. Dies ist ein Release-Gate, kein Intake-Blocker.",
+      "source_ref": "REQ-024 / EV-024"
+    },
+    {
+      "id": "LED-007",
+      "field": "Nutzerbestätigung Vision/Canvas",
+      "source_type": "MISSING",
+      "severity": "warning",
+      "reason": "Plumbline Planning Readiness setzt die explizite Bestätigung von Product Vision und Product Canvas voraus.",
+      "source_ref": "User Confirmation Block"
+    }
+  ],
+  "user_confirmation": {
+    "required": true,
+    "status": "pending-user-confirmation",
+    "confirmation_phrase": "Ich bestätige, dass Product Canvas und Product Vision meine Absicht korrekt wiedergeben und als Grundlage für AgileTeam Planning verwendet werden dürfen.",
+    "confirmed_by_user": false,
+    "source_ref": "No explicit Plumbline Vision/Canvas confirmation in current context"
+  }
+}
