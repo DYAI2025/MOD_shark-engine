@@ -120,6 +120,23 @@ public final class ShipEntity extends Entity {
      * #tryEnterEditMode}; never set anywhere else, so it also doubles as the "conflict-free"
      * precondition {@link EditModeDistanceGate} checks — a second concurrent open attempt while
      * this is already {@code true} is rejected ({@link EditModeDistanceGate.Reason#REJECTED_CONFLICT}).
+     *
+     * <p><b>Known, ACCEPTED limitation — no close/reset path exists yet (disclosed, not a bug to
+     * silently work around):</b> nothing anywhere in this class ever flips this back to {@code
+     * false}. There is no "exit Edit Mode"/"cancel"/timeout/dismount handler that clears it, and
+     * disassembly ({@link #disassemble()}) discards the whole entity rather than resetting this
+     * flag on it. The practical consequence: once a ship's Edit Mode is opened successfully even
+     * ONCE, every subsequent open attempt on that same ship — from any player, at any distance,
+     * for the rest of that entity's lifetime — is permanently rejected with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}, indistinguishable from a genuinely
+     * still-open edit session. This is REQ-014/T14's job to fix, not this task's: REQ-014's own
+     * PRD text is literally "Beenden des Edit-Modus... atomar committen oder vollständig
+     * zurückrollen" (ending Edit Mode, atomically committing or fully rolling back), and T14 is
+     * the next task in this queue. Do NOT add a stopgap/workaround reset here — that was
+     * evaluated and explicitly rejected as this task's job (user decision) precisely because a
+     * hand-rolled reset here would either duplicate or conflict with T14's real atomic
+     * commit-or-rollback close path once it exists. Any caller must NOT assume a ship's Edit Mode
+     * can be reopened after a first successful entry until T14 ships.</p>
      */
     private boolean editModeActive;
 
@@ -404,6 +421,15 @@ public final class ShipEntity extends Entity {
      * true} — world/session mutation stops there; opening the actual builder menu populated with
      * the vehicle's live structure is REQ-013/T13's scope, not this method's. On any rejection,
      * this ship's state is left completely unchanged (AC-012: "erfolgt keine Zustandsänderung").</p>
+     *
+     * <p><b>No close/reset path exists yet — see {@link #editModeActive}'s javadoc.</b> This
+     * method can only ever transition Edit Mode false→true; nothing in this class can transition
+     * it back. Calling this a second time on a ship whose first call already ACCEPTED is
+     * therefore permanently rejected with {@link EditModeDistanceGate.Reason#REJECTED_CONFLICT},
+     * indistinguishable from a genuinely still-open session — a disclosed, intentional gap owned
+     * by not-yet-built REQ-014/T14 ("Beenden des Edit-Modus... atomar committen oder vollständig
+     * zurückrollen"), not something this method silently works around. Callers must not assume a
+     * ship's Edit Mode can be reopened after a first successful entry until T14 ships.</p>
      */
     public EditModeDistanceGate.Reason tryEnterEditMode(ServerPlayer player) {
         boolean authorized = isPilot(player);
@@ -1001,6 +1027,115 @@ public final class ShipEntity extends Entity {
         // the reported bug.
         if (player.getItemInHand(hand).getItem() instanceof BlockItem) {
             return InteractionResult.PASS;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // REQ-013/T13 REMEDIATION (Watcher review-required + security-review confirmed):
+        // "edit-mode reopen is unreachable by any player action" -- ShipEntity#tryEnterEditMode
+        // (T12) and ShipAssemblyService#openEditMode (T13) existed but had ZERO call sites
+        // outside their own GameTests. This branch is the real player-triggerable path.
+        //
+        // Gesture chosen: an EMPTY-HAND, non-sneak right-click by the pilot while ALREADY
+        // MOUNTED on their own ship. Every other slot in this method's existing vocabulary was
+        // already claimed and could not be safely reused:
+        //   - Shift-rightclick is anchor/disassemble for ANY hand state (checked first, above)
+        //     -- the sneak+empty-hand gesture that would otherwise be the obvious choice is
+        //     therefore NOT free; reusing it would silently break disassembly/anchor-toggle.
+        //   - LOGS/PLANKS in hand is refuel (pilot only).
+        //   - A held BlockItem already PASSes through to vanilla placement (2026-07-13 fix).
+        // What WAS genuinely unclaimed: before this change, an already-mounted pilot's
+        // empty-hand right-click fell through to the plain `player.startRiding(this, true)`
+        // call at the bottom of this method -- and vanilla's own Entity#startRiding no-ops
+        // immediately when the caller already rides this exact vehicle (`vehicle ==
+        // this.vehicle`), so that click did precisely nothing. Gating on "already riding"
+        // (`player.getVehicle() == this`), not merely `isPilot(player)`, is what keeps this
+        // additive: a NOT-yet-mounted pilot's empty-hand click (REQ-011 re-entry) still falls
+        // through, completely unchanged, to the ordinary mount path below.
+        //
+        // Authorization is NOT reimplemented here. This branch only decides WHEN to call
+        // ShipAssemblyService.openEditMode, which delegates the entire accept/reject decision to
+        // tryEnterEditMode's T12 gate (isPilot/isDestroyed/stationary/conflict-free/
+        // sameDimension, EditModeDistanceGate#evaluate) -- unchanged and unbypassed. On
+        // ACCEPTED, openEditMode also sends the builder preview payload (openEditModePreview) --
+        // the same payload BuilderModeClient already opens a BuilderScreen from.
+        // ═══════════════════════════════════════════════════════════════════
+        if (heldItem.isEmpty() && isPilot(player) && player.getVehicle() == this
+                && player instanceof ServerPlayer editRequester) {
+            EditModeDistanceGate.Reason reason =
+                    ShipAssemblyService.openEditMode(this, editRequester);
+            if (reason != EditModeDistanceGate.Reason.ACCEPTED) {
+                editRequester.sendSystemMessage(Component.translatable(
+                        "message.sharkengine.edit_mode_rejected", reason.name()));
+            }
+            return InteractionResult.CONSUME;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // REQ-013/T13 REMEDIATION ROUND 2 (user decision, code-review finding): a SECOND,
+        // genuinely new edit-mode gesture for a DISMOUNTED-but-nearby pilot. The branch above
+        // puts the interacting player at ~0 distance from the Control Anchor by construction
+        // (they're riding it) -- so EditModeDistanceGate's Euclidean 5-block check was, until
+        // now, never actually exercised by any REAL player action, only by direct/GameTest
+        // calls to tryEnterEditMode()/EditModeDistanceGameTest. AC-012's own wording ("Spieler
+        // muss innerhalb der Fünf-Block-Grenze zum Control Anchor sein") describes exactly this
+        // scenario: a pilot standing near their landed ship, not riding it.
+        //
+        // Entry-point investigation (per this task's instructions): does a real world block
+        // exist to interact with instead, the way BuildSessionGate's pre-launch Control Anchor
+        // (T02) works? No -- ShipAssemblyService#tryAssemble clears every scanned block
+        // (including the Steering Wheel itself) to Blocks.AIR at assembly time
+        // (`level.setBlock(target, Blocks.AIR.defaultBlockState(), 3)`), so an already-launched
+        // ship has NO surviving world block at all; BuildSessionGate's real-block Control Anchor
+        // pattern is pre-launch-only and does not apply here. This entity's own interact() is
+        // therefore the only real interaction surface -- and it fires for a right-click on this
+        // entity's hitbox regardless of rider status (nothing in Entity's own dispatch, or
+        // anywhere in this method, gates on `player.getVehicle()` before this point).
+        //
+        // Gesture chosen: empty-hand, non-sneak, DISMOUNTED pilot (player.getVehicle() != this)
+        // AND the ship is currently ANCHORED (isAnchored()). "Anchored" is a disclosed
+        // interaction-layer disambiguator, NOT a new T12 authorization axis -- the actual gate
+        // below (ShipAssemblyService.openEditMode -> tryEnterEditMode -> EditModeDistanceGate)
+        // runs completely unchanged and undivided. It exists because, without it, this gesture
+        // (empty hand, no sneak, dismounted, is-pilot, near the ship) is BYTE-IDENTICAL to
+        // REQ-011's own re-entry gesture (VehicleReentryGameTest calls exactly
+        // ship.interact(pilot, MAIN_HAND) with an empty hand right after a dismount) -- and a
+        // landed-but-unanchored ship is normally also "stationary". Without a disambiguator,
+        // EVERY ordinary "land, hop out, hop back in to fly again" click within 5 blocks would
+        // be silently swallowed into opening Edit Mode instead of remounting -- a severe
+        // regression to the single most common re-entry flow, not a hypothetical: dropping the
+        // isAnchored() condition here while keeping this branch's own "consume, don't fall
+        // through to mount" behavior (below) breaks VehicleReentryGameTest's
+        // remountPreservesEntityIdentityAndState/remountGrantsExactlyTheInteractedSeatsRole
+        // outright, because both remount immediately after driveIntoFlight() while the ship is
+        // still measurably moving -- with isAnchored() required, this branch's condition is
+        // false throughout both of those tests (isAnchored() is never toggled true in either),
+        // so control falls through to the unchanged mount path below exactly as before, and
+        // those tests remain unaffected. "Anchored" is the one existing, deliberate,
+        // pilot-initiated signal this codebase already has for "I'm done flying this for now"
+        // (toggleAnchor(), the shift-click branch above) -- reusing it costs no new state,
+        // keybind, or item. Resulting UX: a dismounted pilot who wants to fly again
+        // right-clicks their (non-anchored) ship exactly as always (REQ-011, unchanged); a
+        // dismounted pilot who wants to edit first shift-clicks to anchor it (existing gesture,
+        // unchanged), then empty-hand right-clicks to request Edit Mode.
+        //
+        // Authorization is NOT reimplemented or duplicated here, same discipline as the mounted
+        // branch above: this condition only decides WHEN to call the real
+        // ShipAssemblyService.openEditMode/tryEnterEditMode/EditModeDistanceGate#evaluate chain.
+        // On any rejection (including REJECTED_TOO_FAR -- the concrete case this remediation
+        // exists to make reachable), the rejection reason is reported and this branch does NOT
+        // fall through to mount: an anchored ship is, by the pilot's own prior deliberate
+        // action, not "I want to fly right now", so silently mounting them anyway after a
+        // rejected edit attempt would be a confusing bait-and-switch.
+        // ═══════════════════════════════════════════════════════════════════
+        if (heldItem.isEmpty() && isPilot(player) && player.getVehicle() != this && isAnchored()
+                && player instanceof ServerPlayer dismountedEditRequester) {
+            EditModeDistanceGate.Reason reason =
+                    ShipAssemblyService.openEditMode(this, dismountedEditRequester);
+            if (reason != EditModeDistanceGate.Reason.ACCEPTED) {
+                dismountedEditRequester.sendSystemMessage(Component.translatable(
+                        "message.sharkengine.edit_mode_rejected", reason.name()));
+            }
+            return InteractionResult.CONSUME;
         }
 
         // Normal rightclick with an empty hand: mount (only one pilot at a time)

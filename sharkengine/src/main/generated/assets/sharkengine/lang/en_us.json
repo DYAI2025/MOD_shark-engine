@@ -65,6 +65,7 @@
   "message.sharkengine.disassembly_fail_no_blueprint": "Cannot disassemble: no blueprint data.",
   "message.sharkengine.disassembly_ok": "Ship disassembled (%s blocks placed).",
   "message.sharkengine.disassembly_partial": "Ship disassembled partially (%s blocks placed, some obstructed).",
+  "message.sharkengine.edit_mode_rejected": "Cannot enter Edit Mode: %s",
   "message.sharkengine.fuel_added": "Fuel refilled: %s",
   "message.sharkengine.mode_locked": "%s mode will be available soon.",
   "message.sharkengine.no_fuel": "⚠ Engine out! Ship is falling – land or refuel.",

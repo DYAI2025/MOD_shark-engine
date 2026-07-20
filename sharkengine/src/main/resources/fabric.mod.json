@@ -37,7 +37,8 @@
             "dev.sharkengine.gametest.PilotControlAuthorityGameTest",
             "dev.sharkengine.gametest.CopilotDismountIntegrityGameTest",
             "dev.sharkengine.gametest.VehicleReentryGameTest",
-            "dev.sharkengine.gametest.EditModeDistanceGameTest"
+            "dev.sharkengine.gametest.EditModeDistanceGameTest",
+            "dev.sharkengine.gametest.BuilderReopenGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

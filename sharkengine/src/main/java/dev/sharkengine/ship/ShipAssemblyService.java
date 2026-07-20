@@ -26,8 +26,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -353,6 +355,125 @@ public final class ShipAssemblyService {
      */
     public static BuilderPreviewS2CPayload lastPreviewSent(UUID playerId) {
         return lastPreviewSent.get(playerId);
+    }
+
+    /**
+     * REQ-013/AC-013 (T13): server-side production entry point for reopening the builder menu on
+     * an already-assembled, already-launched {@link ShipEntity} once REQ-012's edit-mode gate
+     * ({@link ShipEntity#tryEnterEditMode}) accepts {@code player}'s request. Delegates the
+     * accept/reject decision entirely to that gate — this method adds exactly one thing on top of
+     * it: on {@link EditModeDistanceGate.Reason#ACCEPTED}, it opens the builder preview populated
+     * with the ship's structure (see {@link #openEditModePreview}). {@link
+     * ShipEntity#tryEnterEditMode} itself deliberately stays free of any network/UI concern (see
+     * its own javadoc: "opening the actual builder menu... is REQ-013/T13's scope, not this
+     * method's") — this method is that scope, mirroring how {@link
+     * dev.sharkengine.ship.BuildSessionGate#tryAssemble} layers session authorization on top of
+     * {@link #tryAssemble} rather than folding it into that method itself.
+     *
+     * <p><b>No close/reset path exists yet:</b> see {@link ShipEntity#editModeActive}'s and {@link
+     * ShipEntity#tryEnterEditMode}'s javadoc. This method inherits that limitation unchanged — a
+     * ship whose Edit Mode was already opened once (by any caller, through any of the entry
+     * points wired to this method) permanently rejects every later call with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}, until REQ-014/T14 ships a real close path.
+     * This is disclosed, not silently absorbed — do not add a workaround reset here.</p>
+     */
+    public static EditModeDistanceGate.Reason openEditMode(ShipEntity ship, ServerPlayer player) {
+        EditModeDistanceGate.Reason reason = ship.tryEnterEditMode(player);
+        if (EditModeDistanceGate.isAccepted(reason)) {
+            openEditModePreview(ship, player);
+        }
+        return reason;
+    }
+
+    /**
+     * REQ-013/AC-013 (T13): sends {@code player} a builder preview of {@code ship}'s CURRENT
+     * structure. Unlike {@link #openBuilderPreview} (which re-scans raw world blocks via BFS for a
+     * not-yet-launched structure), an already-launched ship has no world blocks left to scan — its
+     * own {@link ShipEntity#getBlueprint()} field IS the single live source of truth for "what does
+     * this vehicle currently look like", the same field {@link #tryAssemble} itself populates and
+     * every other legitimate mutator ({@code ShipEntity#readAdditionalSaveData}'s NBT load, and any
+     * future REQ-014 edit-commit) fully REPLACES via {@link ShipEntity#setBlueprint} — never a
+     * second, independently-tracked copy that could drift out of sync with it.
+     *
+     * <p><b>Falsifying-test contract (test-plan REQ-013 counter-thesis, {@code
+     * dev.sharkengine.gametest.BuilderReopenGameTest}):</b> this method reads {@code
+     * ship.getBlueprint()} fresh on EVERY call — never memoized/cached anywhere in this class or on
+     * {@code ship} itself beyond that one field — so a reopen always reflects whatever the ship's
+     * structure is AT THE MOMENT of reopening, never a stale snapshot from whenever Edit Mode (or
+     * the ship itself) was first opened. Do not "optimize" this by caching the built {@link
+     * BuilderPreviewS2CPayload} or the resolved {@link ShipBlueprint} across calls — that is exactly
+     * the false positive this REQ exists to rule out.</p>
+     *
+     * <p><b>Known scope gap (T14, not this method's job):</b> the resulting payload's {@code
+     * wheelPos} is {@code ship.blockPosition()} and {@code sessionId} is always {@code null} — there
+     * is no REQ-014 "edit session" id concept yet, and this payload's {@code wheelPos} field
+     * (designed for the pre-launch, world-block flow) does not by itself uniquely identify WHICH
+     * ship entity a future commit should apply to. {@code BuilderScreen}'s existing "Assemble" button
+     * will need real REQ-014 wiring (a distinct commit path, not {@link
+     * dev.sharkengine.ship.BuildSessionGate#tryAssemble}, which safely no-ops/rejects a null session
+     * today rather than crashing) before it does anything meaningful against an edit-mode-reopened
+     * ship — out of scope here.</p>
+     */
+    public static void openEditModePreview(ShipEntity ship, ServerPlayer player) {
+        ShipBlueprint blueprint = ship.getBlueprint();
+        if (blueprint == null) {
+            return;
+        }
+
+        List<String> blockIds = new ArrayList<>(blueprint.blocks().size());
+        int bugCount = 0;
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            blockIds.add(BuiltInRegistries.BLOCK.getKey(block.state().getBlock()).toString());
+            if (block.state().is(ModBlocks.BUG)) {
+                bugCount++;
+            }
+        }
+        ShipStats stats = ShipPartAnalyzer.analyze(blockIds);
+        int coreNeighbors = countCoreNeighborsInBlueprint(blueprint);
+
+        // invalidBlocks/contactPoints: N/A for an already-flying structure — nothing here comes
+        // from a world scan, so there is nothing to report as "invalid attachment" or "terrain
+        // contact". canAssemble=true reflects that this blueprint, by construction, already passed
+        // full structural validation once (either via a real #tryAssemble scan, or an NBT load of
+        // previously-valid data) — this is NOT a live re-validation of an in-progress edit, which is
+        // REQ-014's job. sessionId=null: see this method's javadoc "Known scope gap".
+        BuilderPreviewS2CPayload payload = BuilderPreviewS2CPayload.open(
+                ship.blockPosition(),
+                blueprint.toNbt(),
+                List.of(),
+                0,
+                true,
+                stats.propulsionCount(),
+                coreNeighbors,
+                bugCount,
+                List.of(),
+                null
+        );
+        lastPreviewSent.put(player.getUUID(), payload);
+        ServerPlayNetworking.send(player, payload);
+    }
+
+    /**
+     * REQ-013 helper: how many of {@code blueprint}'s origin's own 4 cardinal neighbors are
+     * themselves part of the blueprint — computed purely from the blueprint's own local (dx, dy,
+     * dz) offsets (the origin is always local (0,0,0), see {@link #scanStructure}), with no
+     * world/level access needed. Mirrors {@link #countCoreNeighbors(BlockPos, LongSet)}'s semantics
+     * exactly, but operates on a live {@link ShipBlueprint} instead of an in-progress BFS scan's
+     * world-position set — there is no world position left to scan against for an already-launched,
+     * currently-flying ship.
+     */
+    private static int countCoreNeighborsInBlueprint(ShipBlueprint blueprint) {
+        Set<BlockPos> localOffsets = new HashSet<>();
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            localOffsets.add(new BlockPos(block.dx(), block.dy(), block.dz()));
+        }
+        int neighbors = 0;
+        for (Direction direction : List.of(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST)) {
+            if (localOffsets.contains(BlockPos.ZERO.relative(direction))) {
+                neighbors++;
+            }
+        }
+        return neighbors;
     }
 
     public static StructureScan scanStructure(ServerLevel level, BlockPos wheelPos) {

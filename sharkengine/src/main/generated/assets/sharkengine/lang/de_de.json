@@ -65,6 +65,7 @@
   "message.sharkengine.disassembly_fail_no_blueprint": "Kann nicht zerlegen: keine Bauplan-Daten.",
   "message.sharkengine.disassembly_ok": "Schiff zerlegt (%s Blöcke platziert).",
   "message.sharkengine.disassembly_partial": "Schiff teilweise zerlegt (%s Blöcke platziert, einige blockiert).",
+  "message.sharkengine.edit_mode_rejected": "Edit-Modus nicht möglich: %s",
   "message.sharkengine.fuel_added": "Treibstoff aufgefüllt: %s",
   "message.sharkengine.mode_locked": "%s-Modus wird bald verfügbar sein.",
   "message.sharkengine.no_fuel": "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.",
