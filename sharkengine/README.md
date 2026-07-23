@@ -40,9 +40,9 @@ Core metadata is defined in `fabric.mod.json` and Gradle properties.
 
 ### 2) Ship Flight & Physics
 - Ships have acceleration phases (`PHASE_1` to `PHASE_5`) and speed ramps.
-- Max speed is weight-category dependent (block count).
+- Max speed is weight-category dependent (mass-based: per-part masses from `VehicleBalance`, thresholds 120/240/360).
 - High altitude applies a speed penalty.
-- Vertical movement is supported (`jump`/`shift`).
+- Vertical movement is supported (Jump to climb, dedicated rebindable Descend key — default Left Alt).
 - Collision checks use the blueprint footprint (not only a single point).
 
 ### 3) Fuel & Engine-Out Behavior
@@ -81,6 +81,8 @@ sharkengine/
 │  │  │  ├─ content/                     # Blocks, entities, tags, sounds
 │  │  │  ├─ ship/                        # Physics, entity, assembly, fuel
 │  │  │  ├─ net/                         # Payload definitions + handlers
+│  │  │  ├─ gametest/                    # Fabric GameTests (must be registered in fabric.mod.json)
+│  │  │  ├─ datagen/                     # Datagen providers — edit these, then ./gradlew runDatagen
 │  │  │  └─ tutorial/                    # Guided onboarding logic
 │  │  └─ resources/
 │  │     ├─ fabric.mod.json
@@ -90,13 +92,9 @@ sharkengine/
 │  │  ├─ render/                         # HUD + entity renderer
 │  │  ├─ builder/                        # Builder preview + screen
 │  │  └─ tutorial/                       # Tutorial popup UI
-│  └─ test/java/dev/sharkengine/ship/
-│     ├─ ShipPhysicsTest.java
-│     ├─ FuelSystemTest.java
-│     ├─ ShipAssemblyServiceTest.java
-│     ├─ BuilderValidationTest.java
-│     ├─ WeightCategoryTest.java
-│     └─ AccelerationPhaseTest.java
+│  └─ test/java/dev/sharkengine/
+│     ├─ ship/          # physics, assembly, fuel, weight, builder validation, transform, resources
+│     └─ ship/part/     # part registry, balance table, analyzer, assembly issues
 ```
 
 ---
@@ -105,15 +103,19 @@ sharkengine/
 
 When mounted on a ship:
 
-- **W**: forward acceleration
-- **A / D**: yaw left/right
+- **W**: forward acceleration (0..1 throttle; there is no reverse)
+- **A / D**: yaw left/right (entity yaw IS the flight direction; mouse look does not steer)
 - **Space**: climb
-- **Shift**: descend
+- **Left Alt**: descend (dedicated rebindable keybinding `key.sharkengine.descend` — deliberately NOT sneak, because sneak triggers vanilla's dismount)
+
+Controller (Xbox-style layout via raw GLFW polling, hardcoded mapping): Left Stick Y = throttle, Right Stick X = turn, RT/LT = climb/descend, B = dismount. A (anchor) and Y (interact) are polled but currently NOT wired to any action.
 
 Additional interactions:
 
-- **Right click ship**: mount
-- **Shift + right click ship**: anchor toggle / disassemble when anchored
+- **Right click ship** (empty hand or non-block item): mount
+- **Right click ship** holding logs/planks: refuel (pilot only; 1 item = 100 energy)
+- **Right click ship** holding any block item: passes through to vanilla block placement (so you can build onto a launched ship)
+- **Shift + right click ship**: anchor toggle / disassemble when anchored (pilot only)
 
 ---
 
@@ -143,13 +145,12 @@ The test suite emphasizes deterministic gameplay logic:
 - assembly validation logic and edge-case regressions,
 - lightweight collision helper behavior.
 
-### Notes from current verification run
-- I fixed an unresolved merge marker in `ShipEntity.java` that would break Java compilation.
-- In this environment, full Gradle test execution is currently blocked by dependency resolution for `fabric-loom:1.7-SNAPSHOT` (plugin artifact not resolved from configured repositories).
+### Verified status (2026-07-24, `feature/shark-engine-air-release-1` @ `3c9ede5`)
+- `./gradlew build` green (includes the client source set)
+- `./gradlew test`: 328 unit tests, 0 failures
+- `./gradlew runGametest`: "All 81 required tests passed"
 
-If you run this locally, ensure:
-1. Java 21 is active.
-2. Fabric Loom snapshot dependency is resolvable in your network/repo setup.
+If you run this locally, use Java 21 (the Gradle toolchain enforces it; Loom 1.7.4 resolves from the standard Fabric maven).
 
 ---
 
@@ -161,7 +162,7 @@ If you run this locally, ensure:
 4. Build a compact structure with valid blocks and at least one thruster.
 5. Open builder preview and inspect highlight feedback.
 6. Assemble the ship.
-7. Fly with W/A/D + Space/Shift and monitor fuel HUD.
+7. Fly with W/A/D + Space/Left Alt and monitor fuel HUD.
 8. Land, anchor, and disassemble if needed.
 
 This gives a realistic tour through all major systems (tutorial, assembly, network sync, physics, HUD).
@@ -171,8 +172,8 @@ This gives a realistic tour through all major systems (tutorial, assembly, netwo
 ## Known Limitations / MVP Boundaries
 
 - The project is intentionally MVP-scoped to flying mode (`VehicleClass.AIR`).
-- Fuel refill gameplay loop appears partially implemented in core logic and may need additional interaction UX wiring.
-- Plugin/tooling setup may require a stable Loom version or matching repo configuration depending on your environment.
+- Controller support is partial: movement and dismount work; the A (anchor) and Y (interact) buttons are not wired, and the mapping is hardcoded (no config file).
+- An OVERLOADED structure (mass 361+) assembles normally and is only grounded at flight time (max speed 0) — there is no assembly-time refusal.
 
 ---
 
@@ -193,4 +194,4 @@ Suggested first tasks:
 
 ## License
 
-MIT (as declared in `fabric.mod.json`).
+MIT — declared in `fabric.mod.json`; license text in the repo-root `LICENSE` file.

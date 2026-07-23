@@ -7,7 +7,8 @@ package dev.sharkengine.ship;
  * <p>Fuel system basics:</p>
  * <ul>
  *   <li>1 wood block = 100 energy units</li>
- *   <li>Energy consumption: 1-3 units/sec (depending on acceleration phase)</li>
+ *   <li>Energy consumption: nominal 1-3 units/sec by acceleration phase, multiplied by
+ *       {@code VehicleBalance.FUEL_CONSUMPTION_RATE} (0.25) — effective 0.25-0.75 units/sec</li>
  *   <li>Maximum fuel tank: 100 energy (expandable in future)</li>
  * </ul>
  * 
