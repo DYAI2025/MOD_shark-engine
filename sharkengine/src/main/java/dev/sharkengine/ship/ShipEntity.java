@@ -137,6 +137,13 @@ public final class ShipEntity extends Entity {
     private boolean editModeActive;
 
     /**
+     * REQ-017/T18 (Preconditions §7): reserved, generic trail-config NBT slot. Carried through
+     * load→save untouched so T21 (REQ-019) can populate it with the DyeColor trail component
+     * without another schema change. Never interpreted here.
+     */
+    private CompoundTag trailConfigNbt = null;
+
+    /**
      * REQ-009/T07 remediation (QA finding: {@code secondPlayerCannotDisplaceFirstCopilot}'s
      * javadoc/fail-messages claimed to rule out "even an internal dismount-and-remount cycle"
      * for the first copilot, but every assertion was a post-hoc end-state check with zero
@@ -937,7 +944,26 @@ public final class ShipEntity extends Entity {
             this.blockCount = compound.getInt("BlockCount");
         }
         if (compound.contains("Health")) {
-            this.health = compound.getInt("Health");
+            // REQ-017/T18 (NFR-009, lost-in-recovery hardening): clamp to [0, MAX_HEALTH] —
+            // matches every live damage-application site; a corrupt/hand-edited tag must not
+            // load 999 HP or a negative value.
+            this.health = Math.max(0, Math.min(MAX_HEALTH, compound.getInt("Health")));
+        }
+        // REQ-017/T18 (NFR-004 conservative migration): absent (legacy save) or unknown values
+        // default to AIR — never a crash, never a guessed non-AIR class.
+        if (compound.contains("VehicleClass")) {
+            try {
+                this.vehicleClass = VehicleClass.valueOf(compound.getString("VehicleClass"));
+            } catch (IllegalArgumentException e) {
+                this.vehicleClass = VehicleClass.AIR;
+            }
+        }
+        // REQ-017/T18: absent → false (same default a fresh entity has). Persisting true keeps a
+        // restart-mid-edit ship aware of its open session instead of stranding materialized
+        // blocks with a ship that thinks it is not editing (RISK-004).
+        this.editModeActive = compound.getBoolean("EditModeActive");
+        if (compound.contains("TrailConfig")) {
+            this.trailConfigNbt = compound.getCompound("TrailConfig").copy();
         }
     }
 
@@ -966,6 +992,13 @@ public final class ShipEntity extends Entity {
         compound.putInt("BlockCount", blockCount);
         compound.putFloat("BugYaw", bugYawDeg);
         compound.putInt("Health", health);
+        // REQ-017/T18: vehicle class, edit state, and the reserved trail-config slot
+        // (Preconditions §7 — T21 populates it; here it is only carried through untouched).
+        compound.putString("VehicleClass", vehicleClass.name());
+        compound.putBoolean("EditModeActive", editModeActive);
+        if (trailConfigNbt != null) {
+            compound.put("TrailConfig", trailConfigNbt.copy());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════

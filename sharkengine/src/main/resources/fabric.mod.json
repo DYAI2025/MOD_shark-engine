@@ -42,7 +42,8 @@
             "dev.sharkengine.gametest.AtomicEditReassemblyGameTest",
             "dev.sharkengine.gametest.EditModeFootprintProtectionGameTest",
       "dev.sharkengine.gametest.AssemblyDisassemblyRollbackGameTest",
-      "dev.sharkengine.gametest.FuelSyncCadenceGameTest"
+      "dev.sharkengine.gametest.FuelSyncCadenceGameTest",
+      "dev.sharkengine.gametest.VehiclePersistenceRestartGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"
