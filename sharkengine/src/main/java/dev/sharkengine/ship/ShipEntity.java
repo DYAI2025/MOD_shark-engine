@@ -1525,30 +1525,21 @@ public final class ShipEntity extends Entity {
         // self-consistent internally, both backwards relative to physics.
         // Flipping the sign once here (rather than in either client file)
         // corrects both input paths at their single point of consumption.
-        float yaw = this.getYRot() - (inputTurn * 3.0f);
+        // (REQ-015/T16: step math extracted to ShipPhysics.calculateYawStep for pure-logic
+        // testability — the load-bearing sign convention is documented and locked there.)
+        float yaw = ShipPhysics.calculateYawStep(this.getYRot(), inputTurn);
         this.setYRot(yaw);
 
-        // ━━━ Forward Movement ━━━
-        // Direction is ALWAYS based on entity yaw (single source of truth).
-        // At assembly, yaw is set from BUG block's FACING direction.
-        double rad = Math.toRadians(yaw);
-        double fx = -Math.sin(rad);
-        double fz = Math.cos(rad);
-
-        // BUG FIX 4: Use currentSpeed directly, scale to ticks (÷20)
-        // Previously 0.05 was used which doesn't match blocks/sec definition
-        double speedPerTick = currentSpeed / 20.0;
-        Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
-
-        // ━━━ Vertical Movement ━━━
-        // BUG FIX 4: Smooth vertical speed, scaled properly
-        double verticalMotion = inputVertical * 0.3;
-
-        Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
-
-        // ━━━ Drag (Air Resistance) ━━━
-        // BUG FIX 4: Gentler drag for smoother movement
-        vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
+        // ━━━ Forward + Vertical Movement ━━━
+        // Direction is ALWAYS based on entity yaw (single source of truth); at assembly,
+        // yaw is set from the BUG block's FACING. currentSpeed is blocks/sec, scaled to
+        // per-tick inside the ShipPhysics velocity functions; drag (0.95) is folded in
+        // there too — expression order kept bit-identical to the former inline math
+        // (REQ-015/T16 extraction).
+        Vec3 vel = new Vec3(
+                ShipPhysics.calculateVelocityX(yaw, currentSpeed),
+                ShipPhysics.calculateVelocityY(inputVertical),
+                ShipPhysics.calculateVelocityZ(yaw, currentSpeed));
         this.setDeltaMovement(vel);
 
         // ━━━ Collision Check ━━━
@@ -1640,7 +1631,8 @@ public final class ShipEntity extends Entity {
     }
 
     private static float clamp(float v, float a, float b) {
-        return Math.max(a, Math.min(b, v));
+        // REQ-015/T16: delegates to the single, unit-tested helm-input sanitization point.
+        return ShipPhysics.clampInput(v, a, b);
     }
 
     /**

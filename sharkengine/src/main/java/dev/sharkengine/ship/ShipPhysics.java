@@ -224,6 +224,69 @@ public final class ShipPhysics {
         return baseSpeed * heightPenalty * weightPenalty;
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // FLIGHT CONTROL STEP MATH (REQ-015/T16)
+    // Extracted from ShipEntity.updatePhysics() so the per-tick turn/velocity
+    // step is pure and unit-testable without a Fabric bootstrap. Expression
+    // order is kept EXACTLY as it was inline (bit-identical results).
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Turn rate in degrees per tick (3° — "was 4, reduced for stability"). */
+    public static final float TURN_RATE_DEG_PER_TICK = 3.0f;
+
+    /** Air-resistance factor applied to every velocity component each tick. */
+    public static final double DRAG_FACTOR = 0.95;
+
+    /** Vertical input → blocks-per-tick scale, before drag. */
+    public static final double VERTICAL_SPEED_FACTOR = 0.3;
+
+    /**
+     * One steering step: the ship's yaw after applying {@code turnInput} for one tick.
+     *
+     * <p><b>Sign convention is load-bearing (P0 hotfix 2026-07-12, live playtest
+     * "Lenkung ist invertiert"):</b> in Minecraft's yaw space, increasing yaw sweeps
+     * facing from South towards West — increasing yaw turns the ship RIGHT. Both
+     * client input sources send {@code +1} for a LEFT turn (A key / stick-left), so
+     * the input is SUBTRACTED here, at the single point of consumption. Do not
+     * "simplify" the sign; {@code FlightControlAuthorityTest} locks the direction.</p>
+     */
+    public static float calculateYawStep(float currentYawDeg, float turnInput) {
+        return currentYawDeg - (turnInput * TURN_RATE_DEG_PER_TICK);
+    }
+
+    /** X component of the per-tick flight velocity (forward vector × speed, drag folded in). */
+    public static double calculateVelocityX(float yawDeg, float currentSpeed) {
+        return -Math.sin(Math.toRadians(yawDeg)) * (currentSpeed / 20.0) * DRAG_FACTOR;
+    }
+
+    /** Y component of the per-tick flight velocity (vertical input scaled, drag folded in). */
+    public static double calculateVelocityY(float verticalInput) {
+        return verticalInput * VERTICAL_SPEED_FACTOR * DRAG_FACTOR;
+    }
+
+    /** Z component of the per-tick flight velocity (forward vector × speed, drag folded in). */
+    public static double calculateVelocityZ(float yawDeg, float currentSpeed) {
+        return Math.cos(Math.toRadians(yawDeg)) * (currentSpeed / 20.0) * DRAG_FACTOR;
+    }
+
+    /**
+     * Clamps a raw helm-input payload value into {@code [min, max]}. This is the single
+     * sanitization point for every C2S helm input float before it reaches yaw/velocity math.
+     *
+     * <p><b>NaN is neutralized to {@code 0} (no input), never propagated</b> — plain
+     * {@code Math.max(min, Math.min(max, v))} passes NaN straight through, which poisoned
+     * yaw → movement vector → entity position from a single malicious/corrupt
+     * {@code HelmInputC2SPayload} float (REQ-015/T16, AC-015 "ohne NaN-/Infinity-Fehler";
+     * the same guard existed on the abandoned pre-recovery line and was lost in the code
+     * recovery). ±Infinity needs no special case: it clamps to the range bounds.</p>
+     */
+    public static float clampInput(float value, float min, float max) {
+        if (Float.isNaN(value)) {
+            return 0.0f;
+        }
+        return Math.max(min, Math.min(max, value));
+    }
+
     /**
      * Lightweight integer vector for collision math to keep tests free of Minecraft classes.
      */
