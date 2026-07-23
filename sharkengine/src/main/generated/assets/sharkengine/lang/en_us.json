@@ -77,7 +77,7 @@
   "message.sharkengine.no_fuel": "⚠ Engine out! Ship is falling – land or refuel.",
   "message.sharkengine.not_pilot": "You are not the pilot of this ship.",
   "message.sharkengine.session_invalid": "Build session invalid or expired — reopen the vehicle menu at the wheel.",
-  "message.sharkengine.too_heavy": "⚠ Ship too heavy to fly (61+ blocks)!",
+  "message.sharkengine.too_heavy": "⚠ Ship too heavy to fly (mass over 360)!",
   "screen.sharkengine.builder.action": "Assemble & Launch",
   "screen.sharkengine.builder.action_disabled": "Resolve highlights to enable launch",
   "screen.sharkengine.builder.blocks": "%s connected blocks",

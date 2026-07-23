@@ -77,7 +77,7 @@
   "message.sharkengine.no_fuel": "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.",
   "message.sharkengine.not_pilot": "Du bist nicht der Pilot dieses Schiffs.",
   "message.sharkengine.session_invalid": "Bau-Sitzung ungültig oder abgelaufen – öffne das Fahrzeugmenü erneut am Steuerrad.",
-  "message.sharkengine.too_heavy": "⚠ Schiff zu schwer zum Fliegen (61+ Blöcke)!",
+  "message.sharkengine.too_heavy": "⚠ Schiff zu schwer zum Fliegen (Masse über 360)!",
   "screen.sharkengine.builder.action": "Zusammenbauen & Starten",
   "screen.sharkengine.builder.action_disabled": "Markierungen beheben zum Starten",
   "screen.sharkengine.builder.blocks": "%s verbundene Blöcke",

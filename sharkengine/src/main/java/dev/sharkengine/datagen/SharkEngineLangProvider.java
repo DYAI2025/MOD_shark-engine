@@ -81,7 +81,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.assembly_fail_bug_inside", "Bow must be on the outer edge – currently placed inside.");
             b.add("screen.sharkengine.builder.bugs", "%s bow block(s) found");
             b.add("message.sharkengine.no_fuel", "⚠ Engine out! Ship is falling – land or refuel.");
-            b.add("message.sharkengine.too_heavy", "⚠ Ship too heavy to fly (61+ blocks)!");
+            b.add("message.sharkengine.too_heavy", "⚠ Ship too heavy to fly (mass over 360)!");
             b.add("message.sharkengine.fuel_added", "Fuel refilled: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Quick Flight Guide");
             b.add("hud.sharkengine.onboarding.movement", "Movement: W = forward, A/D = turn. Build momentum before climbing.");
@@ -234,7 +234,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.assembly_fail_bug_inside", "Bug muss an der Außenkante platziert werden – aktuell im Inneren.");
             b.add("screen.sharkengine.builder.bugs", "%s Bug-Block(s) gefunden");
             b.add("message.sharkengine.no_fuel", "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.");
-            b.add("message.sharkengine.too_heavy", "⚠ Schiff zu schwer zum Fliegen (61+ Blöcke)!");
+            b.add("message.sharkengine.too_heavy", "⚠ Schiff zu schwer zum Fliegen (Masse über 360)!");
             b.add("message.sharkengine.fuel_added", "Treibstoff aufgefüllt: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Flug-Kurzanleitung");
             b.add("hud.sharkengine.onboarding.movement", "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.");
