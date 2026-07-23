@@ -144,6 +144,48 @@ public final class FuelSystem {
      * @param maxFuel Maximum fuel capacity
      * @return true if below 20%, false otherwise
      */
+    /**
+     * Result of one whole "consumption second" step (REQ-016/T17).
+     *
+     * @param fuelLevel RAW post-step fuel level — may be {@code <= 0}; the caller owns the
+     *                  engine-out decision and zero-clamping (entity concerns, not fuel math)
+     * @param fuelDebt  remaining fractional debt, always {@code [0,1)} after extraction
+     */
+    public record FuelTick(int fuelLevel, float fuelDebt) {}
+
+    /**
+     * Applies one consumption second: accumulates {@code nominalPerSecond ×
+     * VehicleBalance.FUEL_CONSUMPTION_RATE} into the fractional debt and extracts whole fuel
+     * units. Pure mirror of the formerly-inline {@code ShipEntity.updatePhysics()} math —
+     * extracted for REQ-016/T17 so drift-freeness is unit-provable without a Fabric bootstrap.
+     *
+     * <p><b>Zero float drift by construction:</b> {@code FUEL_CONSUMPTION_RATE} is 0.25 (a power
+     * of two), so every per-second increment (0.25/0.5/0.75) is exactly representable and the
+     * debt accumulator never collects rounding error — locked by {@code FuelSystemTest}.</p>
+     */
+    public static FuelTick applyConsumptionSecond(int fuelLevel, float fuelDebt, int nominalPerSecond) {
+        fuelDebt += nominalPerSecond * dev.sharkengine.ship.part.VehicleBalance.FUEL_CONSUMPTION_RATE;
+        int wholeUnits = (int) fuelDebt;
+        if (wholeUnits > 0) {
+            fuelDebt -= wholeUnits;
+            fuelLevel -= wholeUnits;
+        }
+        return new FuelTick(fuelLevel, fuelDebt);
+    }
+
+    /**
+     * Sanitizes a fuel-debt value read from NBT (REQ-016/T17). Valid live values are always in
+     * {@code [0,1)}; anything else — NaN, ±Infinity, negative, or {@code >= 1} (impossible from
+     * our own writer, i.e. corrupt or hand-edited) — conservatively resets to {@code 0}: never
+     * grants extra pending burn, never poisons the accumulator.
+     */
+    public static float sanitizeFuelDebt(float debt) {
+        if (!Float.isFinite(debt) || debt < 0.0f || debt >= 1.0f) {
+            return 0.0f;
+        }
+        return debt;
+    }
+
     public static boolean isCritical(int fuelLevel, int maxFuel) {
         if (maxFuel <= 0) return false;
         return (fuelLevel * 100) / maxFuel < 20;

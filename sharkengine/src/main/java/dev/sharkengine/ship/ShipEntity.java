@@ -706,6 +706,25 @@ public final class ShipEntity extends Entity {
         return level().isClientSide ? this.entityData.get(SYNC_FUEL) : fuelLevel;
     }
 
+    /**
+     * REQ-016/T17: the client-visible synced fuel value, readable server-side. The sync-cadence
+     * contract (AC-016, {@code FuelSyncCadenceGameTest}) is that this matches {@link
+     * #getFuelLevel()} on every fuel-changing tick — {@link #updatePhysics()} writes SYNC_FUEL in
+     * the same tick it mutates {@link #fuelLevel}, and {@link #addFuel} syncs immediately.
+     */
+    public int getSyncedFuel() {
+        return this.entityData.get(SYNC_FUEL);
+    }
+
+    /**
+     * REQ-016/T17: the fractional fuel-consumption accumulator (always {@code [0,1)} between
+     * ticks). Exposed for the persistence contract — a mid-flight save must round-trip this
+     * exactly, or every save/load quietly refunds up to one fuel unit of already-burned debt.
+     */
+    public float getFuelDebt() {
+        return fuelDebt;
+    }
+
     public boolean isEngineOut() {
         return level().isClientSide ? this.entityData.get(SYNC_ENGINE_OUT) : engineOut;
     }
@@ -902,6 +921,9 @@ public final class ShipEntity extends Entity {
         if (compound.contains("FuelLevel")) {
             this.fuelLevel = compound.getInt("FuelLevel");
         }
+        // REQ-016/T17: absent on legacy saves → getFloat returns 0.0 → sanitized to 0 (no
+        // refundable debt assumed, conservative). Corrupt values (NaN/negative/≥1) also reset.
+        this.fuelDebt = FuelSystem.sanitizeFuelDebt(compound.getFloat("FuelDebt"));
         if (compound.contains("AccelerationTicks")) {
             this.accelerationTicks = compound.getInt("AccelerationTicks");
         }
@@ -935,6 +957,9 @@ public final class ShipEntity extends Entity {
             compound.putUUID("Copilot", copilot);
         }
         compound.putInt("FuelLevel", fuelLevel);
+        // REQ-016/T17: fractional consumption state — without this, every save/load quietly
+        // refunds up to one fuel unit of already-burned debt (FuelSyncCadenceGameTest).
+        compound.putFloat("FuelDebt", fuelDebt);
         compound.putInt("AccelerationTicks", accelerationTicks);
         compound.putFloat("CurrentSpeed", currentSpeed);
         compound.putBoolean("EngineOut", engineOut);
@@ -1404,12 +1429,13 @@ public final class ShipEntity extends Entity {
             if (fuelConsumptionTick >= 20) {
                 fuelConsumptionTick = 0;
                 int nominalConsumption = ShipPhysics.calculateFuelConsumption(phase);
-                fuelDebt += nominalConsumption * dev.sharkengine.ship.part.VehicleBalance.FUEL_CONSUMPTION_RATE;
-                int wholeUnits = (int) fuelDebt;
-                if (wholeUnits > 0) {
-                    fuelDebt -= wholeUnits;
-                    fuelLevel -= wholeUnits;
-
+                // REQ-016/T17: debt/whole-unit step extracted to FuelSystem.applyConsumptionSecond
+                // (pure, unit-locked for zero float drift); semantics identical to the former
+                // inline math. Engine-out decision + pilot notify stay here (entity concerns).
+                FuelSystem.FuelTick step = FuelSystem.applyConsumptionSecond(fuelLevel, fuelDebt, nominalConsumption);
+                fuelDebt = step.fuelDebt();
+                if (step.fuelLevel() != fuelLevel) {
+                    fuelLevel = step.fuelLevel();
                     if (fuelLevel <= 0) {
                         engineOut = true;
                         fuelLevel = 0;
