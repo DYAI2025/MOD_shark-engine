@@ -46,6 +46,16 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
 
     @Override
     public void buildRecipes(RecipeOutput exporter) {
+        // REQ-018/T20: the single dye-agnostic thruster-coloring recipe. A custom matcher is
+        // mandatory — a static JSON cannot derive the output component from the input dye, and
+        // the 16-per-dye-JSON alternative is the council-rejected design (LED-002). ONE file for
+        // all 16 dyes; ResourceValidationTest.ThrusterDyeComponentResourceTests guards that no
+        // thruster_<color>.json ever appears here.
+        exporter.accept(
+                ResourceLocation.fromNamespaceAndPath(output.getModId(), "thruster_coloring"),
+                new dev.sharkengine.content.ThrusterColoringRecipe(CraftingBookCategory.EQUIPMENT),
+                null);
+
         // thruster: I=iron_ingot, F=fire_charge, B=blaze_rod, R=redstone
         // "IFI" / "BRB" / "IFI"
         shapedRecipe(

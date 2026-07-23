@@ -921,4 +921,64 @@ class ResourceValidationTest {
                             + "forward-checking).");
         }
     }
+
+    /**
+     * REQ-018/T20 (AC-018): the council-approved single-item + craft-time-component design —
+     * exactly ONE thruster id across ModBlocks/ModItems, exactly ONE coloring recipe file for
+     * all 16 dyes, and a registered trail_color component. A {@code thruster_<color>}-style id
+     * or per-dye recipe file appearing is the explicitly REJECTED 16-item design
+     * (LED-002/RISK-008) sneaking back in under deadline pressure — the tester's sharpest
+     * named risk for this REQ.
+     */
+    @Nested
+    @DisplayName("REQ-018/T20: single thruster item + craft-time DyeColor component")
+    class ThrusterDyeComponentResourceTests {
+
+        private static final Path MOD_BLOCKS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModBlocks.java");
+        private static final Path MOD_ITEMS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModItems.java");
+        private static final Path MOD_COMPONENTS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModComponents.java");
+        private static final Path RECIPE_DIR = Path.of("src/main/generated/data/sharkengine/recipe");
+
+        private static final List<String> DYE_NAMES = List.of(
+                "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+                "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black");
+
+        @Test
+        @DisplayName("Exactly one thruster registration id exists (no thruster_<color> variants)")
+        void exactlyOneThrusterRegistrationId() throws IOException {
+            String sources = Files.readString(MOD_BLOCKS_SRC) + Files.readString(MOD_ITEMS_SRC);
+            Matcher m = Pattern.compile("\"(thruster[a-z0-9_]*)\"").matcher(sources);
+            Set<String> ids = new TreeSet<>();
+            while (m.find()) {
+                ids.add(m.group(1));
+            }
+            assertEquals(Set.of("thruster"), ids,
+                    "expected exactly the single 'thruster' registration id — any thruster_<color> id "
+                            + "is the rejected 16-item design (LED-002)");
+        }
+
+        @Test
+        @DisplayName("Exactly one coloring recipe file governs all 16 dyes")
+        void exactlyOneColoringRecipeFile() {
+            assertTrue(Files.exists(RECIPE_DIR.resolve("thruster_coloring.json")),
+                    "thruster_coloring.json missing — the single dye-agnostic coloring recipe "
+                            + "(REQ-018) does not exist");
+            for (String dye : DYE_NAMES) {
+                assertFalse(Files.exists(RECIPE_DIR.resolve("thruster_" + dye + ".json")),
+                        "per-dye recipe thruster_" + dye + ".json exists — rejected 16-recipe design");
+            }
+            assertTrue(Files.exists(RECIPE_DIR.resolve("thruster.json")),
+                    "base thruster crafting recipe must still exist (T04 contract untouched)");
+        }
+
+        @Test
+        @DisplayName("trail_color data component is registered in ModComponents")
+        void trailColorComponentRegistered() throws IOException {
+            assertTrue(Files.exists(MOD_COMPONENTS_SRC),
+                    "ModComponents.java missing — no trail_color component registration");
+            String source = Files.readString(MOD_COMPONENTS_SRC);
+            assertTrue(source.contains("\"trail_color\""),
+                    "ModComponents does not register the 'trail_color' component id");
+        }
+    }
 }
