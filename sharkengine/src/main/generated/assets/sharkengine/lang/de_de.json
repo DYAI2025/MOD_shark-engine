@@ -57,6 +57,7 @@
   "message.sharkengine.assembly_fail_no_bug": "Kein Bug-Block gefunden – platziere genau einen Bug als Frontmarker.",
   "message.sharkengine.assembly_fail_no_pilot_seat": "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.",
   "message.sharkengine.assembly_fail_seat_anchor": "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.",
+  "message.sharkengine.assembly_fail_spawn_blocked": "Ein anderes Fahrzeug steht im Baubereich – erst wegbewegen.",
   "message.sharkengine.assembly_fail_thruster": "Kein Triebwerk erkannt – mindestens eines anbringen.",
   "message.sharkengine.assembly_ok": "Schiff zusammengebaut (%s Blöcke).",
   "message.sharkengine.builder_contacts": "Bau blockiert durch %s Bodenkontakte.",

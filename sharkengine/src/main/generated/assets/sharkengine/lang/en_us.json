@@ -57,6 +57,7 @@
   "message.sharkengine.assembly_fail_no_bug": "No bow block found – place exactly one bow as front marker.",
   "message.sharkengine.assembly_fail_no_pilot_seat": "No pilot seat found – add exactly one pilot seat.",
   "message.sharkengine.assembly_fail_seat_anchor": "Pilot seat must be the block directly in front of the bow marker – move it there.",
+  "message.sharkengine.assembly_fail_spawn_blocked": "Another vehicle is parked in the assembly area – move it first.",
   "message.sharkengine.assembly_fail_thruster": "No thrusters detected – add at least one to launch.",
   "message.sharkengine.assembly_ok": "Ship assembled (%s blocks).",
   "message.sharkengine.builder_contacts": "Builder blocked by %s world contacts.",

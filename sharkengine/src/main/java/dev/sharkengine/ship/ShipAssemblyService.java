@@ -287,6 +287,25 @@ public final class ShipAssemblyService {
 
         ShipBlueprint blueprint = scan.toBlueprint();
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SPAWN PREFLIGHT (REQ-021/T15): if an already-spawned ship intersects this
+        // structure's footprint, committing would nest one ship inside another and the
+        // block-removal below would mutate the world for a doomed spawn (RISK-004's
+        // duplication shape). Checked READ-ONLY before the first setBlock, same
+        // preflight-before-mutation discipline as REQ-014's materializeForEdit. Scoped
+        // to ShipEntity deliberately: players/mobs standing on the structure are
+        // ordinary bystanders (a waiting copilot must not block assembly).
+        // ═══════════════════════════════════════════════════════════════════
+        AABB footprint = null;
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            AABB cell = new AABB(wheelPos.offset(block.dx(), block.dy(), block.dz()));
+            footprint = footprint == null ? cell : footprint.minmax(cell);
+        }
+        if (footprint != null
+                && !level.getEntities(ModEntities.SHIP, footprint.inflate(0.5), e -> true).isEmpty()) {
+            return new AssembleResult("message.sharkengine.assembly_fail_spawn_blocked", "");
+        }
+
         // Remove scanned blocks
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockPos target = wheelPos.offset(block.dx(), block.dy(), block.dz());

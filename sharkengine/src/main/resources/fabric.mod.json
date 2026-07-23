@@ -40,7 +40,8 @@
             "dev.sharkengine.gametest.EditModeDistanceGameTest",
             "dev.sharkengine.gametest.BuilderReopenGameTest",
             "dev.sharkengine.gametest.AtomicEditReassemblyGameTest",
-            "dev.sharkengine.gametest.EditModeFootprintProtectionGameTest"
+            "dev.sharkengine.gametest.EditModeFootprintProtectionGameTest",
+      "dev.sharkengine.gametest.AssemblyDisassemblyRollbackGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

@@ -155,6 +155,10 @@ final class SharkEngineLangProvider {
                     "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
             b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
                     "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
+            // REQ-021/T15: spawn preflight -- assembly is refused, with zero world mutation,
+            // while another ship intersects the structure's footprint.
+            b.add("message.sharkengine.assembly_fail_spawn_blocked",
+                    "Another vehicle is parked in the assembly area – move it first.");
             // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
             // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
             b.add("message.sharkengine.edit_mode_rejected", "Cannot enter Edit Mode: %s");
@@ -310,6 +314,10 @@ final class SharkEngineLangProvider {
             b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
                     "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – "
                             + "mehr Rumpf um den Sitz ergänzen.");
+            // REQ-021/T15: spawn preflight -- assembly is refused, with zero world mutation,
+            // while another ship intersects the structure's footprint.
+            b.add("message.sharkengine.assembly_fail_spawn_blocked",
+                    "Ein anderes Fahrzeug steht im Baubereich – erst wegbewegen.");
             // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
             // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
             b.add("message.sharkengine.edit_mode_rejected", "Edit-Modus nicht möglich: %s");
