@@ -26,8 +26,8 @@ import net.minecraft.client.player.LocalPlayer;
  *   <li>Right Stick Left/Right: Turn</li>
  *   <li>Right Trigger: Climb up</li>
  *   <li>Left Trigger: Descend</li>
- *   <li>A-Button: Toggle anchor</li>
  *   <li>B-Button: Dismount</li>
+ *   <li>A-Button (anchor) and Y-Button (interact) are polled but currently NOT wired to any action</li>
  * </ul>
  * 
  * <p>When both keyboard and controller provide input, the stronger signal wins.</p>

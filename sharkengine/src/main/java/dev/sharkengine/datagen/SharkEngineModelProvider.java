@@ -60,6 +60,8 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeBlockState(writer, ns, "rotor_hub", ROTOR_HUB_BLOCKSTATE),
                 writeBlockState(writer, ns, "rotor_blade", ROTOR_BLADE_BLOCKSTATE),
                 writeBlockState(writer, ns, "landing_skid", LANDING_SKID_BLOCKSTATE),
+                writeBlockState(writer, ns, "pilot_seat", PILOT_SEAT_BLOCKSTATE),
+                writeBlockState(writer, ns, "copilot_seat", COPILOT_SEAT_BLOCKSTATE),
 
                 writeModel(writer, blockModelId(ns, "thruster"), THRUSTER_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "steering_wheel"), STEERING_WHEEL_BLOCK_MODEL),
@@ -70,6 +72,8 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, blockModelId(ns, "rotor_hub"), ROTOR_HUB_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "rotor_blade"), ROTOR_BLADE_BLOCK_MODEL),
                 writeModel(writer, blockModelId(ns, "landing_skid"), LANDING_SKID_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "pilot_seat"), PILOT_SEAT_BLOCK_MODEL),
+                writeModel(writer, blockModelId(ns, "copilot_seat"), COPILOT_SEAT_BLOCK_MODEL),
 
                 writeModel(writer, itemModelId(ns, "thruster"), THRUSTER_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "steering_wheel"), STEERING_WHEEL_ITEM_MODEL),
@@ -80,6 +84,8 @@ final class SharkEngineModelProvider implements DataProvider {
                 writeModel(writer, itemModelId(ns, "rotor_hub"), ROTOR_HUB_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "rotor_blade"), ROTOR_BLADE_ITEM_MODEL),
                 writeModel(writer, itemModelId(ns, "landing_skid"), LANDING_SKID_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "pilot_seat"), PILOT_SEAT_ITEM_MODEL),
+                writeModel(writer, itemModelId(ns, "copilot_seat"), COPILOT_SEAT_ITEM_MODEL),
 
                 // AIR-040: crafting-intermediate items — item model only, no block/
                 // blockstate (they are plain Items, never placed). Texture already
@@ -307,6 +313,34 @@ final class SharkEngineModelProvider implements DataProvider {
                 "facing=east":  { "model": "sharkengine:block/landing_skid", "x": 90, "y": 90 },
                 "facing=south": { "model": "sharkengine:block/landing_skid", "x": 90, "y": 180 },
                 "facing=west":  { "model": "sharkengine:block/landing_skid", "x": 90, "y": 270 }
+              }
+            }
+            """;
+
+    /**
+     * REQ-005/T05: {@code pilot_seat} (PILOT_SEAT role). {@link
+     * dev.sharkengine.content.block.PilotSeatBlock} is a plain full-cube block with no
+     * blockstate property (see that class's javadoc), so — same as {@link
+     * #THRUSTER_BLOCKSTATE}/{@link #STEERING_WHEEL_BLOCKSTATE} above — this is a single
+     * unconditional variant, no per-facing/per-axis table needed.
+     */
+    private static final String PILOT_SEAT_BLOCKSTATE = """
+            {
+              "variants": {
+                "": { "model": "sharkengine:block/pilot_seat" }
+              }
+            }
+            """;
+
+    /**
+     * REQ-009/T07: {@code copilot_seat} (COPILOT_SEAT role). Same plain full-cube,
+     * no-blockstate-property shape as {@link #PILOT_SEAT_BLOCKSTATE} — see {@link
+     * dev.sharkengine.content.block.CopilotSeatBlock}'s javadoc.
+     */
+    private static final String COPILOT_SEAT_BLOCKSTATE = """
+            {
+              "variants": {
+                "": { "model": "sharkengine:block/copilot_seat" }
               }
             }
             """;
@@ -644,6 +678,38 @@ final class SharkEngineModelProvider implements DataProvider {
             }
             """;
 
+    /**
+     * REQ-005/T05: {@code pilot_seat} is a plain full cube with a single uniform
+     * vanilla texture across all six faces — reuses {@code minecraft:block/cube_all}
+     * directly (no {@code sharkengine}-namespaced PNG needed), same idiom as {@link
+     * #FUSELAGE_FRAME_BLOCK_MODEL}/{@link #HELICOPTER_ENGINE_BLOCK_MODEL}/{@link
+     * #ROTOR_HUB_BLOCK_MODEL} above, just referencing a vanilla wool texture instead
+     * of a generated one — deliberately no new pixel-art asset for a block whose own
+     * REQ-005 requirement is to carry no AIR-specific data.
+     */
+    private static final String PILOT_SEAT_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/cube_all",
+              "textures": {
+                "all": "minecraft:block/red_wool"
+              }
+            }
+            """;
+
+    /**
+     * REQ-009/T07: {@code copilot_seat} — same plain full-cube/uniform-vanilla-texture
+     * idiom as {@link #PILOT_SEAT_BLOCK_MODEL}, deliberately a different wool color
+     * (blue, not red) so the two seats are visually distinguishable in-world.
+     */
+    private static final String COPILOT_SEAT_BLOCK_MODEL = """
+            {
+              "parent": "minecraft:block/cube_all",
+              "textures": {
+                "all": "minecraft:block/blue_wool"
+              }
+            }
+            """;
+
     private static final String THRUSTER_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/thruster"
@@ -695,6 +761,18 @@ final class SharkEngineModelProvider implements DataProvider {
     private static final String LANDING_SKID_ITEM_MODEL = """
             {
               "parent": "sharkengine:block/landing_skid"
+            }
+            """;
+
+    private static final String PILOT_SEAT_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/pilot_seat"
+            }
+            """;
+
+    private static final String COPILOT_SEAT_ITEM_MODEL = """
+            {
+              "parent": "sharkengine:block/copilot_seat"
             }
             """;
 }

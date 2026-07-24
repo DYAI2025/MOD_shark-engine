@@ -54,6 +54,20 @@ class AssemblyIssueTest {
     }
 
     @Test
+    @DisplayName("NO_PILOT_SEAT translation key (REQ-005)")
+    void noPilotSeatTranslationKey() {
+        assertEquals("assembly_issue.sharkengine.no_pilot_seat",
+                AssemblyIssue.of(AssemblyIssue.Code.NO_PILOT_SEAT).translationKey());
+    }
+
+    @Test
+    @DisplayName("MULTI_PILOT_SEAT translation key (REQ-005)")
+    void multiPilotSeatTranslationKey() {
+        assertEquals("assembly_issue.sharkengine.multi_pilot_seat",
+                AssemblyIssue.of(AssemblyIssue.Code.MULTI_PILOT_SEAT, 2).translationKey());
+    }
+
+    @Test
     @DisplayName("TOO_FEW_CORE_NEIGHBORS translation key")
     void tooFewCoreNeighborsTranslationKey() {
         assertEquals("assembly_issue.sharkengine.too_few_core_neighbors",
@@ -79,6 +93,13 @@ class AssemblyIssueTest {
     void bugInsideTranslationKey() {
         assertEquals("assembly_issue.sharkengine.bug_inside",
                 AssemblyIssue.of(AssemblyIssue.Code.BUG_INSIDE).translationKey());
+    }
+
+    @Test
+    @DisplayName("SEAT_ANCHOR_INVALID translation key (REQ-006)")
+    void seatAnchorInvalidTranslationKey() {
+        assertEquals("assembly_issue.sharkengine.seat_anchor_invalid",
+                AssemblyIssue.of(AssemblyIssue.Code.SEAT_ANCHOR_INVALID).translationKey());
     }
 
     // ─── factory / normalization behavior ────────────────────────────────────────────────────

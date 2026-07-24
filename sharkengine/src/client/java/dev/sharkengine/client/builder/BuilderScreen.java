@@ -26,7 +26,7 @@ public final class BuilderScreen extends Screen {
         int buttonY = height - 40;
 
         assembleButton = Button.builder(Component.translatable("screen.sharkengine.builder.action"), button -> {
-            ClientPlayNetworking.send(new BuilderAssembleC2SPayload(state.wheelPos()));
+            ClientPlayNetworking.send(new BuilderAssembleC2SPayload(state.wheelPos(), state.sessionId()));
         }).bounds(buttonX, buttonY, buttonWidth, buttonHeight).build();
 
         boolean canLaunch = state.canAssemble()

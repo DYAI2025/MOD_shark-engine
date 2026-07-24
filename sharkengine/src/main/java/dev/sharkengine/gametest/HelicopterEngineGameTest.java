@@ -47,7 +47,10 @@ public final class HelicopterEngineGameTest implements FabricGameTest {
     private static void placeCoreStructure(GameTestHelper helper) {
         helper.setBlock(WHEEL_POS, ModBlocks.STEERING_WHEEL);
         helper.setBlock(WHEEL_POS.north(), Blocks.OAK_PLANKS);
-        helper.setBlock(WHEEL_POS.south(), Blocks.OAK_PLANKS);
+        // REQ-006: the BUG below faces SOUTH, so the pilot seat must sit exactly one block
+        // south of the wheel (the deterministic front-of-wheel anchor) -- it doubles as the
+        // south core-neighbor, same as any other ship_eligible block would.
+        helper.setBlock(WHEEL_POS.south(), ModBlocks.PILOT_SEAT);
         helper.setBlock(WHEEL_POS.east(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.west(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.above(), ModBlocks.THRUSTER);
@@ -155,7 +158,10 @@ public final class HelicopterEngineGameTest implements FabricGameTest {
         // replacing the thruster above the wheel — no thruster anywhere in this layout.
         helper.setBlock(WHEEL_POS, ModBlocks.STEERING_WHEEL);
         helper.setBlock(WHEEL_POS.north(), Blocks.OAK_PLANKS);
-        helper.setBlock(WHEEL_POS.south(), Blocks.OAK_PLANKS);
+        // REQ-006: the BUG below faces SOUTH, so the pilot seat must sit exactly one block
+        // south of the wheel (the deterministic front-of-wheel anchor) -- it doubles as the
+        // south core-neighbor, same as any other ship_eligible block would.
+        helper.setBlock(WHEEL_POS.south(), ModBlocks.PILOT_SEAT);
         helper.setBlock(WHEEL_POS.east(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.west(), Blocks.OAK_PLANKS);
         helper.setBlock(WHEEL_POS.above(), ModBlocks.HELICOPTER_ENGINE);

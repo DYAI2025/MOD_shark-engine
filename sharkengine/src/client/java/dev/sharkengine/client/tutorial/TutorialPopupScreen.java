@@ -56,7 +56,7 @@ public final class TutorialPopupScreen extends Screen {
                 // "Assemble & Launch" button in the builder screen behind this popup.
                 PreviewState preview = BuilderModeClient.getPreview();
                 if (preview != null && preview.canAssemble()) {
-                    ClientPlayNetworking.send(new BuilderAssembleC2SPayload(preview.wheelPos()));
+                    ClientPlayNetworking.send(new BuilderAssembleC2SPayload(preview.wheelPos(), preview.sessionId()));
                 }
                 onClose();
             }).bounds((width - buttonWidth) / 2, buttonY, buttonWidth, 20).build());
@@ -72,16 +72,18 @@ public final class TutorialPopupScreen extends Screen {
         int startY = computePanelTop() + PANEL_PADDING + BODY_LINE_HEIGHT * maxBodyLines;
         int buttonWidth = 160;
 
+        // REQ-002/CAN-006: all three routes stay visible AND interactable in Release 1 -- LAND and
+        // WATER are not disabled/greyed-out buttons. Selecting either is a legitimate, clickable
+        // action; the server (TutorialService#handleModeSelection) is the sole authority on which
+        // route actually creates a build session, and answers a non-AIR pick with an explicit
+        // "coming soon" notice instead of quietly doing nothing. A disabled button here would look
+        // broken, not "future" -- exactly the failure mode the test-plan's counter-thesis names.
         for (VehicleClass mode : VehicleClass.values()) {
             int y = startY + mode.ordinal() * 25;
-            boolean enabled = mode == VehicleClass.AIR;
             Component label = Component.translatable("screen.sharkengine.tutorial.mode." + mode.name().toLowerCase(Locale.ROOT));
-            Button button = Button.builder(label, btn -> {
-                if (enabled) {
-                    selectedMode = mode;
-                }
-            }).bounds((width - buttonWidth) / 2, y, buttonWidth, 20).build();
-            button.active = enabled;
+            Button button = Button.builder(label, btn -> selectedMode = mode)
+                    .bounds((width - buttonWidth) / 2, y, buttonWidth, 20)
+                    .build();
             addRenderableWidget(button);
         }
     }

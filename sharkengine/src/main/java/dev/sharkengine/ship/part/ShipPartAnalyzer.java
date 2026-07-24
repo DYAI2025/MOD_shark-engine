@@ -27,7 +27,10 @@ public final class ShipPartAnalyzer {
     /**
      * Resolves every block id via {@link VehiclePartRegistry} and sums mass, lift,
      * thrust, drag, and fuel capacity; also counts how many resolved parts have role
-     * {@link PartRole#PROPULSION}.
+     * {@link PartRole#PROPULSION} and how many have role {@link PartRole#PILOT_SEAT}
+     * (REQ-005 — same counting treatment as propulsion, just a different multiplicity
+     * rule enforced by the caller: assembly requires exactly one pilot seat, not "at
+     * least one" like propulsion).
      *
      * @param blockIds block ids (namespace:path form) for every block in the structure;
      *                 {@code null} or empty yields {@link ShipStats#EMPTY}
@@ -43,6 +46,7 @@ public final class ShipPartAnalyzer {
         int drag = 0;
         int fuelCapacity = 0;
         int propulsionCount = 0;
+        int pilotSeatCount = 0;
 
         for (String id : blockIds) {
             VehiclePartDefinition def = VehiclePartRegistry.resolve(id);
@@ -54,8 +58,11 @@ public final class ShipPartAnalyzer {
             if (def.role() == PartRole.PROPULSION) {
                 propulsionCount++;
             }
+            if (def.role() == PartRole.PILOT_SEAT) {
+                pilotSeatCount++;
+            }
         }
 
-        return new ShipStats(mass, lift, thrust, drag, fuelCapacity, propulsionCount);
+        return new ShipStats(mass, lift, thrust, drag, fuelCapacity, propulsionCount, pilotSeatCount);
     }
 }

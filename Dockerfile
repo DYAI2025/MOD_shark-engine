@@ -4,7 +4,10 @@ FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /build
 COPY sharkengine/ ./
 
-RUN chmod +x gradlew && ./gradlew --no-daemon build -x test
+# The trailing rm is load-bearing: the runtime stage copies sharkengine-*.jar, and that
+# glob would otherwise ALSO ship sharkengine-*-sources.jar into mods/ (lost fix from the
+# abandoned line, 6ec531f — rediscovered 2026-07-24 by the T24 recovery audit).
+RUN chmod +x gradlew && ./gradlew --no-daemon build -x test && rm -f build/libs/*-sources.jar
 
 # Stage 2: Run Fabric server with the mod
 FROM eclipse-temurin:21-jre

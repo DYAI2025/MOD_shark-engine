@@ -26,7 +26,27 @@
             "dev.sharkengine.gametest.RotorHubGameTest",
             "dev.sharkengine.gametest.RotorBladeGameTest",
             "dev.sharkengine.gametest.LandingSkidGameTest",
-            "dev.sharkengine.gametest.ShipEntityMountGameTest"
+            "dev.sharkengine.gametest.ShipEntityMountGameTest",
+            "dev.sharkengine.gametest.VehicleRoutePopupGameTest",
+            "dev.sharkengine.gametest.BuildSessionAuthorizationGameTest",
+            "dev.sharkengine.gametest.VehicleRouteAvailabilityGameTest",
+            "dev.sharkengine.gametest.PilotSeatCountGameTest",
+            "dev.sharkengine.gametest.PilotSeatAnchorGameTest",
+            "dev.sharkengine.gametest.CopilotSeatOccupancyGameTest",
+            "dev.sharkengine.gametest.CockpitVisibilityGameTest",
+            "dev.sharkengine.gametest.PilotControlAuthorityGameTest",
+            "dev.sharkengine.gametest.CopilotDismountIntegrityGameTest",
+            "dev.sharkengine.gametest.VehicleReentryGameTest",
+            "dev.sharkengine.gametest.EditModeDistanceGameTest",
+            "dev.sharkengine.gametest.BuilderReopenGameTest",
+            "dev.sharkengine.gametest.AtomicEditReassemblyGameTest",
+            "dev.sharkengine.gametest.EditModeFootprintProtectionGameTest",
+      "dev.sharkengine.gametest.AssemblyDisassemblyRollbackGameTest",
+      "dev.sharkengine.gametest.FuelSyncCadenceGameTest",
+      "dev.sharkengine.gametest.VehiclePersistenceRestartGameTest",
+      "dev.sharkengine.gametest.ThrusterRecolorRejectionGameTest",
+      "dev.sharkengine.gametest.TrailColorPersistenceGameTest",
+      "dev.sharkengine.gametest.TrailParticleStressGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

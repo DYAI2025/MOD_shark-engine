@@ -476,12 +476,12 @@ class ResourceValidationTest {
          */
         private static final String[] ALL_BLOCK_IDS =
                 {"bug", "steering_wheel", "thruster", "airframe_panel", "fuselage_frame", "helicopter_engine",
-                        "rotor_hub", "rotor_blade", "landing_skid"};
+                        "rotor_hub", "rotor_blade", "landing_skid", "pilot_seat", "copilot_seat"};
 
-        /** Subset of {@link #ALL_BLOCK_IDS} that has a crafting recipe. All nine do today. */
+        /** Subset of {@link #ALL_BLOCK_IDS} that has a crafting recipe. All eleven do today. */
         private static final String[] CRAFTABLE_IDS =
                 {"bug", "steering_wheel", "thruster", "airframe_panel", "fuselage_frame", "helicopter_engine",
-                        "rotor_hub", "rotor_blade", "landing_skid"};
+                        "rotor_hub", "rotor_blade", "landing_skid", "pilot_seat", "copilot_seat"};
 
         private static final Path TEXTURES_ROOT = RESOURCES_ROOT.resolve("assets/sharkengine/textures");
 
@@ -794,6 +794,258 @@ class ResourceValidationTest {
                 assertFalse(enVal.isBlank(), "English translation for '" + key + "' must not be blank");
                 assertNotNull(deVal, "Missing German translation key '" + key + "' in de_de.json");
                 assertFalse(deVal.isBlank(), "German translation for '" + key + "' must not be blank");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("T04/REQ-004: Registration-closure guard (ModBlocks/ModItems vs. resource-contract lists)")
+    class RegistrationClosureTests {
+
+        private static final Path MOD_BLOCKS_SOURCE =
+                Path.of("src/main/java/dev/sharkengine/content/ModBlocks.java");
+        private static final Path MOD_ITEMS_SOURCE =
+                Path.of("src/main/java/dev/sharkengine/content/ModItems.java");
+
+        /**
+         * Text-based scan, NOT classloading: {@code ModBlocks}/{@code ModItems} pull in
+         * un-stubbed Minecraft/Fabric types ({@code Block}, {@code BuiltInRegistries},
+         * {@code Item}, {@code BlockItem}, {@code ItemGroupEvents}, ...) that do not exist
+         * on this {@code test} source set's classpath — same constraint already documented
+         * on {@link PerBlockResourceContractTests#ALL_BLOCK_IDS}'s javadoc. So this reads the
+         * .java source as plain text and regex-matches the {@code registerBlock("id", ...)} /
+         * {@code registerItem("id")} call-site string literals — the same regex-over-source
+         * idiom {@link #extractJsonKeys} already uses elsewhere in this file for JSON, just
+         * applied to .java source instead. This is the closure guard itself: it must fail
+         * loudly whenever a later task (T05, T07, T20, ...) registers a new block/item
+         * without updating the hand-maintained {@code ALL_BLOCK_IDS} /
+         * {@code INTERMEDIATE_ITEM_IDS} literal lists above.
+         */
+        private static Set<String> extractRegisteredIds(Path javaSource, String factoryMethodName) throws IOException {
+            String source = Files.readString(javaSource, StandardCharsets.UTF_8);
+            Set<String> ids = new TreeSet<>();
+            // Matches `registerBlock(` / `registerItem(` followed (across whitespace/newlines,
+            // since call sites wrap arguments onto their own line) by a string-literal first
+            // argument. Does not match the private factory-method *declarations* themselves
+            // (`registerBlock(String name, ...)` / `registerItem(String name)`), since their
+            // first token after `(` is an identifier, not a `"`.
+            Matcher m = Pattern.compile(Pattern.quote(factoryMethodName) + "\\(\\s*\"([^\"]+)\"").matcher(source);
+            while (m.find()) {
+                ids.add(m.group(1));
+            }
+            return ids;
+        }
+
+        @Test
+        @DisplayName("guard sanity: ModBlocks.java / ModItems.java exist at the scanned paths")
+        void sourceFilesExistAtScannedPaths() {
+            assertTrue(Files.exists(MOD_BLOCKS_SOURCE),
+                    "Expected to find ModBlocks.java at " + MOD_BLOCKS_SOURCE.toAbsolutePath()
+                            + " — did the class move? Update RegistrationClosureTests' scan path.");
+            assertTrue(Files.exists(MOD_ITEMS_SOURCE),
+                    "Expected to find ModItems.java at " + MOD_ITEMS_SOURCE.toAbsolutePath()
+                            + " — did the class move? Update RegistrationClosureTests' scan path.");
+        }
+
+        @Test
+        @DisplayName("REGRESSION GUARD: every registerBlock(...) call-site id is listed in ALL_BLOCK_IDS")
+        void everyRegisteredBlockIsInResourceContract() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_BLOCKS_SOURCE, "registerBlock");
+            assertFalse(registeredIds.isEmpty(),
+                    "Found zero registerBlock(...) call sites in " + MOD_BLOCKS_SOURCE
+                            + " — the source-scanning regex may be broken (guard would silently pass "
+                            + "vacuously otherwise)");
+
+            Set<String> contractIds = new TreeSet<>(List.of(PerBlockResourceContractTests.ALL_BLOCK_IDS));
+            Set<String> missingFromContract = new TreeSet<>(registeredIds);
+            missingFromContract.removeAll(contractIds);
+
+            assertTrue(missingFromContract.isEmpty(),
+                    "Block id(s) registered in ModBlocks.java but missing from ResourceValidationTest's "
+                            + "ALL_BLOCK_IDS resource-contract list: " + missingFromContract
+                            + " — add them to ALL_BLOCK_IDS (and CRAFTABLE_IDS if craftable) in the same "
+                            + "commit that registers the block. This is the T04/REQ-004 registration-closure "
+                            + "guard firing as designed.");
+        }
+
+        @Test
+        @DisplayName("hygiene: ALL_BLOCK_IDS lists no id that isn't actually registered in ModBlocks.java")
+        void resourceContractHasNoStaleBlockEntries() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_BLOCKS_SOURCE, "registerBlock");
+            Set<String> contractIds = new TreeSet<>(List.of(PerBlockResourceContractTests.ALL_BLOCK_IDS));
+            Set<String> staleInContract = new TreeSet<>(contractIds);
+            staleInContract.removeAll(registeredIds);
+
+            assertTrue(staleInContract.isEmpty(),
+                    "ALL_BLOCK_IDS lists block id(s) with no matching registerBlock(...) call site in "
+                            + "ModBlocks.java: " + staleInContract + " — remove the stale entry or fix the "
+                            + "registration (keeps the closure guard bidirectionally honest, not just "
+                            + "forward-checking).");
+        }
+
+        @Test
+        @DisplayName("REGRESSION GUARD: every registerItem(...) call-site id is listed in INTERMEDIATE_ITEM_IDS")
+        void everyRegisteredItemIsInResourceContract() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_ITEMS_SOURCE, "registerItem");
+            assertFalse(registeredIds.isEmpty(),
+                    "Found zero registerItem(...) call sites in " + MOD_ITEMS_SOURCE
+                            + " — the source-scanning regex may be broken (guard would silently pass "
+                            + "vacuously otherwise)");
+
+            Set<String> contractIds = new TreeSet<>(
+                    List.of(CraftingIntermediateResourceContractTests.INTERMEDIATE_ITEM_IDS));
+            Set<String> missingFromContract = new TreeSet<>(registeredIds);
+            missingFromContract.removeAll(contractIds);
+
+            assertTrue(missingFromContract.isEmpty(),
+                    "Item id(s) registered in ModItems.java but missing from ResourceValidationTest's "
+                            + "INTERMEDIATE_ITEM_IDS resource-contract list: " + missingFromContract
+                            + " — add them to the appropriate resource-contract literal list in the same "
+                            + "commit that registers the item. This is the T04/REQ-004 registration-closure "
+                            + "guard firing as designed.");
+        }
+
+        @Test
+        @DisplayName("hygiene: INTERMEDIATE_ITEM_IDS lists no id that isn't actually registered in ModItems.java")
+        void resourceContractHasNoStaleItemEntries() throws IOException {
+            Set<String> registeredIds = extractRegisteredIds(MOD_ITEMS_SOURCE, "registerItem");
+            Set<String> contractIds = new TreeSet<>(
+                    List.of(CraftingIntermediateResourceContractTests.INTERMEDIATE_ITEM_IDS));
+            Set<String> staleInContract = new TreeSet<>(contractIds);
+            staleInContract.removeAll(registeredIds);
+
+            assertTrue(staleInContract.isEmpty(),
+                    "INTERMEDIATE_ITEM_IDS lists item id(s) with no matching registerItem(...) call site "
+                            + "in ModItems.java: " + staleInContract + " — remove the stale entry or fix "
+                            + "the registration (keeps the closure guard bidirectionally honest, not just "
+                            + "forward-checking).");
+        }
+    }
+
+    /**
+     * REQ-018/T20 (AC-018): the council-approved single-item + craft-time-component design —
+     * exactly ONE thruster id across ModBlocks/ModItems, exactly ONE coloring recipe file for
+     * all 16 dyes, and a registered trail_color component. A {@code thruster_<color>}-style id
+     * or per-dye recipe file appearing is the explicitly REJECTED 16-item design
+     * (LED-002/RISK-008) sneaking back in under deadline pressure — the tester's sharpest
+     * named risk for this REQ.
+     */
+    @Nested
+    @DisplayName("REQ-018/T20: single thruster item + craft-time DyeColor component")
+    class ThrusterDyeComponentResourceTests {
+
+        private static final Path MOD_BLOCKS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModBlocks.java");
+        private static final Path MOD_ITEMS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModItems.java");
+        private static final Path MOD_COMPONENTS_SRC = Path.of("src/main/java/dev/sharkengine/content/ModComponents.java");
+        private static final Path RECIPE_DIR = Path.of("src/main/generated/data/sharkengine/recipe");
+
+        private static final List<String> DYE_NAMES = List.of(
+                "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+                "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black");
+
+        @Test
+        @DisplayName("Exactly one thruster registration id exists (no thruster_<color> variants)")
+        void exactlyOneThrusterRegistrationId() throws IOException {
+            String sources = Files.readString(MOD_BLOCKS_SRC) + Files.readString(MOD_ITEMS_SRC);
+            Matcher m = Pattern.compile("\"(thruster[a-z0-9_]*)\"").matcher(sources);
+            Set<String> ids = new TreeSet<>();
+            while (m.find()) {
+                ids.add(m.group(1));
+            }
+            assertEquals(Set.of("thruster"), ids,
+                    "expected exactly the single 'thruster' registration id — any thruster_<color> id "
+                            + "is the rejected 16-item design (LED-002)");
+        }
+
+        @Test
+        @DisplayName("Exactly one coloring recipe file governs all 16 dyes")
+        void exactlyOneColoringRecipeFile() {
+            assertTrue(Files.exists(RECIPE_DIR.resolve("thruster_coloring.json")),
+                    "thruster_coloring.json missing — the single dye-agnostic coloring recipe "
+                            + "(REQ-018) does not exist");
+            for (String dye : DYE_NAMES) {
+                assertFalse(Files.exists(RECIPE_DIR.resolve("thruster_" + dye + ".json")),
+                        "per-dye recipe thruster_" + dye + ".json exists — rejected 16-recipe design");
+            }
+            assertTrue(Files.exists(RECIPE_DIR.resolve("thruster.json")),
+                    "base thruster crafting recipe must still exist (T04 contract untouched)");
+        }
+
+        @Test
+        @DisplayName("trail_color data component is registered in ModComponents")
+        void trailColorComponentRegistered() throws IOException {
+            assertTrue(Files.exists(MOD_COMPONENTS_SRC),
+                    "ModComponents.java missing — no trail_color component registration");
+            String source = Files.readString(MOD_COMPONENTS_SRC);
+            assertTrue(source.contains("\"trail_color\""),
+                    "ModComponents does not register the 'trail_color' component id");
+        }
+    }
+
+    /**
+     * REQ-019/T21 (AC-019): single render path — the trail is a programmatically TINTED vanilla
+     * dust particle and the thruster model reuses vanilla textures, so the mod's texture
+     * baseline for thruster/trail is ZERO files. A {@code thruster_red.png}-style texture or a
+     * per-color blockstate dispatch appearing is the texture-swap implementation the test plan
+     * names as the falsifier ("16 baked particle textures switched by color"), regardless of
+     * how correct it looks visually.
+     */
+    @Nested
+    @DisplayName("REQ-019/T21: single tinted render path — no per-color textures or models")
+    class TrailTextureResourceTests {
+
+        @Test
+        @DisplayName("Zero thruster/trail texture files exist (baseline) — especially no per-dye variants")
+        void noThrusterOrTrailTextures() throws IOException {
+            for (Path root : List.of(RESOURCES_ROOT.resolve("assets"), GENERATED_ROOT.resolve("assets"))) {
+                if (!Files.exists(root)) {
+                    continue;
+                }
+                try (var walk = Files.walk(root)) {
+                    List<Path> offenders = walk
+                            .filter(p -> p.toString().endsWith(".png"))
+                            .filter(p -> {
+                                String name = p.getFileName().toString();
+                                return name.contains("thruster") || name.contains("trail");
+                            })
+                            .toList();
+                    assertTrue(offenders.isEmpty(),
+                            "thruster/trail texture file(s) appeared: " + offenders + " — the trail is a "
+                                    + "TINTED vanilla dust particle (one path, 17 cases); per-color textures "
+                                    + "are the rejected texture-swap design");
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Thruster blockstate keeps the catch-all variant — no per-color model dispatch")
+        void thrusterBlockstateHasNoPerColorDispatch() throws IOException {
+            Path blockstate = GENERATED_ROOT.resolve("assets/sharkengine/blockstates/thruster.json");
+            assertTrue(Files.exists(blockstate), "generated thruster blockstate missing");
+            String json = Files.readString(blockstate);
+            assertTrue(json.contains("\"\""),
+                    "thruster blockstate lost its catch-all \"\" variant — all trail_color states must "
+                            + "share ONE model");
+            assertFalse(json.contains("trail_color="),
+                    "thruster blockstate dispatches per trail_color state — that is per-color model "
+                            + "switching, the rejected texture-swap design");
+        }
+
+        @Test
+        @DisplayName("Exactly one thruster block model, referencing no dye-specific textures")
+        void singleThrusterModelWithoutDyeTextures() throws IOException {
+            Path modelDir = GENERATED_ROOT.resolve("assets/sharkengine/models/block");
+            try (var walk = Files.list(modelDir)) {
+                List<Path> thrusterModels = walk
+                        .filter(p -> p.getFileName().toString().startsWith("thruster"))
+                        .toList();
+                assertEquals(1, thrusterModels.size(),
+                        "expected exactly one thruster block model, found " + thrusterModels);
+                String json = Files.readString(thrusterModels.get(0));
+                for (String dye : ThrusterDyeComponentResourceTests.DYE_NAMES) {
+                    assertFalse(json.contains(dye),
+                            "thruster model references dye-specific content '" + dye + "'");
+                }
             }
         }
     }

@@ -24,6 +24,7 @@ class ShipPartAnalyzerTest {
     private static final String THRUSTER_ID = "sharkengine:thruster";
     private static final String STEERING_WHEEL_ID = "sharkengine:steering_wheel";
     private static final String BUG_ID = "sharkengine:bug";
+    private static final String PILOT_SEAT_ID = "sharkengine:pilot_seat";
     private static final String UNKNOWN_ID = "minecraft:oak_planks";
 
     // ─── empty / null input ───────────────────────────────────────────────────
@@ -134,5 +135,56 @@ class ShipPartAnalyzerTest {
         ShipStats stats = ShipPartAnalyzer.analyze(ids);
         assertEquals(1, stats.propulsionCount());
         assertTrue(stats.hasPropulsion());
+    }
+
+    // ─── REQ-005/T05: PILOT_SEAT role counting ─────────────────────────────────
+
+    @Test
+    @DisplayName("ShipStats.EMPTY has zero pilot seats")
+    void emptyStatsHasNoPilotSeats() {
+        assertEquals(0, ShipStats.EMPTY.pilotSeatCount());
+    }
+
+    @Test
+    @DisplayName("single pilot_seat: mass=1, pilotSeatCount=1, no lift/thrust/drag/fuel")
+    void singlePilotSeatAggregates() {
+        ShipStats stats = ShipPartAnalyzer.analyze(List.of(PILOT_SEAT_ID));
+        assertEquals(1, stats.mass());
+        assertEquals(0, stats.lift());
+        assertEquals(0, stats.thrust());
+        assertEquals(0, stats.drag());
+        assertEquals(0, stats.fuelCapacity());
+        assertEquals(1, stats.pilotSeatCount());
+        assertEquals(0, stats.propulsionCount(), "a pilot seat must not count as propulsion");
+    }
+
+    @Test
+    @DisplayName("a part set with zero pilot seats has pilotSeatCount=0")
+    void noPilotSeatPartsMeansZeroCount() {
+        List<String> ids = List.of(STEERING_WHEEL_ID, BUG_ID, THRUSTER_ID);
+        ShipStats stats = ShipPartAnalyzer.analyze(ids);
+        assertEquals(0, stats.pilotSeatCount());
+    }
+
+    @Test
+    @DisplayName("two pilot seats in the same block-id multiset both count, "
+            + "regardless of scan order (REQ-005 'exactly one' counter-thesis: "
+            + "no early-break, every match is tallied)")
+    void twoPilotSeatsBothCount() {
+        List<String> ids = List.of(THRUSTER_ID, PILOT_SEAT_ID, STEERING_WHEEL_ID,
+                BUG_ID, UNKNOWN_ID, PILOT_SEAT_ID);
+        ShipStats stats = ShipPartAnalyzer.analyze(ids);
+        assertEquals(2, stats.pilotSeatCount());
+    }
+
+    @Test
+    @DisplayName("mixed set: thruster + pilot_seat + steering_wheel + bug sums deterministically")
+    void mixedSetWithPilotSeatAggregatesDeterministically() {
+        List<String> ids = List.of(THRUSTER_ID, PILOT_SEAT_ID, STEERING_WHEEL_ID, BUG_ID);
+        ShipStats stats = ShipPartAnalyzer.analyze(ids);
+        // thruster mass=2, pilot_seat mass=1, steering_wheel mass=2, bug mass=1
+        assertEquals(6, stats.mass());
+        assertEquals(1, stats.propulsionCount());
+        assertEquals(1, stats.pilotSeatCount());
     }
 }

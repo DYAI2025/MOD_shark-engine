@@ -46,6 +46,16 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
 
     @Override
     public void buildRecipes(RecipeOutput exporter) {
+        // REQ-018/T20: the single dye-agnostic thruster-coloring recipe. A custom matcher is
+        // mandatory — a static JSON cannot derive the output component from the input dye, and
+        // the 16-per-dye-JSON alternative is the council-rejected design (LED-002). ONE file for
+        // all 16 dyes; ResourceValidationTest.ThrusterDyeComponentResourceTests guards that no
+        // thruster_<color>.json ever appears here.
+        exporter.accept(
+                ResourceLocation.fromNamespaceAndPath(output.getModId(), "thruster_coloring"),
+                new dev.sharkengine.content.ThrusterColoringRecipe(CraftingBookCategory.EQUIPMENT),
+                null);
+
         // thruster: I=iron_ingot, F=fire_charge, B=blaze_rod, R=redstone
         // "IFI" / "BRB" / "IFI"
         shapedRecipe(
@@ -236,6 +246,40 @@ final class SharkEngineRecipeProvider extends FabricRecipeProvider {
                         'M', Ingredient.of(ModItems.METAL_SHEET)
                 ),
                 "I I", "MMM"
+        );
+
+        // ─── REQ-005/T05: generic pilot seat ─────────────────────────────────────
+        // pilot_seat: W=#minecraft:wool, P=#minecraft:planks -- single row "WPW"
+        // (cushion, frame, cushion), yield 1. Deliberately generic reagents (wool +
+        // planks, no metal_sheet/AIR-040 intermediate tie-in) so the recipe itself
+        // carries no AIR-specific flavor, consistent with REQ-005's "reusable for
+        // later LAND/WATER profiles" requirement.
+        shapedRecipe(
+                exporter,
+                "pilot_seat",
+                ModBlocks.PILOT_SEAT.asItem(),
+                Map.of(
+                        'W', Ingredient.of(ItemTags.WOOL),
+                        'P', Ingredient.of(ItemTags.PLANKS)
+                ),
+                "WPW"
+        );
+
+        // ─── REQ-009/T07: craftable copilot seat ─────────────────────────────────
+        // copilot_seat: same "WPW" cushion/frame/cushion shape as pilot_seat (generic
+        // reagents, no AIR-specific flavor, same REQ-005-style reuse rationale), swapping
+        // in an iron ingot for the frame slot instead of planks so the two seats need
+        // genuinely different reagents rather than being craftable from the exact same
+        // materials.
+        shapedRecipe(
+                exporter,
+                "copilot_seat",
+                ModBlocks.COPILOT_SEAT.asItem(),
+                Map.of(
+                        'W', Ingredient.of(ItemTags.WOOL),
+                        'I', Ingredient.of(Items.IRON_INGOT)
+                ),
+                "WIW"
         );
     }
 

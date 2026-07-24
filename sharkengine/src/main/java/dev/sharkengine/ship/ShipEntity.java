@@ -1,5 +1,6 @@
 package dev.sharkengine.ship;
 
+import dev.sharkengine.SharkEngineMod;
 import dev.sharkengine.net.ShipBlueprintS2CPayload;
 import dev.sharkengine.ship.part.ShipPartAnalyzer;
 import dev.sharkengine.ship.part.ShipStats;
@@ -32,7 +33,9 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -98,6 +101,81 @@ public final class ShipEntity extends Entity {
     private float inputTurn;     // -1..+1 (rotation)
     private ShipBlueprint blueprint;
     private UUID pilot;
+
+    /**
+     * REQ-009/T07: the currently-mounted copilot's UUID, or {@code null} if the copilot
+     * seat is empty — a stored occupant reference, the same shape as {@link #pilot}. The
+     * T07 falsifying-test contract's sharpest named risk is an occupancy check that
+     * OVERWRITES this reference on a second interact instead of rejecting it outright, so a
+     * second player silently displaces the first with no dismount event; {@link
+     * #mountCopilot} guards against exactly that — see its javadoc.
+     */
+    private UUID copilot;
+
+    /**
+     * REQ-012/T12: whether AIR "Edit Mode" is currently open on this ship. Transient, in-memory
+     * only for T12's scope (the gate itself) — persisting this across a server restart is
+     * REQ-017's job, not this field's, matching the PRD's own note that "Edit-Zustand" belongs to
+     * REQ-017's persistence sweep. Flipped {@code true} only via a fully-ACCEPTED {@link
+     * #tryEnterEditMode}; never set anywhere else, so it also doubles as the "conflict-free"
+     * precondition {@link EditModeDistanceGate} checks — a second concurrent open attempt while
+     * this is already {@code true} is rejected ({@link EditModeDistanceGate.Reason#REJECTED_CONFLICT}).
+     *
+     * <p><b>REQ-014/T14 remediation — the close/reset path now exists:</b> this field used to have
+     * NO way back to {@code false} (see the pre-T14 revision of this javadoc, preserved in git
+     * history, for the exact disclosed gap: opening Edit Mode successfully even ONCE permanently
+     * rejected every later open attempt on that ship with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT}). {@link #exitEditMode()} is the fix — the
+     * ONLY other place in this class allowed to flip this field, mirroring how {@link
+     * #tryEnterEditMode} is the ONLY place that flips it to {@code true}. {@link
+     * ShipAssemblyService#commitEdit} calls {@link #exitEditMode()} unconditionally at the end of
+     * EVERY commit attempt it processes — successful AND rejected alike (see that method's own
+     * javadoc for why a rejected commit still ends the session rather than leaving it "open for
+     * retry": leaving it active on rejection would resurrect this exact permanently-stuck failure
+     * mode for a player who abandons a broken edit without ever producing a valid structure).</p>
+     */
+    private boolean editModeActive;
+
+    /**
+     * REQ-017/T18 (Preconditions §7): reserved, generic trail-config NBT slot. Carried through
+     * load→save untouched so T21 (REQ-019) can populate it with the DyeColor trail component
+     * without another schema change. Never interpreted here.
+     */
+    private CompoundTag trailConfigNbt = null;
+
+    /**
+     * REQ-009/T07 remediation (QA finding: {@code secondPlayerCannotDisplaceFirstCopilot}'s
+     * javadoc/fail-messages claimed to rule out "even an internal dismount-and-remount cycle"
+     * for the first copilot, but every assertion was a post-hoc end-state check with zero
+     * instrumentation on the actual mount/dismount machinery -- a hypothetical internal
+     * displace-then-remount that preserved final state would still have passed silently).
+     * Counts, per passenger UUID, how many times {@link #addPassenger} has actually fired for
+     * them -- i.e. real mount events via ANY path (vanilla's own machinery included), not just
+     * the call sites this class happens to control today. Tests use this to assert a specific
+     * player's count did NOT increment while a different player's interaction was processed,
+     * which a pure end-state check cannot.
+     *
+     * <p>Bounded growth (non-blocking pattern flagged across T01/T02/T03's own per-player
+     * maps -- {@code TutorialService#lastPopupSent}, {@code ShipAssemblyService#lastPreviewSent},
+     * {@code TutorialService#lastModeLockedNotice} -- all of which are {@code static}
+     * server-lifetime maps keyed by every player who ever connects; this one is materially
+     * different in scope, since it is a per-{@code ShipEntity} INSTANCE field, so its lifetime
+     * and key cardinality are already bounded by this specific ship's own lifetime and the set
+     * of distinct players who actually rode it, not the server's whole population. There is no
+     * existing player-disconnect event hook anywhere in this codebase to reuse (checked), and
+     * this ship entity is not tracked in any global registry a disconnect listener could use to
+     * find and clear it, so "clear on disconnect" would require adding both a new event
+     * registration AND a new global live-ship registry -- real new infrastructure, not the "few
+     * lines" this cleanup pass is scoped to. {@link #MAX_TRACKED_MOUNT_COUNTS} instead caps this
+     * map's size defensively in {@link #addPassenger}: since this map is pure test/inspection
+     * instrumentation (never consulted by {@link #mountCopilot}'s actual occupancy guard, which
+     * uses {@link #copilot} directly), resetting it past the cap loses no gameplay-relevant
+     * state, only long-tail historical mount-count instrumentation for a ship far past any
+     * realistic distinct-rider count.</p>
+     */
+    private static final int MAX_TRACKED_MOUNT_COUNTS = 64;
+
+    private final Map<UUID, Integer> passengerMountCounts = new HashMap<>();
 
     /** Vehicle class (AIR for MVP) */
     private VehicleClass vehicleClass = VehicleClass.AIR;
@@ -286,6 +364,317 @@ public final class ShipEntity extends Entity {
         return pilot != null && pilot.equals(p.getUUID());
     }
 
+    /**
+     * REQ-009/T07: the copilot seat's server-authoritative occupant reference, or {@code
+     * null} if empty. See {@link #copilot}'s javadoc for the falsifying-test contract this
+     * exists to satisfy.
+     */
+    public UUID getCopilot() {
+        return copilot;
+    }
+
+    public boolean isCopilot(Player p) {
+        return copilot != null && copilot.equals(p.getUUID());
+    }
+
+    /** REQ-012/T12: whether AIR Edit Mode is currently open on this ship. See {@link #editModeActive}'s javadoc. */
+    public boolean isEditModeActive() {
+        return editModeActive;
+    }
+
+    /**
+     * REQ-014/T14: the real close/reset path for {@link #editModeActive}, filling the gap that
+     * field's (and {@link #tryEnterEditMode}'s) javadoc used to disclose. This is the ONLY method
+     * in this class that flips {@link #editModeActive} back to {@code false} — symmetric with
+     * {@link #tryEnterEditMode} being the only method that flips it to {@code true}. Idempotent
+     * (calling it when already {@code false} is a harmless no-op) and deliberately dumb: it does
+     * not itself decide WHETHER a session should end, only performs the state transition once a
+     * caller has already decided it should — {@link ShipAssemblyService#commitEdit} is that
+     * caller in production, for both its success and rejection outcomes (see that method's
+     * javadoc for the reasoning).
+     */
+    public void exitEditMode() {
+        editModeActive = false;
+    }
+
+    /**
+     * REQ-012/AC-012 (T12): attempts to open AIR "Edit Mode" for {@code player} on this
+     * already-assembled, already-launched ship. This is the single production entry point tying
+     * together every REQ-012 precondition — callers must call this rather than mutating {@link
+     * #editModeActive} directly.
+     *
+     * <p><b>Control Anchor (PRD OQ-001/ASM-001):</b> the "Fünf-Block-Regel" measures distance from
+     * the player to the vehicle's Control Anchor. This ship's own world position IS that anchor —
+     * {@link ShipAssemblyService#tryAssemble} spawns every {@link ShipEntity} at exactly the
+     * Steering Wheel's world position ({@code shipEntity.setPos(wheelPos.getX() + 0.5, ...)}), and
+     * this entity's {@code move(MoverType.SELF, ...)} in {@link #updatePhysics()}/the tick loop
+     * translates the whole entity (and therefore this origin) uniformly with the rest of the
+     * structure — so {@link #getX()}/{@link #getY()}/{@link #getZ()} always resolve to wherever
+     * the wheel currently is, in flight or at rest, exactly the reference point the term implies.</p>
+     *
+     * <p>Delegates the actual accept/reject decision to the pure {@link
+     * EditModeDistanceGate#evaluate} (genuinely Euclidean distance, OQ-001 — see that class's
+     * javadoc for why {@code ShipAssemblyService#scanStructure}'s existing Manhattan
+     * {@code distManhattan} radius-check idiom is deliberately NOT reused here) after resolving
+     * this ship's own live preconditions: {@code isPilot(player)} (REQ-008: "Edit" is one of the
+     * pilot-exclusive command classes), {@link #isDestroyed()}, "stationary" ({@link
+     * #getCurrentSpeed()} below {@link EditModeDistanceGate#STATIONARY_SPEED_EPSILON}, the same
+     * threshold {@link #updatePhysics()} itself already snaps residual speed to zero at), and
+     * "conflict-free" ({@link #editModeActive} not already {@code true}).</p>
+     *
+     * <p><b>Security fix (reviewer-reported, attempt-1 finding):</b> {@code dx}/{@code dy}/{@code
+     * dz} are raw numeric per-axis offsets ({@code player.getX() - this.getX()}, etc.), and every
+     * Minecraft dimension shares the exact same coordinate space — a player standing in the Nether
+     * or the End at coordinates that numerically match this ship's Overworld position previously
+     * resolved to offset (0,0,0) and was wrongly ACCEPTED as "physically next to the ship." This
+     * method now resolves {@code sameDimension} via {@code player.level() == this.level()} — a live
+     * reference-equality check on the current {@link net.minecraft.world.level.Level} instance,
+     * which on a running server is a per-dimension singleton — and passes it to {@link
+     * EditModeDistanceGate#evaluate} as an independent precondition axis ({@link
+     * EditModeDistanceGate.Reason#REJECTED_WRONG_DIMENSION}), checked before the distance offsets
+     * are treated as meaningful at all. Mirrors the same dimension axis {@link BuildSessionGate}
+     * already checks for the analogous build-session Control Anchor proximity gate (REQ-003/T02).</p>
+     *
+     * <p>On {@link EditModeDistanceGate.Reason#ACCEPTED}, flips {@link #editModeActive} to {@code
+     * true} — world/session mutation stops there; opening the actual builder menu populated with
+     * the vehicle's live structure is REQ-013/T13's scope, not this method's. On any rejection,
+     * this ship's state is left completely unchanged (AC-012: "erfolgt keine Zustandsänderung").</p>
+     *
+     * <p><b>Close/reset path (REQ-014/T14):</b> this method only ever transitions Edit Mode
+     * false→true; {@link #exitEditMode()} is the sole path back to {@code false}, called by
+     * {@link ShipAssemblyService#commitEdit} at the end of every commit attempt it processes
+     * (success or rejection). Calling this method a second time on a ship whose Edit Mode is
+     * still genuinely open (no commit attempt has run yet) is correctly rejected with {@link
+     * EditModeDistanceGate.Reason#REJECTED_CONFLICT} — that is the "conflict-free" precondition
+     * working as intended, not the old permanently-stuck gap.</p>
+     */
+    public EditModeDistanceGate.Reason tryEnterEditMode(ServerPlayer player) {
+        boolean authorized = isPilot(player);
+        boolean stationary = getCurrentSpeed() < EditModeDistanceGate.STATIONARY_SPEED_EPSILON;
+        boolean sameDimension = player.level() == this.level();
+        double dx = player.getX() - this.getX();
+        double dy = player.getY() - this.getY();
+        double dz = player.getZ() - this.getZ();
+
+        EditModeDistanceGate.Reason reason = EditModeDistanceGate.evaluate(
+                authorized, isDestroyed(), stationary, editModeActive, sameDimension, dx, dy, dz);
+
+        if (reason == EditModeDistanceGate.Reason.ACCEPTED) {
+            editModeActive = true;
+        }
+        return reason;
+    }
+
+    /**
+     * Vanilla hook fired by {@code Entity#startRiding} on the vehicle (this ship) whenever
+     * ANY passenger actually mounts it -- through {@link #mountCopilot}, the {@link #interact}
+     * pilot fallback, or any other path, present or future. Recorded per-UUID in {@link
+     * #passengerMountCounts} so tests can assert a specific player's mount count did NOT
+     * change while unrelated interactions were processed (see {@link #getMountCount}),
+     * catching a hypothetical internal dismount-and-remount cycle that a pure end-state check
+     * would miss.
+     */
+    @Override
+    protected void addPassenger(Entity passenger) {
+        super.addPassenger(passenger);
+        // Defensive size cap (see passengerMountCounts' javadoc): only ever trims when a
+        // genuinely NEW rider would push this ship past MAX_TRACKED_MOUNT_COUNTS distinct
+        // UUIDs -- an existing rider's own running count is never reset by their own repeat
+        // mounts, only by some other, previously-untracked player's arrival once the map is
+        // already at the cap.
+        if (passengerMountCounts.size() >= MAX_TRACKED_MOUNT_COUNTS
+                && !passengerMountCounts.containsKey(passenger.getUUID())) {
+            passengerMountCounts.clear();
+        }
+        passengerMountCounts.merge(passenger.getUUID(), 1, Integer::sum);
+        // REQ-007/AC-007 (T08): server-side-only cockpit visibility check, wired into the real
+        // seat-occupancy event -- not a client-only render-layer trick (test-plan's named
+        // counter-thesis risk for REQ-007). By the time this fires, both mount call sites
+        // (ShipAssemblyService#tryAssemble's initial pilot mount and #mountCopilot) have already
+        // assigned #pilot/#copilot, so isPilot/isCopilot below correctly resolve the seat this
+        // passenger just occupied.
+        if (!level().isClientSide) {
+            logIfCockpitVisibilityNonCompliant(passenger);
+        }
+    }
+
+    /**
+     * REQ-010/AC-010 (T10) falsifying-test contract (test-plan, "REQ-010 — Passive copilot
+     * behavior"): the vanilla hook fired by {@code Entity#stopRiding} on the departing passenger
+     * (which calls {@code vehicle#removePassenger(this)}) whenever ANY passenger actually
+     * dismounts this ship -- the exact symmetric counterpart to {@link #addPassenger}. Before
+     * this override existed, dismount ran entirely through vanilla's own passenger-list
+     * machinery with zero hook here, leaving {@link #copilot} a dangling stale reference to the
+     * departed player until the NEXT {@link #mountCopilot} call happened to self-heal it -- i.e.
+     * {@link #getCopilot()} (and the persisted {@code Copilot} NBT tag) kept reporting the seat
+     * "occupied" by someone no longer aboard for an unbounded window after a completely normal
+     * dismount. That is precisely the failure mode this task's counter-thesis named: "leave the
+     * copilot seat's internal state dangling so it appears occupied forever afterward -- silently
+     * breaking REQ-011's re-entry guarantee even though nobody is in the seat" (confirmed as a
+     * real, reproducible gap by {@code CopilotDismountIntegrityGameTest
+     * #midFlightDismountLeavesPilotUnaffected} against the pre-fix code).
+     *
+     * <p>Deliberately narrow and one-directional: only clears {@link #copilot} when the
+     * departing passenger IS the currently-tracked copilot, and never touches {@link #pilot} --
+     * {@code pilot} is intentionally never cleared on dismount at all (see its own mount-path
+     * comment in {@link #interact}, REQ-011: "a ship can exist with no pilot aboard" is normal,
+     * expected state). There is no shared "occupants" list here for a dismount to accidentally
+     * wipe wholesale -- {@code pilot} and {@code copilot} are two independent {@code UUID}
+     * fields, and this override only ever writes the one matching the departing passenger.</p>
+     */
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        if (copilot != null && copilot.equals(passenger.getUUID())) {
+            copilot = null;
+        }
+    }
+
+    /**
+     * REQ-007/AC-007 (T08, OQ-003 resolved 2026-07-18): logs a warning when the seat
+     * {@code passenger} just occupied leaves them fully exposed above the hull. Deliberately
+     * ignores armor/skin/third-person camera entirely -- the only per-player input threaded
+     * through is {@code passenger.getEyeHeight()} (a plain {@code double}, pose-dependent only;
+     * vanilla armor/skin never change it), fed into {@link
+     * CockpitVisibility#isFullyExposedAboveHull}, whose signature structurally cannot accept
+     * armor or skin data at all (see {@code CockpitVisibilityTest}).
+     *
+     * <p><b>T08 remediation:</b> AC-007's actual promise is now enforced structurally for the
+     * PILOT seat -- {@code ShipAssemblyService.StructureScan#cockpitVisibilityCompliant} rejects
+     * assembly outright (see {@code ShipAssemblyService#tryAssemble}) whenever this same check
+     * would report non-compliant, so a successfully-assembled ship's pilot seat can never reach
+     * this method in a non-compliant state. This log call therefore never fires for a
+     * production-assembled PILOT seat and remains purely defense-in-depth for it; it still does
+     * real work for the COPILOT seat, whose {@code SeatAnchor} position (wherever the {@code
+     * copilot_seat} block was actually placed, T07) is NOT gated by assembly the way the pilot's
+     * deterministic front-of-wheel anchor is. Still does not reposition the passenger or reject
+     * the mount itself -- only computes and surfaces the check server-side.</p>
+     */
+    private void logIfCockpitVisibilityNonCompliant(Entity passenger) {
+        if (blueprint == null || !(passenger instanceof Player player)) {
+            return;
+        }
+        ShipBlueprint.SeatRole role;
+        if (isPilot(player)) {
+            role = ShipBlueprint.SeatRole.PILOT;
+        } else if (isCopilot(player)) {
+            role = ShipBlueprint.SeatRole.COPILOT;
+        } else {
+            return; // untracked passenger (shouldn't happen post-T07 fix) -- nothing to check
+        }
+        if (!isSeatVisibilityCompliant(role, passenger.getEyeHeight())) {
+            SharkEngineMod.LOGGER.warn(
+                    "REQ-007: {} seat on ship {} leaves player {} fully exposed above the hull "
+                            + "(eyeHeight={})",
+                    role, this.getId(), player.getGameProfile().getName(), passenger.getEyeHeight());
+        }
+    }
+
+    /**
+     * REQ-007/AC-007 (T08): whether {@code role}'s {@code SeatAnchor} -- if this ship's
+     * blueprint carries one -- keeps an occupant with the given {@code eyeHeight} concealed
+     * below the tallest adjacent hull block (the inverse of {@link
+     * CockpitVisibility#isFullyExposedAboveHull}). Returns {@code true} (compliant) when the
+     * role has no {@code SeatAnchor} at all -- nothing to check. {@code eyeHeight} is a plain
+     * {@code double}, never a {@code Player}/armor/skin value (OQ-003) -- callers resolve a real
+     * occupant's eye height themselves, exactly like {@link #logIfCockpitVisibilityNonCompliant}
+     * does for an actual mount event.
+     */
+    public boolean isSeatVisibilityCompliant(ShipBlueprint.SeatRole role, double eyeHeight) {
+        if (blueprint == null) {
+            return true;
+        }
+        for (ShipBlueprint.SeatAnchor anchor : blueprint.seatAnchors()) {
+            if (anchor.role() != role) {
+                continue;
+            }
+            double tallestAdjacentHullTopY = tallestAdjacentHullTopY(anchor);
+            return !CockpitVisibility.isFullyExposedAboveHull(anchor.dy(), eyeHeight, tallestAdjacentHullTopY);
+        }
+        return true;
+    }
+
+    /**
+     * REQ-007: the Y-offset of the top face of the tallest block in this ship's blueprint
+     * adjacent (one of the 4 horizontal neighbor columns, at any height) to {@code anchor}'s
+     * (dx, dz) column -- the "hull wall" that could conceal a seated player. Falls back to the
+     * seat block's own top face ({@code anchor.dy() + 1}) when no adjacent block exists, so an
+     * unwalled seat is correctly treated as having nothing to hide behind.
+     */
+    private double tallestAdjacentHullTopY(ShipBlueprint.SeatAnchor anchor) {
+        int tallestAdjacentDy = Integer.MIN_VALUE;
+        for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+            boolean northSouthNeighbor = block.dx() == anchor.dx() && Math.abs(block.dz() - anchor.dz()) == 1;
+            boolean eastWestNeighbor = block.dz() == anchor.dz() && Math.abs(block.dx() - anchor.dx()) == 1;
+            if (northSouthNeighbor || eastWestNeighbor) {
+                tallestAdjacentDy = Math.max(tallestAdjacentDy, block.dy());
+            }
+        }
+        int effectiveDy = tallestAdjacentDy == Integer.MIN_VALUE ? anchor.dy() : tallestAdjacentDy;
+        return effectiveDy + 1.0;
+    }
+
+    /**
+     * REQ-009/T07 remediation: how many times {@code playerId} has actually mounted this ship
+     * (real {@link #addPassenger} events, any path) since it was spawned. See {@link
+     * #passengerMountCounts}'s javadoc for why this exists.
+     */
+    public int getMountCount(UUID playerId) {
+        return passengerMountCounts.getOrDefault(playerId, 0);
+    }
+
+    /**
+     * REQ-009/T07: whether this ship's blueprint carries at least one COPILOT-role {@code
+     * SeatAnchor} — i.e. whether a {@code copilot_seat} block was actually part of the
+     * assembled structure. A copilot mount attempt is only ever honored when this is {@code
+     * true}; ships assembled before the copilot seat existed (or without one placed) have no
+     * copilot seat to occupy at all.
+     */
+    private boolean hasCopilotSeat() {
+        return blueprint != null && blueprint.seatAnchors().stream()
+                .anyMatch(anchor -> anchor.role() == ShipBlueprint.SeatRole.COPILOT);
+    }
+
+    /**
+     * Mounts {@code player} into this ship's copilot seat (REQ-009/AC-009), or rejects the
+     * attempt outright if the seat is already occupied or the ship has no copilot seat at
+     * all.
+     *
+     * <p>REQ-009/AC-009's sharpest named risk (test-plan, "REQ-009 — Craftable copilot
+     * seat"): an occupancy check that silently OVERWRITES {@link #copilot} on a second
+     * interact instead of rejecting it — so a second player displaces the first with no
+     * dismount event, desyncing the first player's client. This method's very first branch
+     * is the guard against exactly that: when {@link #copilot} is already set to a player who
+     * is still actually riding, this returns {@code false} immediately and never assigns
+     * {@link #copilot} or calls {@code startRiding} — the existing occupant is left
+     * completely untouched (no dismount-and-remount cycle, not even internally).</p>
+     *
+     * <p>The one exception is a defensive self-heal: if {@link #copilot} still names a
+     * player who is verifiably no longer among {@link #getPassengers()} (e.g. they dismounted
+     * via vanilla's own sneak-to-dismount path, which does not go through this method), the
+     * stale reference is cleared before re-checking — otherwise a copilot who left would
+     * permanently lock the seat for everyone else. This never touches a still-mounted
+     * occupant's reference.</p>
+     *
+     * @return {@code true} if {@code player} was mounted as the new copilot, {@code false} if
+     *         the attempt was rejected
+     */
+    private boolean mountCopilot(Player player) {
+        if (copilot != null) {
+            boolean stillRiding = getPassengers().stream().anyMatch(p -> p.getUUID().equals(copilot));
+            if (stillRiding) {
+                return false; // seat genuinely occupied -- reject, no state change whatsoever
+            }
+            copilot = null; // stale reference to a passenger who already left some other way
+        }
+        if (!hasCopilotSeat()) {
+            return false;
+        }
+        copilot = player.getUUID();
+        player.startRiding(this, true);
+        return true;
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // GETTERS
     // ═══════════════════════════════════════════════════════════════════
@@ -322,6 +711,25 @@ public final class ShipEntity extends Entity {
 
     public int getFuelLevel() {
         return level().isClientSide ? this.entityData.get(SYNC_FUEL) : fuelLevel;
+    }
+
+    /**
+     * REQ-016/T17: the client-visible synced fuel value, readable server-side. The sync-cadence
+     * contract (AC-016, {@code FuelSyncCadenceGameTest}) is that this matches {@link
+     * #getFuelLevel()} on every fuel-changing tick — {@link #updatePhysics()} writes SYNC_FUEL in
+     * the same tick it mutates {@link #fuelLevel}, and {@link #addFuel} syncs immediately.
+     */
+    public int getSyncedFuel() {
+        return this.entityData.get(SYNC_FUEL);
+    }
+
+    /**
+     * REQ-016/T17: the fractional fuel-consumption accumulator (always {@code [0,1)} between
+     * ticks). Exposed for the persistence contract — a mid-flight save must round-trip this
+     * exactly, or every save/load quietly refunds up to one fuel unit of already-burned debt.
+     */
+    public float getFuelDebt() {
+        return fuelDebt;
     }
 
     public boolean isEngineOut() {
@@ -505,14 +913,39 @@ public final class ShipEntity extends Entity {
         if (compound.hasUUID("Pilot")) {
             this.pilot = compound.getUUID("Pilot");
         }
-        if (compound.contains("FuelLevel")) {
-            this.fuelLevel = compound.getInt("FuelLevel");
+        // REQ-009/T07 remediation (security-reviewer BLOCKING finding, round 2): mirrors
+        // the Pilot persistence immediately above exactly. Without this, `copilot` --
+        // mountCopilot()'s ONLY in-memory guard against a second simultaneous occupant,
+        // since both mount call sites use startRiding(this, true), which bypasses
+        // vanilla's own single-passenger canAddPassenger() cap entirely -- resets to null
+        // across an entity reload while the real passenger relationship survives via
+        // vanilla's independent passenger-persistence path, letting the next non-pilot
+        // interact force-mount a second simultaneous passenger past a guard that thinks
+        // the seat is empty.
+        if (compound.hasUUID("Copilot")) {
+            this.copilot = compound.getUUID("Copilot");
         }
+        if (compound.contains("FuelLevel")) {
+            // Review finding F4 (2026-07-25): same corrupt-save threat model as Health —
+            // clamp to [0, MAX_FUEL]; a hand-edited 999 or negative value must not load raw.
+            this.fuelLevel = Math.max(0, Math.min(FuelSystem.MAX_FUEL, compound.getInt("FuelLevel")));
+        }
+        // REQ-016/T17: absent on legacy saves → getFloat returns 0.0 → sanitized to 0 (no
+        // refundable debt assumed, conservative). Corrupt values (NaN/negative/≥1) also reset.
+        this.fuelDebt = FuelSystem.sanitizeFuelDebt(compound.getFloat("FuelDebt"));
         if (compound.contains("AccelerationTicks")) {
             this.accelerationTicks = compound.getInt("AccelerationTicks");
         }
         if (compound.contains("CurrentSpeed")) {
-            this.currentSpeed = compound.getFloat("CurrentSpeed");
+            // Review finding F3 (2026-07-25): a NaN here was UNRECOVERABLE at runtime —
+            // Mth.lerp propagates NaN, the "<0.01 → 0" reset never fires (NaN comparisons are
+            // false), deltaMovement and the synced SYNC_SPEED go NaN and the ship is bricked.
+            // Same threat model as the FuelDebt/Health hardening; clamp to [0, 30] (the global
+            // LIGHT-class maximum, see the VehicleBalance/WeightCategory table).
+            float loadedSpeed = compound.getFloat("CurrentSpeed");
+            this.currentSpeed = Float.isFinite(loadedSpeed)
+                    ? Math.max(0.0f, Math.min(30.0f, loadedSpeed))
+                    : 0.0f;
         }
         if (compound.contains("EngineOut")) {
             this.engineOut = compound.getBoolean("EngineOut");
@@ -521,7 +954,26 @@ public final class ShipEntity extends Entity {
             this.blockCount = compound.getInt("BlockCount");
         }
         if (compound.contains("Health")) {
-            this.health = compound.getInt("Health");
+            // REQ-017/T18 (NFR-009, lost-in-recovery hardening): clamp to [0, MAX_HEALTH] —
+            // matches every live damage-application site; a corrupt/hand-edited tag must not
+            // load 999 HP or a negative value.
+            this.health = Math.max(0, Math.min(MAX_HEALTH, compound.getInt("Health")));
+        }
+        // REQ-017/T18 (NFR-004 conservative migration): absent (legacy save) or unknown values
+        // default to AIR — never a crash, never a guessed non-AIR class.
+        if (compound.contains("VehicleClass")) {
+            try {
+                this.vehicleClass = VehicleClass.valueOf(compound.getString("VehicleClass"));
+            } catch (IllegalArgumentException e) {
+                this.vehicleClass = VehicleClass.AIR;
+            }
+        }
+        // REQ-017/T18: absent → false (same default a fresh entity has). Persisting true keeps a
+        // restart-mid-edit ship aware of its open session instead of stranding materialized
+        // blocks with a ship that thinks it is not editing (RISK-004).
+        this.editModeActive = compound.getBoolean("EditModeActive");
+        if (compound.contains("TrailConfig")) {
+            this.trailConfigNbt = compound.getCompound("TrailConfig").copy();
         }
     }
 
@@ -534,13 +986,29 @@ public final class ShipEntity extends Entity {
         if (pilot != null) {
             compound.putUUID("Pilot", pilot);
         }
+        // REQ-009/T07 remediation: see readAdditionalSaveData's "Copilot" comment above --
+        // same tag-presence convention as Pilot (only written when actually occupied, so
+        // hasUUID("Copilot") correctly reports absent for an empty seat on reload).
+        if (copilot != null) {
+            compound.putUUID("Copilot", copilot);
+        }
         compound.putInt("FuelLevel", fuelLevel);
+        // REQ-016/T17: fractional consumption state — without this, every save/load quietly
+        // refunds up to one fuel unit of already-burned debt (FuelSyncCadenceGameTest).
+        compound.putFloat("FuelDebt", fuelDebt);
         compound.putInt("AccelerationTicks", accelerationTicks);
         compound.putFloat("CurrentSpeed", currentSpeed);
         compound.putBoolean("EngineOut", engineOut);
         compound.putInt("BlockCount", blockCount);
         compound.putFloat("BugYaw", bugYawDeg);
         compound.putInt("Health", health);
+        // REQ-017/T18: vehicle class, edit state, and the reserved trail-config slot
+        // (Preconditions §7 — T21 populates it; here it is only carried through untouched).
+        compound.putString("VehicleClass", vehicleClass.name());
+        compound.putBoolean("EditModeActive", editModeActive);
+        if (trailConfigNbt != null) {
+            compound.put("TrailConfig", trailConfigNbt.copy());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -569,6 +1037,24 @@ public final class ShipEntity extends Entity {
             if (!isPilot(player)) {
                 if (player instanceof ServerPlayer sp) {
                     sp.sendSystemMessage(Component.translatable("message.sharkengine.not_pilot"));
+                }
+                return InteractionResult.CONSUME;
+            }
+            // REQ-014/T14 remediation (RISK-004): disassembly must not run concurrently with an
+            // open Edit Mode session. ShipAssemblyService#materializeForEdit has placed real world
+            // blocks representing this ship's (possibly mid-edit) structure; disassemble() would
+            // try to place the ORIGINAL pre-edit blueprint on top of them, hit "blocked" wherever
+            // they conflict (silently dropped, not returned as items -- the pre-existing,
+            // still-open AIR-012/B13 gap), then discard() this entity regardless -- leaving a
+            // self-contradictory mix of materialized/edited and disassembled blocks in the world
+            // with no ship entity left to ever reconcile it, exactly the "duplicate/lose blocks"
+            // failure RISK-004 names. The only sanctioned way out of an open Edit Mode session is
+            // ShipAssemblyService#commitEdit (valid or rejected, both of which own clearing the
+            // world themselves) -- so this is rejected here with a clear message instead of being
+            // silently allowed to race with it.
+            if (editModeActive) {
+                if (player instanceof ServerPlayer sp) {
+                    sp.sendSystemMessage(Component.translatable("message.sharkengine.disassembly_blocked_edit_mode"));
                 }
                 return InteractionResult.CONSUME;
             }
@@ -639,11 +1125,149 @@ public final class ShipEntity extends Entity {
             return InteractionResult.PASS;
         }
 
-        // Normal rightclick with an empty hand: mount (only one pilot at a time)
-        if (pilot != null && !isPilot(player) && getPassengers().stream().anyMatch(e -> e instanceof Player)) {
-            // Ship already has a pilot – don't allow a second mount
+        // ═══════════════════════════════════════════════════════════════════
+        // REQ-013/T13 REMEDIATION (Watcher review-required + security-review confirmed):
+        // "edit-mode reopen is unreachable by any player action" -- ShipEntity#tryEnterEditMode
+        // (T12) and ShipAssemblyService#openEditMode (T13) existed but had ZERO call sites
+        // outside their own GameTests. This branch is the real player-triggerable path.
+        //
+        // Gesture chosen: an EMPTY-HAND, non-sneak right-click by the pilot while ALREADY
+        // MOUNTED on their own ship. Every other slot in this method's existing vocabulary was
+        // already claimed and could not be safely reused:
+        //   - Shift-rightclick is anchor/disassemble for ANY hand state (checked first, above)
+        //     -- the sneak+empty-hand gesture that would otherwise be the obvious choice is
+        //     therefore NOT free; reusing it would silently break disassembly/anchor-toggle.
+        //   - LOGS/PLANKS in hand is refuel (pilot only).
+        //   - A held BlockItem already PASSes through to vanilla placement (2026-07-13 fix).
+        // What WAS genuinely unclaimed: before this change, an already-mounted pilot's
+        // empty-hand right-click fell through to the plain `player.startRiding(this, true)`
+        // call at the bottom of this method -- and vanilla's own Entity#startRiding no-ops
+        // immediately when the caller already rides this exact vehicle (`vehicle ==
+        // this.vehicle`), so that click did precisely nothing. Gating on "already riding"
+        // (`player.getVehicle() == this`), not merely `isPilot(player)`, is what keeps this
+        // additive: a NOT-yet-mounted pilot's empty-hand click (REQ-011 re-entry) still falls
+        // through, completely unchanged, to the ordinary mount path below.
+        //
+        // Authorization is NOT reimplemented here. This branch only decides WHEN to call
+        // ShipAssemblyService.openEditMode, which delegates the entire accept/reject decision to
+        // tryEnterEditMode's T12 gate (isPilot/isDestroyed/stationary/conflict-free/
+        // sameDimension, EditModeDistanceGate#evaluate) -- unchanged and unbypassed. On
+        // ACCEPTED, openEditMode also sends the builder preview payload (openEditModePreview) --
+        // the same payload BuilderModeClient already opens a BuilderScreen from.
+        // ═══════════════════════════════════════════════════════════════════
+        if (heldItem.isEmpty() && isPilot(player) && player.getVehicle() == this
+                && player instanceof ServerPlayer editRequester) {
+            EditModeDistanceGate.Reason reason =
+                    ShipAssemblyService.openEditMode(this, editRequester);
+            if (reason != EditModeDistanceGate.Reason.ACCEPTED) {
+                editRequester.sendSystemMessage(Component.translatable(
+                        "message.sharkengine.edit_mode_rejected", reason.name()));
+            }
             return InteractionResult.CONSUME;
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // REQ-013/T13 REMEDIATION ROUND 2 (user decision, code-review finding): a SECOND,
+        // genuinely new edit-mode gesture for a DISMOUNTED-but-nearby pilot. The branch above
+        // puts the interacting player at ~0 distance from the Control Anchor by construction
+        // (they're riding it) -- so EditModeDistanceGate's Euclidean 5-block check was, until
+        // now, never actually exercised by any REAL player action, only by direct/GameTest
+        // calls to tryEnterEditMode()/EditModeDistanceGameTest. AC-012's own wording ("Spieler
+        // muss innerhalb der Fünf-Block-Grenze zum Control Anchor sein") describes exactly this
+        // scenario: a pilot standing near their landed ship, not riding it.
+        //
+        // Entry-point investigation (per this task's instructions): does a real world block
+        // exist to interact with instead, the way BuildSessionGate's pre-launch Control Anchor
+        // (T02) works? No -- ShipAssemblyService#tryAssemble clears every scanned block
+        // (including the Steering Wheel itself) to Blocks.AIR at assembly time
+        // (`level.setBlock(target, Blocks.AIR.defaultBlockState(), 3)`), so an already-launched
+        // ship has NO surviving world block at all; BuildSessionGate's real-block Control Anchor
+        // pattern is pre-launch-only and does not apply here. This entity's own interact() is
+        // therefore the only real interaction surface -- and it fires for a right-click on this
+        // entity's hitbox regardless of rider status (nothing in Entity's own dispatch, or
+        // anywhere in this method, gates on `player.getVehicle()` before this point).
+        //
+        // Gesture chosen: empty-hand, non-sneak, DISMOUNTED pilot (player.getVehicle() != this)
+        // AND the ship is currently ANCHORED (isAnchored()). "Anchored" is a disclosed
+        // interaction-layer disambiguator, NOT a new T12 authorization axis -- the actual gate
+        // below (ShipAssemblyService.openEditMode -> tryEnterEditMode -> EditModeDistanceGate)
+        // runs completely unchanged and undivided. It exists because, without it, this gesture
+        // (empty hand, no sneak, dismounted, is-pilot, near the ship) is BYTE-IDENTICAL to
+        // REQ-011's own re-entry gesture (VehicleReentryGameTest calls exactly
+        // ship.interact(pilot, MAIN_HAND) with an empty hand right after a dismount) -- and a
+        // landed-but-unanchored ship is normally also "stationary". Without a disambiguator,
+        // EVERY ordinary "land, hop out, hop back in to fly again" click within 5 blocks would
+        // be silently swallowed into opening Edit Mode instead of remounting -- a severe
+        // regression to the single most common re-entry flow, not a hypothetical: dropping the
+        // isAnchored() condition here while keeping this branch's own "consume, don't fall
+        // through to mount" behavior (below) breaks VehicleReentryGameTest's
+        // remountPreservesEntityIdentityAndState/remountGrantsExactlyTheInteractedSeatsRole
+        // outright, because both remount immediately after driveIntoFlight() while the ship is
+        // still measurably moving -- with isAnchored() required, this branch's condition is
+        // false throughout both of those tests (isAnchored() is never toggled true in either),
+        // so control falls through to the unchanged mount path below exactly as before, and
+        // those tests remain unaffected. "Anchored" is the one existing, deliberate,
+        // pilot-initiated signal this codebase already has for "I'm done flying this for now"
+        // (toggleAnchor(), the shift-click branch above) -- reusing it costs no new state,
+        // keybind, or item. Resulting UX: a dismounted pilot who wants to fly again
+        // right-clicks their (non-anchored) ship exactly as always (REQ-011, unchanged); a
+        // dismounted pilot who wants to edit first shift-clicks to anchor it (existing gesture,
+        // unchanged), then empty-hand right-clicks to request Edit Mode.
+        //
+        // Authorization is NOT reimplemented or duplicated here, same discipline as the mounted
+        // branch above: this condition only decides WHEN to call the real
+        // ShipAssemblyService.openEditMode/tryEnterEditMode/EditModeDistanceGate#evaluate chain.
+        // On any rejection (including REJECTED_TOO_FAR -- the concrete case this remediation
+        // exists to make reachable), the rejection reason is reported and this branch does NOT
+        // fall through to mount: an anchored ship is, by the pilot's own prior deliberate
+        // action, not "I want to fly right now", so silently mounting them anyway after a
+        // rejected edit attempt would be a confusing bait-and-switch.
+        // ═══════════════════════════════════════════════════════════════════
+        if (heldItem.isEmpty() && isPilot(player) && player.getVehicle() != this && isAnchored()
+                && player instanceof ServerPlayer dismountedEditRequester) {
+            EditModeDistanceGate.Reason reason =
+                    ShipAssemblyService.openEditMode(this, dismountedEditRequester);
+            if (reason != EditModeDistanceGate.Reason.ACCEPTED) {
+                dismountedEditRequester.sendSystemMessage(Component.translatable(
+                        "message.sharkengine.edit_mode_rejected", reason.name()));
+            }
+            return InteractionResult.CONSUME;
+        }
+
+        // Normal rightclick with an empty hand: mount (only one pilot at a time)
+        //
+        // REMEDIATION (T07, Watcher review-required finding, "stowaway" mount gap): the
+        // branch condition used to also require getPassengers().stream().anyMatch(e -> e
+        // instanceof Player) as a proxy for "the pilot is currently aboard". That was safe
+        // before copilots existed (only the pilot could ever be a Player passenger) but is
+        // wrong now: if the assigned pilot dismounts (REQ-011 -- normal/expected, a ship can
+        // exist with no pilot aboard) while the copilot seat is still empty, that proxy goes
+        // false and the next right-click fell through to the bare player.startRiding(this,
+        // true) fallback below -- force-mounting the interacting player with ZERO
+        // registration as pilot or copilot (an untracked "stowaway"). A second player
+        // arriving afterward could then legitimately claim the copilot seat via
+        // mountCopilot() (still null, since the stowaway never touched it), producing two
+        // simultaneous Player passengers for a seat AC-009 promises holds "genau ein
+        // zusätzlicher Passagier".
+        //
+        // The fix: {@link #pilot} is already the single persistent, server-authoritative
+        // source of truth for who is authorized to hold the pilot seat -- set once at
+        // assembly (ShipAssemblyService#tryAssemble) and never cleared on dismount, exactly
+        // like isPilot() is already used to gate shift-rightclick disassembly and refuel
+        // above. Whether anyone happens to be riding *right now* is irrelevant to that
+        // question, so it's dropped from the condition entirely: any player who is not the
+        // assigned pilot (and a pilot has in fact been assigned) is routed to the copilot
+        // seat, full stop -- whether the pilot is currently riding, dismounted, or was never
+        // aboard yet. mountCopilot() itself remains the sole guard against silently
+        // displacing an already-mounted copilot (see its javadoc for the falsifying-test
+        // contract this closes) and is unchanged.
+        if (pilot != null && !isPilot(player)) {
+            mountCopilot(player);
+            return InteractionResult.CONSUME;
+        }
+        // Either this player IS the assigned pilot re-entering a vacated seat (REQ-011), or
+        // no pilot has ever been assigned yet (pilot == null) -- both are legitimate mounts
+        // via the ordinary passenger path.
         player.startRiding(this, true);
         return InteractionResult.CONSUME;
     }
@@ -848,12 +1472,13 @@ public final class ShipEntity extends Entity {
             if (fuelConsumptionTick >= 20) {
                 fuelConsumptionTick = 0;
                 int nominalConsumption = ShipPhysics.calculateFuelConsumption(phase);
-                fuelDebt += nominalConsumption * dev.sharkengine.ship.part.VehicleBalance.FUEL_CONSUMPTION_RATE;
-                int wholeUnits = (int) fuelDebt;
-                if (wholeUnits > 0) {
-                    fuelDebt -= wholeUnits;
-                    fuelLevel -= wholeUnits;
-
+                // REQ-016/T17: debt/whole-unit step extracted to FuelSystem.applyConsumptionSecond
+                // (pure, unit-locked for zero float drift); semantics identical to the former
+                // inline math. Engine-out decision + pilot notify stay here (entity concerns).
+                FuelSystem.FuelTick step = FuelSystem.applyConsumptionSecond(fuelLevel, fuelDebt, nominalConsumption);
+                fuelDebt = step.fuelDebt();
+                if (step.fuelLevel() != fuelLevel) {
+                    fuelLevel = step.fuelLevel();
                     if (fuelLevel <= 0) {
                         engineOut = true;
                         fuelLevel = 0;
@@ -919,6 +1544,23 @@ public final class ShipEntity extends Entity {
             return;
         }
 
+        // ━━━ Edit Mode (REQ-014/T14 remediation, RISK-004) ━━━
+        // ShipAssemblyService#materializeForEdit places REAL world blocks at this ship's CURRENT
+        // blockPosition()/getYRot() the moment Edit Mode opens (ShipAssemblyService#openEditMode).
+        // Those blocks are never re-synced while editing is in progress -- commitEdit's rollback
+        // path (on a rejected commit) recomputes exactly where they were placed FROM this ship's
+        // still-pre-edit blueprint/position/yaw, which is only correct if none of the three moved
+        // in between. The MOUNTED edit-mode entry gesture (ShipEntity#interact) does not itself
+        // require isAnchored() (only the DISMOUNTED one does), so without this, a mounted pilot
+        // could throttle/turn away mid-edit and leave their materialized blocks orphaned in the
+        // world -- a real, easily-reachable "Blöcke ... verlieren" failure (RISK-004) that only
+        // became possible once materialization was added here. Same "stop everything, bail out"
+        // shape as the isAnchored() branch above, just gated on a different flag.
+        if (editModeActive) {
+            setDeltaMovement(Vec3.ZERO);
+            return;
+        }
+
         // ━━━ Physics Update ━━━
         updatePhysics();
 
@@ -952,30 +1594,21 @@ public final class ShipEntity extends Entity {
         // self-consistent internally, both backwards relative to physics.
         // Flipping the sign once here (rather than in either client file)
         // corrects both input paths at their single point of consumption.
-        float yaw = this.getYRot() - (inputTurn * 3.0f);
+        // (REQ-015/T16: step math extracted to ShipPhysics.calculateYawStep for pure-logic
+        // testability — the load-bearing sign convention is documented and locked there.)
+        float yaw = ShipPhysics.calculateYawStep(this.getYRot(), inputTurn);
         this.setYRot(yaw);
 
-        // ━━━ Forward Movement ━━━
-        // Direction is ALWAYS based on entity yaw (single source of truth).
-        // At assembly, yaw is set from BUG block's FACING direction.
-        double rad = Math.toRadians(yaw);
-        double fx = -Math.sin(rad);
-        double fz = Math.cos(rad);
-
-        // BUG FIX 4: Use currentSpeed directly, scale to ticks (÷20)
-        // Previously 0.05 was used which doesn't match blocks/sec definition
-        double speedPerTick = currentSpeed / 20.0;
-        Vec3 moveVec = new Vec3(fx * speedPerTick, 0, fz * speedPerTick);
-
-        // ━━━ Vertical Movement ━━━
-        // BUG FIX 4: Smooth vertical speed, scaled properly
-        double verticalMotion = inputVertical * 0.3;
-
-        Vec3 vel = new Vec3(moveVec.x, verticalMotion, moveVec.z);
-
-        // ━━━ Drag (Air Resistance) ━━━
-        // BUG FIX 4: Gentler drag for smoother movement
-        vel = new Vec3(vel.x * 0.95, vel.y * 0.95, vel.z * 0.95);
+        // ━━━ Forward + Vertical Movement ━━━
+        // Direction is ALWAYS based on entity yaw (single source of truth); at assembly,
+        // yaw is set from the BUG block's FACING. currentSpeed is blocks/sec, scaled to
+        // per-tick inside the ShipPhysics velocity functions; drag (0.95) is folded in
+        // there too — expression order kept bit-identical to the former inline math
+        // (REQ-015/T16 extraction).
+        Vec3 vel = new Vec3(
+                ShipPhysics.calculateVelocityX(yaw, currentSpeed),
+                ShipPhysics.calculateVelocityY(inputVertical),
+                ShipPhysics.calculateVelocityZ(yaw, currentSpeed));
         this.setDeltaMovement(vel);
 
         // ━━━ Collision Check ━━━
@@ -1067,7 +1700,8 @@ public final class ShipEntity extends Entity {
     }
 
     private static float clamp(float v, float a, float b) {
-        return Math.max(a, Math.min(b, v));
+        // REQ-015/T16: delegates to the single, unit-tested helm-input sanitization point.
+        return ShipPhysics.clampInput(v, a, b);
     }
 
     /**

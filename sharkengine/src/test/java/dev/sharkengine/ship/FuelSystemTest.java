@@ -183,4 +183,77 @@ class FuelSystemTest {
         // energyToWood is used for display; we do not clamp it (caller must validate)
         assertEquals(-1.0f, FuelSystem.energyToWood(-100));
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // REQ-016/T17: consumption-step exactness + fuel-debt sanitization
+    // ═══════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("T17: PHASE_1 debt accumulates exactly 0.25/sec — fourth second consumes exactly 1 unit, debt back to exactly 0")
+    void testConsumptionStep_ExactQuarterAccumulation() {
+        FuelSystem.FuelTick t = new FuelSystem.FuelTick(100, 0.0f);
+        t = FuelSystem.applyConsumptionSecond(t.fuelLevel(), t.fuelDebt(), 1);
+        assertEquals(100, t.fuelLevel());
+        assertEquals(0.25f, t.fuelDebt(), "0.25 is a power of two — must be exact, no delta");
+        t = FuelSystem.applyConsumptionSecond(t.fuelLevel(), t.fuelDebt(), 1);
+        assertEquals(0.5f, t.fuelDebt());
+        t = FuelSystem.applyConsumptionSecond(t.fuelLevel(), t.fuelDebt(), 1);
+        assertEquals(0.75f, t.fuelDebt());
+        t = FuelSystem.applyConsumptionSecond(t.fuelLevel(), t.fuelDebt(), 1);
+        assertEquals(99, t.fuelLevel(), "fourth quarter must extract exactly one whole unit");
+        assertEquals(0.0f, t.fuelDebt(), "no residual float drift after extraction");
+    }
+
+    @Test
+    @DisplayName("T17: long-run invariant — consumed units + residual debt equals accumulated rate exactly (zero drift over 4000 seconds)")
+    void testConsumptionStep_NoDriftLongRun() {
+        int startFuel = 1_000_000; // large tank so level never hits zero mid-invariant
+        FuelSystem.FuelTick t = new FuelSystem.FuelTick(startFuel, 0.0f);
+        int seconds = 4000;
+        int nominal = 3; // PHASE_5, 0.75/sec — worst case
+        for (int s = 0; s < seconds; s++) {
+            t = FuelSystem.applyConsumptionSecond(t.fuelLevel(), t.fuelDebt(), nominal);
+        }
+        float accumulated = seconds * 0.75f; // exactly representable (multiple of 0.25)
+        int consumed = startFuel - t.fuelLevel();
+        assertEquals(accumulated, consumed + t.fuelDebt(),
+                "every burned quarter must be accounted for: consumed units + residual debt");
+        assertTrue(t.fuelDebt() >= 0.0f && t.fuelDebt() < 1.0f,
+                "debt must stay in [0,1) between steps, got " + t.fuelDebt());
+    }
+
+    @Test
+    @DisplayName("T17: step returns RAW level (may reach <= 0) — engine-out decision belongs to the entity")
+    void testConsumptionStep_RawLevelAtZero() {
+        // level 1, debt 0.75, nominal 2 (PHASE_3/4): +0.5 → debt 1.25 → extract 1 → level 0
+        FuelSystem.FuelTick t = FuelSystem.applyConsumptionSecond(1, 0.75f, 2);
+        assertEquals(0, t.fuelLevel());
+        assertEquals(0.25f, t.fuelDebt());
+        // and from 0 it may go negative — the caller clamps; the pure math must not hide it
+        t = FuelSystem.applyConsumptionSecond(0, 0.75f, 2);
+        assertEquals(-1, t.fuelLevel());
+    }
+
+    @Test
+    @DisplayName("T17: sanitizeFuelDebt — valid mid-flight values pass through bit-exactly")
+    void testSanitizeFuelDebt_ExactPassthrough() {
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(0.0f));
+        assertEquals(0.25f, FuelSystem.sanitizeFuelDebt(0.25f));
+        assertEquals(0.75f, FuelSystem.sanitizeFuelDebt(0.75f),
+                "a non-round mid-flight debt must round-trip without drift");
+        assertEquals(0.9999999f, FuelSystem.sanitizeFuelDebt(0.9999999f));
+    }
+
+    @Test
+    @DisplayName("T17: sanitizeFuelDebt — NaN/±Infinity/negative/>=1 conservatively reset to 0")
+    void testSanitizeFuelDebt_CorruptValuesReset() {
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(Float.NaN),
+                "NaN from a corrupt save must never poison the accumulator");
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(Float.POSITIVE_INFINITY));
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(Float.NEGATIVE_INFINITY));
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(-0.5f));
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(1.0f),
+                ">=1 is impossible from our writer — treat as corrupt, never grant pending burn");
+        assertEquals(0.0f, FuelSystem.sanitizeFuelDebt(1.5f));
+    }
 }

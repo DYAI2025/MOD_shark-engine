@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "feature_slug",
+    "language",
+    "mode",
+    "readiness_level",
+    "source_map",
+    "artifacts",
+    "missing_blocker_ledger",
+    "user_confirmation"
+  ],
+  "properties": {
+    "feature_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2
+    },
+    "mode": {
+      "enum": [
+        "TEMPLATE_ONLY",
+        "INTERVIEW_MODE",
+        "DRAFT_FROM_RAW_INPUT",
+        "PLUMBLINE_READY_PACKAGE"
+      ]
+    },
+    "readiness_level": {
+      "enum": [
+        "TEMPLATE_ONLY",
+        "DRAFT_FROM_RAW_INPUT",
+        "INTERVIEW_IN_PROGRESS",
+        "READY_FOR_USER_CONFIRMATION",
+        "READY_FOR_AGILETEAM_PLANNING",
+        "BLOCKED_MISSING_VALUE",
+        "BLOCKED_TRACEABILITY",
+        "BLOCKED_CONTRADICTION"
+      ]
+    },
+    "source_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "source_kind",
+          "summary"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^SRC-[0-9]{3}$"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "prd",
+        "vision",
+        "canvas",
+        "traceability"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "prd": {
+          "type": "object"
+        },
+        "vision": {
+          "type": "object"
+        },
+        "canvas": {
+          "type": "object"
+        },
+        "traceability": {
+          "type": "object"
+        }
+      }
+    },
+    "missing_blocker_ledger": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "field",
+          "source_type",
+          "severity",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "EXPLICIT",
+              "ASSUMPTION",
+              "MISSING",
+              "BLOCKER",
+              "CONTRADICTION"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "blocker"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "user_confirmation": {
+      "type": "object",
+      "required": [
+        "required",
+        "status",
+        "confirmation_phrase",
+        "confirmed_by_user"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "not-required-for-template",
+            "pending-user-confirmation",
+            "user-confirmed",
+            "blocked"
+          ]
+        },
+        "confirmation_phrase": {
+          "type": "string"
+        },
+        "confirmed_by_user": {
+          "type": "boolean"
+        },
+        "source_ref": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

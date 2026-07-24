@@ -84,6 +84,10 @@ public record AssemblyIssue(Code code, BlockPos pos, List<Integer> args) {
         TERRAIN_CONTACT("terrain_contact"),
         /** No part with {@link PartRole#PROPULSION} is present. */
         NO_PROPULSION("no_propulsion"),
+        /** No part with {@link PartRole#PILOT_SEAT} is present (REQ-005). */
+        NO_PILOT_SEAT("no_pilot_seat"),
+        /** More than one part with {@link PartRole#PILOT_SEAT} is present; exactly one is required (REQ-005). */
+        MULTI_PILOT_SEAT("multi_pilot_seat"),
         /** Fewer than 4 ship-eligible blocks are attached directly to the steering wheel. */
         TOO_FEW_CORE_NEIGHBORS("too_few_core_neighbors"),
         /** No BUG (bow) block found in the structure. */
@@ -91,7 +95,22 @@ public record AssemblyIssue(Code code, BlockPos pos, List<Integer> args) {
         /** More than one BUG block found; exactly one is required. */
         MULTI_BUG("multi_bug"),
         /** The single BUG block is not on the structure's outer edge. */
-        BUG_INSIDE("bug_inside");
+        BUG_INSIDE("bug_inside"),
+        /**
+         * The pilot seat is not resolved at its one required position — the single block
+         * directly in front of the BUG's resolved facing (REQ-006). Covers both "occupied by a
+         * non-seat block" and "empty/otherwise invalid": there is no fallback search for an
+         * alternate position, only this exact position is ever consulted.
+         */
+        SEAT_ANCHOR_INVALID("seat_anchor_invalid"),
+        /**
+         * The pilot seat anchor is valid (resolves to a real {@link PartRole#PILOT_SEAT} part),
+         * but leaves an occupant with a standard eye height fully exposed above the hull -- no
+         * adjacent block conceals them (REQ-007/AC-007, T08 remediation). Only reported once
+         * {@link #SEAT_ANCHOR_INVALID} does not already apply -- an invalid/missing anchor has
+         * nothing coherent to check visibility on top of.
+         */
+        COCKPIT_VISIBILITY_INSUFFICIENT("cockpit_visibility_insufficient");
 
         private final String id;
 

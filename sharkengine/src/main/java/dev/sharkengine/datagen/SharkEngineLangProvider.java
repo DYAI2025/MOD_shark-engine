@@ -81,7 +81,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.assembly_fail_bug_inside", "Bow must be on the outer edge – currently placed inside.");
             b.add("screen.sharkengine.builder.bugs", "%s bow block(s) found");
             b.add("message.sharkengine.no_fuel", "⚠ Engine out! Ship is falling – land or refuel.");
-            b.add("message.sharkengine.too_heavy", "⚠ Ship too heavy to fly (61+ blocks)!");
+            b.add("message.sharkengine.too_heavy", "⚠ Ship too heavy to fly (mass over 360)!");
             b.add("message.sharkengine.fuel_added", "Fuel refilled: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Quick Flight Guide");
             b.add("hud.sharkengine.onboarding.movement", "Movement: W = forward, A/D = turn. Build momentum before climbing.");
@@ -89,6 +89,9 @@ final class SharkEngineLangProvider {
             b.add("hud.sharkengine.onboarding.fuel", "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.");
             b.add("hud.sharkengine.onboarding.dismiss", "Press X to dismiss this card.");
             b.add("message.sharkengine.not_pilot", "You are not the pilot of this ship.");
+            // REQ-003: server-owned build session rejection (non-owner, wrong dimension,
+            // out-of-range, expired, wrong/absent session id, or already-consumed/replayed).
+            b.add("message.sharkengine.session_invalid", "Build session invalid or expired — reopen the vehicle menu at the wheel.");
             b.add("screen.sharkengine.builder.issues_header", "Blocking issues:");
             b.add("assembly_issue.sharkengine.empty_structure", "Nothing to assemble (check eligible tag).");
             b.add("assembly_issue.sharkengine.invalid_attachments", "Remove highlighted blocks (%s invalid parts).");
@@ -125,6 +128,54 @@ final class SharkEngineLangProvider {
             // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
             b.add("key.categories.sharkengine", "Shark Engine");
             b.add("key.sharkengine.descend", "Descend");
+            // REQ-005/T05: generic pilot seat
+            b.add("block.sharkengine.pilot_seat", "Pilot Seat");
+            b.add("item.sharkengine.pilot_seat", "Pilot Seat");
+            b.add("message.sharkengine.assembly_fail_no_pilot_seat",
+                    "No pilot seat found – add exactly one pilot seat.");
+            b.add("message.sharkengine.assembly_fail_multi_pilot_seat",
+                    "Configuration error: Multiple pilot seats found (%s). Only one allowed.");
+            b.add("assembly_issue.sharkengine.no_pilot_seat",
+                    "No pilot seat found – add exactly one pilot seat.");
+            b.add("assembly_issue.sharkengine.multi_pilot_seat",
+                    "Configuration error: Multiple pilot seats found (%s). Only one allowed.");
+            // REQ-006/T06: pilot seat anchor -- must sit exactly one block in front of the
+            // bow (BUG) marker's facing; no fallback to another position.
+            b.add("message.sharkengine.assembly_fail_seat_anchor",
+                    "Pilot seat must be the block directly in front of the bow marker – move it there.");
+            b.add("assembly_issue.sharkengine.seat_anchor_invalid",
+                    "Pilot seat must be the block directly in front of the bow marker – move it there.");
+            // REQ-009/T07: craftable copilot seat
+            b.add("block.sharkengine.copilot_seat", "Copilot Seat");
+            b.add("item.sharkengine.copilot_seat", "Copilot Seat");
+            // REQ-007/AC-007 (T08 remediation): cockpit visibility enforcement -- the pilot
+            // seat's adjacent hull must conceal a standard-eye-height occupant, or assembly
+            // fails explicitly instead of merely logging.
+            b.add("message.sharkengine.assembly_fail_cockpit_visibility",
+                    "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
+            b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
+                    "Pilot seat leaves the pilot fully exposed above the hull – add more hull around the seat.");
+            // REQ-021/T15: spawn preflight -- assembly is refused, with zero world mutation,
+            // while another ship intersects the structure's footprint.
+            b.add("message.sharkengine.assembly_fail_spawn_blocked",
+                    "Another vehicle is parked in the assembly area – move it first.");
+            // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
+            // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
+            b.add("message.sharkengine.edit_mode_rejected", "Cannot enter Edit Mode: %s");
+            // REQ-014/T14: atomic edit-mode commit (ShipAssemblyService#commitEdit).
+            b.add("message.sharkengine.edit_commit_ok", "Edit committed (%s blocks).");
+            b.add("message.sharkengine.edit_commit_invalid",
+                    "Edit rejected: structure invalid (%s issues). Fix the structure and reopen Edit Mode to retry.");
+            b.add("message.sharkengine.edit_commit_not_active", "No active edit session to commit.");
+            b.add("message.sharkengine.edit_commit_not_pilot", "Only the pilot may commit edits.");
+            // REQ-014/T14 remediation (RISK-004): disassembly is rejected while Edit Mode is open
+            // (ShipEntity#interact's shift-click branch) -- see that branch's own comment.
+            b.add("message.sharkengine.disassembly_blocked_edit_mode",
+                    "Cannot disassemble while Edit Mode is open – commit or let the edit be rejected first.");
+            // REQ-014/T14 remediation round 3 (security-review BLOCKER): a non-pilot's break/place
+            // attempt on a ship's materialized Edit Mode footprint (EditModeBlockProtection).
+            b.add("message.sharkengine.edit_footprint_protected",
+                    "This vehicle is being edited by its pilot and cannot be changed right now.");
         }
     }
 
@@ -187,7 +238,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.assembly_fail_bug_inside", "Bug muss an der Außenkante platziert werden – aktuell im Inneren.");
             b.add("screen.sharkengine.builder.bugs", "%s Bug-Block(s) gefunden");
             b.add("message.sharkengine.no_fuel", "⚠ Triebwerk ausgefallen! Schiff sinkt – landen oder auftanken.");
-            b.add("message.sharkengine.too_heavy", "⚠ Schiff zu schwer zum Fliegen (61+ Blöcke)!");
+            b.add("message.sharkengine.too_heavy", "⚠ Schiff zu schwer zum Fliegen (Masse über 360)!");
             b.add("message.sharkengine.fuel_added", "Treibstoff aufgefüllt: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Flug-Kurzanleitung");
             b.add("hud.sharkengine.onboarding.movement", "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.");
@@ -195,6 +246,9 @@ final class SharkEngineLangProvider {
             b.add("hud.sharkengine.onboarding.fuel", "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.");
             b.add("hud.sharkengine.onboarding.dismiss", "Drücke X, um diese Karte auszublenden.");
             b.add("message.sharkengine.not_pilot", "Du bist nicht der Pilot dieses Schiffs.");
+            // REQ-003: server-owned build session rejection (non-owner, wrong dimension,
+            // out-of-range, expired, wrong/absent session id, or already-consumed/replayed).
+            b.add("message.sharkengine.session_invalid", "Bau-Sitzung ungültig oder abgelaufen – öffne das Fahrzeugmenü erneut am Steuerrad.");
             b.add("screen.sharkengine.builder.issues_header", "Blockierende Probleme:");
             b.add("assembly_issue.sharkengine.empty_structure", "Nichts zu montieren (prüfe erlaubte Blöcke).");
             b.add("assembly_issue.sharkengine.invalid_attachments", "Markierte Blöcke entfernen (%s ungültige Teile).");
@@ -231,6 +285,58 @@ final class SharkEngineLangProvider {
             // sneak-to-dismount when reusing the sneak key, see ShipKeyBindings)
             b.add("key.categories.sharkengine", "Shark Engine");
             b.add("key.sharkengine.descend", "Sinkflug");
+            // REQ-005/T05: generic pilot seat
+            b.add("block.sharkengine.pilot_seat", "Pilotensitz");
+            b.add("item.sharkengine.pilot_seat", "Pilotensitz");
+            b.add("message.sharkengine.assembly_fail_no_pilot_seat",
+                    "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.");
+            b.add("message.sharkengine.assembly_fail_multi_pilot_seat",
+                    "Konfigurationsfehler: Mehrere Pilotensitze gefunden (%s). Nur genau einer erlaubt.");
+            b.add("assembly_issue.sharkengine.no_pilot_seat",
+                    "Kein Pilotensitz gefunden – füge genau einen Pilotensitz hinzu.");
+            b.add("assembly_issue.sharkengine.multi_pilot_seat",
+                    "Konfigurationsfehler: Mehrere Pilotensitze gefunden (%s). Nur genau einer erlaubt.");
+            // REQ-006/T06: pilot seat anchor -- must sit exactly one block in front of the
+            // bow (BUG) marker's facing; no fallback to another position.
+            b.add("message.sharkengine.assembly_fail_seat_anchor",
+                    "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
+            b.add("assembly_issue.sharkengine.seat_anchor_invalid",
+                    "Der Pilotensitz muss direkt vor dem Bug-Marker stehen – dorthin verschieben.");
+            // REQ-009/T07: craftable copilot seat
+            b.add("block.sharkengine.copilot_seat", "Copilotensitz");
+            b.add("item.sharkengine.copilot_seat", "Copilotensitz");
+            // REQ-007/AC-007 (T08 remediation): cockpit visibility enforcement -- the pilot
+            // seat's adjacent hull must conceal a standard-eye-height occupant, or assembly
+            // fails explicitly instead of merely logging.
+            b.add("message.sharkengine.assembly_fail_cockpit_visibility",
+                    "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – "
+                            + "mehr Rumpf um den Sitz ergänzen.");
+            b.add("assembly_issue.sharkengine.cockpit_visibility_insufficient",
+                    "Der Pilotensitz lässt den Piloten vollständig sichtbar über dem Rumpf stehen – "
+                            + "mehr Rumpf um den Sitz ergänzen.");
+            // REQ-021/T15: spawn preflight -- assembly is refused, with zero world mutation,
+            // while another ship intersects the structure's footprint.
+            b.add("message.sharkengine.assembly_fail_spawn_blocked",
+                    "Ein anderes Fahrzeug steht im Baubereich – erst wegbewegen.");
+            // REQ-013/T13: pilot-requested Edit Mode reopen (ShipEntity#interact) -- rejection
+            // feedback for a T12 EditModeDistanceGate.Reason other than ACCEPTED.
+            b.add("message.sharkengine.edit_mode_rejected", "Edit-Modus nicht möglich: %s");
+            // REQ-014/T14: atomic edit-mode commit (ShipAssemblyService#commitEdit).
+            b.add("message.sharkengine.edit_commit_ok", "Änderung übernommen (%s Blöcke).");
+            b.add("message.sharkengine.edit_commit_invalid",
+                    "Änderung abgelehnt: Struktur ungültig (%s Probleme). Struktur beheben und Edit-Modus erneut öffnen zum erneuten Versuch.");
+            b.add("message.sharkengine.edit_commit_not_active", "Keine aktive Bearbeitungssitzung zum Übernehmen.");
+            b.add("message.sharkengine.edit_commit_not_pilot", "Nur der Pilot darf Änderungen übernehmen.");
+            // REQ-014/T14 remediation (RISK-004): disassembly is rejected while Edit Mode is open
+            // (ShipEntity#interact's shift-click branch) -- see that branch's own comment.
+            b.add("message.sharkengine.disassembly_blocked_edit_mode",
+                    "Zerlegen nicht möglich, solange der Edit-Modus geöffnet ist – zuerst übernehmen "
+                            + "oder die Änderung ablehnen lassen.");
+            // REQ-014/T14 remediation round 3 (security-review BLOCKER): a non-pilot's break/place
+            // attempt on a ship's materialized Edit Mode footprint (EditModeBlockProtection).
+            b.add("message.sharkengine.edit_footprint_protected",
+                    "Dieses Fahrzeug wird gerade vom Piloten bearbeitet und kann derzeit nicht "
+                            + "verändert werden.");
         }
     }
 }

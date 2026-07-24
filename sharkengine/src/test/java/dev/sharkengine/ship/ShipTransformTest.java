@@ -230,6 +230,107 @@ class ShipTransformTest {
     }
 
     @Nested
+    @DisplayName("REQ-006: pilot seat anchor front-offset (reuses rotateOffset, AIR-010 single rotation authority)")
+    class SeatAnchorOffsetTests {
+
+        /**
+         * Canonical local (dx, dz) offset of "one block in front of the wheel" for a
+         * SOUTH-facing BUG (directionToYaw: SOUTH=0) — SOUTH's real-world normal vector is
+         * (0, 0, 1), matching {@code ShipAssemblyService}'s raw (unrotated) blueprint-offset
+         * convention (world offset at assembly time, before any in-flight rotation).
+         */
+        private static final double SOUTH_DX = 0;
+        private static final double SOUTH_DZ = 1;
+
+        /**
+         * REQ-006: the seat anchor offset for each of the 4 BUG facings is derived by rotating
+         * the canonical SOUTH offset through {@code rotateOffset} by that facing's own
+         * {@code directionToYaw} value — the SAME function collision/disassembly/rendering
+         * already use (AIR-010), no second rotation path. Expected values are each facing's
+         * real Minecraft {@code Direction} normal vector (SOUTH=(0,1), WEST=(-1,0),
+         * NORTH=(0,-1), EAST=(1,0)), ground-truthed the same way {@code ShipTransform}'s class
+         * doc already ground-truths {@code rotateOffset} itself.
+         */
+        @Test
+        @DisplayName("SOUTH (yaw=0): front offset is (0,1), identity rotation")
+        void southFrontOffset() {
+            double[] result = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, 0f);
+            assertEquals(0.0, result[0], EPSILON);
+            assertEquals(1.0, result[1], EPSILON);
+        }
+
+        @Test
+        @DisplayName("WEST (yaw=90): front offset is (-1,0), matching Direction.WEST's normal vector")
+        void westFrontOffset() {
+            double[] result = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, 90f);
+            assertEquals(-1.0, result[0], EPSILON);
+            assertEquals(0.0, result[1], EPSILON);
+        }
+
+        @Test
+        @DisplayName("NORTH (yaw=180): front offset is (0,-1), matching Direction.NORTH's normal vector")
+        void northFrontOffset() {
+            double[] result = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, 180f);
+            assertEquals(0.0, result[0], EPSILON);
+            assertEquals(-1.0, result[1], EPSILON);
+        }
+
+        @Test
+        @DisplayName("EAST (yaw=-90): front offset is (1,0), matching Direction.EAST's normal vector")
+        void eastFrontOffset() {
+            double[] result = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, -90f);
+            assertEquals(1.0, result[0], EPSILON);
+            assertEquals(0.0, result[1], EPSILON);
+        }
+
+        /**
+         * REQ-006/AC-006 "survives rotation" contract: a ship assembled with a SOUTH-facing BUG
+         * (assemblyYaw=0) that later rotates in flight to face WEST has {@code effectiveYaw=90}
+         * (AIR-010's {@code effectiveYaw(entityYaw, assemblyYaw)}). Rotating the SOUTH-built raw
+         * seat-anchor offset by that effective yaw must land EXACTLY on the offset a ship built
+         * WEST-facing from the start would have stored — i.e. the same single rotation authority
+         * that already keeps collision/disassembly/rendering consistent (AIR-010) also keeps the
+         * seat anchor consistent, with no separate/divergent computation.
+         */
+        @Test
+        @DisplayName("round-trip: rotating the SOUTH-built anchor by the WEST/NORTH/EAST effective yaw " +
+                "reproduces that facing's own raw anchor offset exactly")
+        void rotatingSouthBuiltAnchorMatchesEachFacingsOwnRawOffset() {
+            float southAssemblyYaw = 0f;
+
+            float westEffectiveYaw = ShipTransform.effectiveYaw(90f, southAssemblyYaw);
+            double[] rotatedToWest = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, westEffectiveYaw);
+            assertEquals(-1.0, rotatedToWest[0], EPSILON, "must match WEST's own raw front offset (-1,0)");
+            assertEquals(0.0, rotatedToWest[1], EPSILON);
+
+            float northEffectiveYaw = ShipTransform.effectiveYaw(180f, southAssemblyYaw);
+            double[] rotatedToNorth = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, northEffectiveYaw);
+            assertEquals(0.0, rotatedToNorth[0], EPSILON, "must match NORTH's own raw front offset (0,-1)");
+            assertEquals(-1.0, rotatedToNorth[1], EPSILON);
+
+            float eastEffectiveYaw = ShipTransform.effectiveYaw(-90f, southAssemblyYaw);
+            double[] rotatedToEast = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, eastEffectiveYaw);
+            assertEquals(1.0, rotatedToEast[0], EPSILON, "must match EAST's own raw front offset (1,0)");
+            assertEquals(0.0, rotatedToEast[1], EPSILON);
+        }
+
+        @Test
+        @DisplayName("round-trip: rounding the rotated offset to integers yields exact block deltas " +
+                "for every facing (no fractional drift)")
+        void roundedOffsetsAreExactIntegers() {
+            float[] yaws = {0f, 90f, 180f, -90f};
+            long[][] expected = {{0, 1}, {-1, 0}, {0, -1}, {1, 0}};
+            for (int i = 0; i < yaws.length; i++) {
+                double[] rotated = ShipTransform.rotateOffset(SOUTH_DX, SOUTH_DZ, yaws[i]);
+                long roundedX = Math.round(rotated[0]);
+                long roundedZ = Math.round(rotated[1]);
+                assertEquals(expected[i][0], roundedX, "yaw=" + yaws[i] + " dx");
+                assertEquals(expected[i][1], roundedZ, "yaw=" + yaws[i] + " dz");
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("pitchFromVerticalInput (FLP-002, docs/plans/flight-pitch.md)")
     class PitchFromVerticalInputTests {
 

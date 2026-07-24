@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "errors": [],
+  "counts": {
+    "requirements": 24,
+    "acceptance_criteria": 24,
+    "traceability_rows": 24,
+    "ledger_items": 7
+  },
+  "readiness_level": "READY_FOR_USER_CONFIRMATION"
+}

@@ -2,10 +2,13 @@ package dev.sharkengine.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import dev.sharkengine.content.block.ThrusterBlock;
 import dev.sharkengine.ship.AccelerationPhase;
 import dev.sharkengine.ship.ShipBlueprint;
 import dev.sharkengine.ship.ShipEntity;
 import dev.sharkengine.ship.ShipTransform;
+import dev.sharkengine.ship.TrailColor;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -161,6 +164,20 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
                 (phase.ordinal() + 1) * 10);
         if (particleCount <= 0) return;
 
+        // REQ-019/T21: one render path for all 17 color cases — a colored thruster emits the
+        // SAME dust particle tinted via TrailColor.red()/green()/blue(); NONE keeps the phase's
+        // existing default trail. Never a per-color texture (TrailTextureResourceTests guards
+        // that). Pre-T21 blueprint states lack the property and simply contribute no color.
+        java.util.List<TrailColor> trailColors = new java.util.ArrayList<>();
+        ShipBlueprint blueprint = entity.getBlueprint();
+        if (blueprint != null) {
+            for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
+                if (block.state().hasProperty(ThrusterBlock.TRAIL_COLOR)) {
+                    trailColors.add(block.state().getValue(ThrusterBlock.TRAIL_COLOR));
+                }
+            }
+        }
+
         Level level = entity.level();
         net.minecraft.util.RandomSource random = level.random;
 
@@ -184,7 +201,15 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
 
             double velY = 0.05 * intensity;
 
-            level.addParticle(particleType,
+            ParticleOptions options = particleType;
+            if (!trailColors.isEmpty()) {
+                TrailColor trail = trailColors.get(random.nextInt(trailColors.size()));
+                if (trail.isColored()) {
+                    options = new DustParticleOptions(
+                            new org.joml.Vector3f(trail.red(), trail.green(), trail.blue()), 1.0f);
+                }
+            }
+            level.addParticle(options,
                     cx + worldX, cy, cz + worldZ,
                     0, velY, 0);
         }

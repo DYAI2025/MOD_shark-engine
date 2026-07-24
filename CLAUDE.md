@@ -31,7 +31,9 @@ Requires **Java 21** — Fabric Loom enforces the toolchain and fails on wrong J
 
 **Client compile gotcha:** `splitEnvironmentSourceSets()` (below) means `test`/`check` never invoke `compileClientJava` — a client-only break can be fully green on `test`/`check` while the mod doesn't build. This happened for real (2026-03-17 to 2026-07-12, undetected): a package-private record used cross-package from client code. Always run `./gradlew build` before claiming client-side work (rendering, HUD, screens) is done; CI runs `build`, not `test`, specifically because of this.
 
-**Datagen/`clean` gotcha:** `fabricApi.configureDataGeneration()` (added 2026-07-12, AIR-030) wires `src/main/generated` deletion into the `clean` task, but *regenerating* it is not part of the normal build graph — running `./gradlew clean build` alone leaves `src/main/generated` missing and `test`/`runGametest` red (missing recipe/loot/blockstate/model/tag/lang files for datagen-migrated blocks: currently `bug`, `steering_wheel`, `thruster`). After `clean`, always run `./gradlew runDatagen` before `build`/`test`/`runGametest` — or just `./gradlew clean runDatagen build`. This does **not** affect CI (`.github/workflows/ci.yml` never runs `clean`; the generated output is committed to git, so it's present immediately after checkout) or normal incremental `./gradlew build` without a preceding `clean`.
+**Datagen/`clean` gotcha:** `fabricApi.configureDataGeneration()` (added 2026-07-12, AIR-030) wires `src/main/generated` deletion into the `clean` task, but *regenerating* it is not part of the normal build graph — running `./gradlew clean build` alone leaves `src/main/generated` missing and `test`/`runGametest` red (missing recipe/loot/blockstate/model/tag/lang files for datagen-migrated blocks: currently `bug`, `steering_wheel`, `thruster`). After `clean`, always run `./gradlew runDatagen` before `build`/`test`/`runGametest`. This does **not** affect CI (`.github/workflows/ci.yml` never runs `clean`; the generated output is committed to git, so it's present immediately after checkout) or normal incremental `./gradlew build` without a preceding `clean`.
+
+**⚠️ Datagen ordering race (2026-07-24 incident, happened for real during T24 evidence collection):** `./gradlew clean runDatagen build` as ONE invocation is NOT safe — the exact same command produced a green run once and, minutes later, a build whose `build/resources/main` (and therefore the built JAR) silently lacked the ENTIRE generated datapack: no tags, recipes, loot tables, blockstates, models or lang. Observed facts: 64/92 GameTests failed with `assembly_fail_empty` (no `ship_eligible` tag on the classpath) while CI stayed green on the same commit (CI never runs `clean`/`runDatagen`); the broken state PERSISTED across plain re-runs (`processResources` reported UP-TO-DATE); `./gradlew processResources --rerun-tasks` fully repaired it (all 92 GameTests green again). Most consistent explanation (inference, not verified against Gradle internals): `processResources` snapshotted `src/main/generated` while `clean`/`runDatagen` were still manipulating it — the CLI task list imposes no execution-order constraint between independent tasks. Rules: (1) run the three steps as SEPARATE invocations — `./gradlew clean && ./gradlew runDatagen && ./gradlew build`; (2) before treating any built JAR as an artifact, verify it actually contains the datapack: `unzip -l build/libs/sharkengine-*.jar | grep -c 'data/sharkengine.*json'` must be > 0 — a racy build produces a structurally valid, silently gameplay-dead JAR.
 
 **GameTest registration gotcha:** `@GameTest`-annotated classes are **not** classpath-scanned — they only run if listed in `src/main/resources/fabric.mod.json`'s `"fabric-gametest"` array. Adding a new GameTest class/file without adding it there compiles and runs cleanly, just silently contributes zero tests (the total test count in `runGametest`'s output stays unchanged — that's the tell). Happened for real 2026-07-13 with `ShipEntityMountGameTest`. Always add new GameTest classes to that array and confirm the reported test count went up.
 
@@ -62,13 +64,13 @@ This is enforced by Loom's `splitEnvironmentSourceSets()`. Putting client import
 
 ### Core Systems
 
-**Ship Assembly** (`ShipAssemblyService`): BFS scan from Steering Wheel finds connected `ship_eligible`-tagged blocks. Constraints: min 4 blocks adjacent to wheel, at least 1 Thruster, no terrain contact, max 512 blocks, max 32-block radius. Produces a `ShipBlueprint`.
+**Ship Assembly** (`ShipAssemblyService`): BFS scan from Steering Wheel finds connected `ship_eligible`-tagged blocks. Constraints: min 4 horizontal blocks adjacent to wheel, at least 1 PROPULSION-role part (`thruster` or `helicopter_engine`, resolved via `ShipPartAnalyzer`), exactly 1 BUG block on the outer edge, zero invalid attachments, no terrain contact (DOWN is exempt — ground-parked ships can always take off). `MAX_BLOCKS=512` / `MAX_RADIUS=32` (Manhattan) are BFS scan caps, not validation failures — blocks beyond them are silently not part of the ship. Structured failure codes live in `AssemblyIssue` (8 codes). Produces a `ShipBlueprint`.
 
 **Entity `interact()` on large-hitbox vehicles must PASS on a non-empty hand.** `ShipEntity`'s hitbox spans the whole assembled structure (up to the 32-block radius above), so any entity-level `interact()` override on it — or on any future large-hitbox vehicle entity — intercepts right-clicks *before* vanilla's normal block-placement path ever runs. Returning `CONSUME` unconditionally (e.g. for a generic "mount the pilot" fallback) silently defeats block placement anywhere on/near the vehicle, with zero exceptions logged — exactly what happened in `ShipEntity.interact()` until the 2026-07-13 fix (`ShipEntity.java`, see the fix's inline comment): every right-click holding a `ship_eligible` block near an already-launched ship got mounted-and-consumed instead of placing. Rule: only consume/handle when `player.getItemInHand(hand).isEmpty()`; otherwise return `InteractionResult.PASS` so vanilla gets a chance at normal item-use/placement (same pattern as right-clicking a vanilla boat while holding a block).
 
-**Physics** (`ShipEntity` + `ShipPhysics`): Weight categories (LIGHT 1-20, MEDIUM 21-40, HEAVY 41-60, OVERLOADED 61+) determine max speed. Five `AccelerationPhase` stages ramp speed from 5 to 30 blocks/sec over 6 seconds. Height penalty reduces performance above Y=100.
+**Physics** (`ShipEntity` + `ShipPhysics`): Weight categories are MASS-based via `VehicleBalance` (per-part masses summed by `ShipPartAnalyzer`, thresholds raised 4x on 2026-07-13): LIGHT ≤120 → 30 blocks/sec, MEDIUM ≤240 → 20, HEAVY ≤360 → 10 + warning, OVERLOADED 361+ → 0. An OVERLOADED structure still assembles — it is only grounded at flight time; there is deliberately no assembly-time refusal. Five `AccelerationPhase` stages ramp speed 5→30 blocks/sec over 6 seconds. Height penalty reduces speed above Y=100 (×0.8/0.6/0.4 at Y≥100/150/200).
 
-**Fuel** (`FuelSystem`): 100 energy max, 1 wood = 100 energy, consumption 1-3 units/sec by phase. Critical at <20%.
+**Fuel** (`FuelSystem`): 100 energy max, 1 wood = 100 energy. Consumption is nominal 1-3 units/sec by phase × `VehicleBalance.FUEL_CONSUMPTION_RATE` (0.25) → effective 0.25-0.75/sec, accumulated fractionally in `fuelDebt`; burns only while thrusting. Critical at <20%.
 
 **Networking**: C2S payloads carry helm input (throttle/turn/forward), assembly requests, and tutorial actions. S2C payloads sync blueprints, builder previews, and tutorial popups. All registered in `ModNetworking`.
 
@@ -80,14 +82,15 @@ All validation and physics run server-side. The client handles input capture (`H
 
 ## Testing
 
-JUnit 5 tests in `src/test/java/dev/sharkengine/ship/`:
-- `ShipPhysicsTest` — Speed calculation, height penalty, acceleration phases
-- `ShipAssemblyServiceTest` — BFS assembly, validation, contact detection
-- `FuelSystemTest` — Fuel conversions, flight time, display formatting
-- `BuilderValidationTest` — Build-mode/assembly validation conditions
-- `ResourceValidationTest` — Validates resource files (lang, tags) against expected content
+JUnit 5 unit tests live under `src/test/java/dev/sharkengine/ship/` (physics, assembly, fuel, weight, builder validation, transform, resource contracts) and `dev/sharkengine/ship/part/` (part registry, balance table, analyzer, assembly issues). Fabric GameTests live in `src/main/java/dev/sharkengine/gametest/` and only run if registered in `fabric.mod.json`'s `fabric-gametest` array (see gotcha above).
 
-Tests use `@DisplayName` tied to gameplay behavior. Mock Fabric abstractions where needed.
+Tests use `@DisplayName` tied to gameplay behavior. Mock Fabric abstractions where needed (hand-written stubs under `src/test/java/net/minecraft/`).
+
+**GameTest gotchas (all paid for in real debug cycles, 2026-07-24):** (1) a mock player whose collision box overlaps the target position makes vanilla REJECT `BlockItem` placement — stand the player clear before `useOn`, reposition afterwards; (2) `build/gametest/logs/latest.log` rotates on the NEXT run — copy it away immediately after a failure or the evidence is gone; (3) when grepping filtered gametest output, always include `GameTestAssertException` in the pattern, or the actual assertion message never reaches you (only the pass/fail count does).
+
+## Recovery audit (lost-fix check)
+
+When a development line is recovered/reimplemented from an abandoned one (as happened 2026-07: `archive/local-fixline-2026-07` → the current line), diff the abandoned line's fix history (`git log --oneline --grep='Fix:' <old-line>`) against the new line and classify EVERY fix class as present/lost — never assume the recovery carried them. Recovery reliably carries feature work but drops small hardening fixes (they are inconspicuous and often untested on the new line). Three fixes were provably lost in that recovery: the NaN input clamp and the Health load clamp (rediscovered by accident during T16/T18), and the Dockerfile sources-jar exclusion (old `6ec531f`; the recovered Dockerfile's `sharkengine-*.jar` glob shipped the sources jar into `mods/` while its own comment claimed otherwise — rediscovered 2026-07-24 by exactly this audit while preparing the smoke server). A third suspect (helm input send rate: old line every-tick/20 Hz vs. current ~10 Hz) was checked 2026-07-24 and REFUTED — a worked example of how to audit: the old fix's commit message shows it addressed a payload-yaw COPY (`hcPlayerYaw` copied onto entity yaw every tick → hold-then-jump staircase at 10 Hz); the current line carries no continuous yaw in the payload and instead integrates the HELD turn input server-side every tick, so the staircase mechanism is structurally absent. Compare the old fix's MECHANISM against the new architecture, never just the symptom name. (Remaining nuance, not a defect: ~100 ms input-change latency at 10 Hz ≈ up to ~6° over-turn on key release; every-tick sending stays the cheap knob if flight-feel smoke testing flags turn responsiveness.)
 
 ## Debugging "nothing happens" reports
 
@@ -102,10 +105,10 @@ GitHub Actions:
 ## Key Resources
 
 - `src/main/resources/fabric.mod.json` — Mod metadata, entrypoints, dependencies
-- `src/main/resources/data/sharkengine/tags/block/ship_eligible.json` — Blocks allowed in ship structures (note: singular `block`, not `blocks`)
-- `src/main/resources/assets/sharkengine/lang/en_us.json` — All translatable strings
+- `src/main/generated/data/sharkengine/tags/block/ship_eligible.json` — Blocks allowed in ship structures; generated by `SharkEngineTagProvider` (edit the provider, run `./gradlew runDatagen`, commit the output — never hand-edit generated files)
+- `src/main/generated/assets/sharkengine/lang/en_us.json` / `de_de.json` — All translatable strings; generated by `SharkEngineLangProvider` (same rule)
 - `MSP-1.md` (repo root) — Current milestone plan (guided builder + flight loop)
-- `docs/PRODUCTION_MVP_TASKS.md` (repo root) — Full production backlog and gap analysis; flags that flight is still 2D-ish (no true 6DoF), block-count-only weight model (no per-block mass), and no persistent vehicle-class buffs
+- `sharkengine/docs/PRODUCTION_MVP_TASKS.md` — Older backlog/gap analysis; partially stale (its "block-count-only weight model" flag is resolved — weight is mass-based since AIR-023). The live plan is `docs/plans/2026-07-18-shark-engine-air-release-1.md` (tasks T01–T24) plus PRD/vision/canvas/traceability under `docs/`.
 - `sharkengine/specs/001-vertikale-bewegung/` — Feature spec for the AIR flight-physics system (acceleration phases, weight/speed categories, fuel, height penalty). Its own `state.yaml`/`README.md` status tracker is stale (marks itself pending/in-progress) — don't trust it over the actual code in `src/main/java/dev/sharkengine/ship/`, which has these systems implemented.
 
 ## Coding Conventions
@@ -127,4 +130,4 @@ The repo root contains mod-deployment and publishing tooling outside the Gradle 
 
 **Modrinth publishing**: `tools/modrinth-mcp-server/` is a Node/TypeScript MCP server (registered in root `.mcp.json` as `modrinth`) exposing search/version/publish tools against the Modrinth API — used to search Modrinth and publish mod releases. Requires `MODRINTH_TOKEN` env var for write operations (create version, modify project).
 
-**Note on `sharkengine/CLAUDE.md`**: that file and `sharkengine/.claude/` are a vendored generic "Spec-Flow" agent-workflow scaffold (unrelated `/feature`, `/epic`, `/ship` slash-command SDLC tooling), not documentation of this mod. Don't confuse its instructions with this file's.
+**Note on `sharkengine/.spec-flow/`**: leftover directory of a vendored generic "Spec-Flow" agent-workflow scaffold (its `CLAUDE.md` and `.claude/` were removed 2026-07); not documentation of this mod.
