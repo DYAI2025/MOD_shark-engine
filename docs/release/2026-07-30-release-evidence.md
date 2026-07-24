@@ -114,3 +114,19 @@ the explicit rows-6/8 reclassification decision; recorded by the agent on his in
 hand-signed. **Date:** 2026-07-25
 
 *(Publishing — e.g. Modrinth — only after sign-off, and only on explicit go.)*
+
+## Publish record (Modrinth, 2026-07-25)
+
+- **Project:** `sharkengine` (id `xwlGFlcw`), created via API in the PO's account (DYAI2025),
+  metadata per the session-approved draft incl. the "Honest current limits" section.
+- **Version:** `0.1.0` "AIR Release 1" (id `bpmKXmLT`), loaders `fabric`, game version
+  `1.21.1`, required dependency Fabric API (`P7dR8mSH`).
+- **Publish-time re-verification (sign-off requirement):** the uploaded file was verified
+  BYTE-IDENTICAL to the row-5 artifact — server-side SHA-512 prefix and file size
+  (402,149 bytes) match the local `sharkengine-0.1.0.jar` (SHA-256 `cfc0b783…`) exactly.
+- **Status:** submitted for review (`processing`, HTTP 204 on submit). Public visibility at
+  https://modrinth.com/mod/sharkengine pends Modrinth's human moderation (typically hours to
+  a few days — outside our control).
+- **Token hygiene:** the PAT used lives only in `~/.env`; the stray copy found in a Downloads
+  clone was removed during the session. Recommendation: revoke the PAT after moderation
+  clears.
