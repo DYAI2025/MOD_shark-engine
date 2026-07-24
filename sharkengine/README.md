@@ -19,7 +19,7 @@ This README is written for **guests and first-time contributors** so you can qui
 - **Loader:** Fabric (`>= 0.16.5`)
 - **Fabric API:** `0.114.0+1.21.1`
 - **Java target/toolchain:** Java 21
-- **Current version:** `0.0.1`
+- **Current version:** `0.1.0`
 
 Core metadata is defined in `fabric.mod.json` and Gradle properties.
 
