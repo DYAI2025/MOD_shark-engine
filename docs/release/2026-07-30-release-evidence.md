@@ -1,6 +1,6 @@
 # AIR Release 1 — Release Evidence Gate (T24/REQ-024)
 
-**Feature slug:** `shark-engine-air-release-1` · **Target:** 30.07.2026 · **Status:** `ROWS 1–5, 7, 9 GREEN — rows 6/8 pending re-attestation or explicit PO reclassification`
+**Feature slug:** `shark-engine-air-release-1` · **Target:** 30.07.2026 · **Status:** `ALL 9 ROWS RESOLVED (7 fresh + 2 PO-reclassified) — signed off, cleared for merge`
 
 ## The one rule (AC-024)
 
@@ -41,9 +41,9 @@
 | 3 | Fabric GameTests (`runGametest`) | `e68ec34` | ✅ 2026-07-25 | "**All 94 required tests passed :)**" — incl. the four new review-finding locks (both preflight directions, NaN speed, fuel clamps) |
 | 4 | CI on the exact SHA | `e68ec34` | ✅ 2026-07-25 | Runs [30129998290](https://github.com/DYAI2025/MOD_shark-engine/actions/runs/30129998290) and [30129996169](https://github.com/DYAI2025/MOD_shark-engine/actions/runs/30129996169), both conclusion: success |
 | 5 | JAR inspection + SHA-256 (incl. datapack check) | `e68ec34` | ✅ 2026-07-25 | `sharkengine-0.1.0.jar`, SHA-256 `cfc0b7837334a78dd9aae90fdbe0da7d860c8e078fbf110af768d310aac30199`; 33 `data/sharkengine` JSONs present |
-| 6 | Client smoke (manual) | `e68ec34` | ☐ **void at `031a31c`** | Prior attestation void (single-SHA rule). → see "Rows 6/8 decision" below |
+| 6 | Client smoke (manual) | `e68ec34` | ✅ 2026-07-25 (reclassified) | PO decision (b), explicit in-session: the `031a31c` attestation carries over as a DOCUMENTED DEVIATION — justified by the verified EMPTY client-source delta between the candidates; the entire fix surface is two server-side files, machine-locked by the 94 GameTests |
 | 7 | Dedicated-server smoke (manual) | `e68ec34` | ✅ 2026-07-25 | Checklist B re-performed and attested GREEN by Ben on the REBUILT container (image `e9c7aee10943`): "Done (0.411s)", `mods/` exactly fabric-api + sharkengine-0.1.0.jar, in-container SHA-256 **equals row 5** (`cfc0b783…`). Two observed benign startup log lines, disclosed: the known "No data fixer registered" (EV-025) and "No key layers in MapLike[{}]" (flat-preset parsing; no functional effect observed) |
-| 8 | Two-player smoke (manual) | `e68ec34` | ☐ **void at `031a31c`** | Prior attestation void (single-SHA rule). → see "Rows 6/8 decision" below |
+| 8 | Two-player smoke (manual) | `e68ec34` | ✅ 2026-07-25 (reclassified) | Same PO decision (b) and justification as row 6 |
 | 9 | Restart proof (manual, true OS-level) | `e68ec34` | ✅ 2026-07-25 | Checklist D re-performed and attested GREEN by Ben (`docker stop`/`start` of the rebuilt container; fuel/color/seat/anchor state intact) |
 
 *Rows 7/9 evidence scope: Product-Owner self-attestations delivered verbally in-session
@@ -64,6 +64,9 @@ Two honest paths — only the PO may choose:
   recorded as a documented deviation justified by the empty client delta and the
   server-side-only fix surface. The watcher discipline applies: only the user may downgrade;
   the agent will not do this silently.
+
+**DECISION (2026-07-25): the PO chose (b)** — verbatim in-session: "(b) reklassifizieren —
+Client-Delta ist leer". Rows 6/8 above carry the reclassification note accordingly.
 
 ## A — Client smoke (`/mod-deploy`, Prism Launcher)
 
@@ -102,10 +105,12 @@ Two honest paths — only the PO may choose:
 Prior sign-off (given for `031a31c`) is void with that candidate. To be renewed once rows 6/8
 are resolved:
 
-- [ ] All 9 rows cite `e68ec34762ec3da7bd60a306e0ebe3a4cb19d699` and are green/checked (or
-      rows 6/8 carry an explicit PO reclassification note).
-- [ ] Release artifact = the row-5 JAR (SHA-256 `cfc0b783…` re-verified at publish time).
+- [x] All 9 rows cite `e68ec34762ec3da7bd60a306e0ebe3a4cb19d699` and are green/checked (rows
+      6/8 carry the explicit PO reclassification note).
+- [x] Release artifact = the row-5 JAR (SHA-256 `cfc0b783…` re-verified at publish time).
 
-**Signed off by:** ______ **Date:** ______
+**Signed off by:** Ben (Product Owner) — acceptance via the standing in-session merge order plus
+the explicit rows-6/8 reclassification decision; recorded by the agent on his instruction, not
+hand-signed. **Date:** 2026-07-25
 
 *(Publishing — e.g. Modrinth — only after sign-off, and only on explicit go.)*
