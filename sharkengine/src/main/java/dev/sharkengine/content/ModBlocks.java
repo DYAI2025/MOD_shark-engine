@@ -34,7 +34,7 @@ public final class ModBlocks {
 
     public static final Block THRUSTER = registerBlock(
             "thruster",
-            Block::new,
+            dev.sharkengine.content.block.ThrusterBlock::new,
             BlockBehaviour.Properties.of()
                     .strength(3.0F, 6.0F)
                     .sound(SoundType.COPPER)

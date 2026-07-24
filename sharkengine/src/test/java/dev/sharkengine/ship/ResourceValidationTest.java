@@ -981,4 +981,72 @@ class ResourceValidationTest {
                     "ModComponents does not register the 'trail_color' component id");
         }
     }
+
+    /**
+     * REQ-019/T21 (AC-019): single render path — the trail is a programmatically TINTED vanilla
+     * dust particle and the thruster model reuses vanilla textures, so the mod's texture
+     * baseline for thruster/trail is ZERO files. A {@code thruster_red.png}-style texture or a
+     * per-color blockstate dispatch appearing is the texture-swap implementation the test plan
+     * names as the falsifier ("16 baked particle textures switched by color"), regardless of
+     * how correct it looks visually.
+     */
+    @Nested
+    @DisplayName("REQ-019/T21: single tinted render path — no per-color textures or models")
+    class TrailTextureResourceTests {
+
+        @Test
+        @DisplayName("Zero thruster/trail texture files exist (baseline) — especially no per-dye variants")
+        void noThrusterOrTrailTextures() throws IOException {
+            for (Path root : List.of(RESOURCES_ROOT.resolve("assets"), GENERATED_ROOT.resolve("assets"))) {
+                if (!Files.exists(root)) {
+                    continue;
+                }
+                try (var walk = Files.walk(root)) {
+                    List<Path> offenders = walk
+                            .filter(p -> p.toString().endsWith(".png"))
+                            .filter(p -> {
+                                String name = p.getFileName().toString();
+                                return name.contains("thruster") || name.contains("trail");
+                            })
+                            .toList();
+                    assertTrue(offenders.isEmpty(),
+                            "thruster/trail texture file(s) appeared: " + offenders + " — the trail is a "
+                                    + "TINTED vanilla dust particle (one path, 17 cases); per-color textures "
+                                    + "are the rejected texture-swap design");
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Thruster blockstate keeps the catch-all variant — no per-color model dispatch")
+        void thrusterBlockstateHasNoPerColorDispatch() throws IOException {
+            Path blockstate = GENERATED_ROOT.resolve("assets/sharkengine/blockstates/thruster.json");
+            assertTrue(Files.exists(blockstate), "generated thruster blockstate missing");
+            String json = Files.readString(blockstate);
+            assertTrue(json.contains("\"\""),
+                    "thruster blockstate lost its catch-all \"\" variant — all trail_color states must "
+                            + "share ONE model");
+            assertFalse(json.contains("trail_color="),
+                    "thruster blockstate dispatches per trail_color state — that is per-color model "
+                            + "switching, the rejected texture-swap design");
+        }
+
+        @Test
+        @DisplayName("Exactly one thruster block model, referencing no dye-specific textures")
+        void singleThrusterModelWithoutDyeTextures() throws IOException {
+            Path modelDir = GENERATED_ROOT.resolve("assets/sharkengine/models/block");
+            try (var walk = Files.list(modelDir)) {
+                List<Path> thrusterModels = walk
+                        .filter(p -> p.getFileName().toString().startsWith("thruster"))
+                        .toList();
+                assertEquals(1, thrusterModels.size(),
+                        "expected exactly one thruster block model, found " + thrusterModels);
+                String json = Files.readString(thrusterModels.get(0));
+                for (String dye : ThrusterDyeComponentResourceTests.DYE_NAMES) {
+                    assertFalse(json.contains(dye),
+                            "thruster model references dye-specific content '" + dye + "'");
+                }
+            }
+        }
+    }
 }
