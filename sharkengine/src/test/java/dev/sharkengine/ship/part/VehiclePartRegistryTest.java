@@ -118,4 +118,37 @@ class VehiclePartRegistryTest {
                     "registered id must not silently resolve to the fallback definition: " + id);
         }
     }
+
+    /**
+     * REQ-020/T22 (AC-020): resolution keys on BLOCK IDENTITY, never on state/component
+     * decorations. The tester's named risk: a component/state-aware lookup could silently
+     * resolve a colored thruster to a different (or fallback) part definition, quietly changing
+     * mass/lift/thrust — this pair of tests makes both halves of that failure concrete.
+     */
+    @Test
+    void trailColorNeverReachesResolution() {
+        // (a) The base id resolves to the one true thruster definition — the SAME identity every
+        // caller gets, colored or not (all three production call sites derive the id via
+        // BuiltInRegistries.BLOCK.getKey(state.getBlock()), which strips state by construction).
+        VehiclePartDefinition base = VehiclePartRegistry.resolve("sharkengine:thruster");
+        assertSame(VehiclePartRegistry.resolve("sharkengine:thruster"), base,
+                "base-id resolution must be the identical definition instance on every call");
+        assertNotEquals(VehiclePartRegistry.FALLBACK, base);
+
+        // (b) The counterfactual that makes the risk visible: a state-DECORATED id (what a
+        // caller would produce if it ever derived ids from BlockState.toString()) does NOT
+        // resolve to the thruster — it falls back to a mass-1 STRUCTURE part with NO propulsion.
+        // That is exactly the silent stats change AC-020 forbids, which is why every call site
+        // must key on block identity. If someone "fixes" the registry to accept decorated ids
+        // instead of fixing the call site, this test fails and forces the conversation.
+        VehiclePartDefinition decorated =
+                VehiclePartRegistry.resolve("sharkengine:thruster[trail_color=red]");
+        assertEquals(VehiclePartRegistry.FALLBACK, decorated,
+                "state-decorated ids must NOT resolve — resolution keys on pure block identity");
+        assertNotEquals(base.mass(), decorated.mass(),
+                "sanity: fallback and thruster definitions must differ in mass — otherwise a "
+                        + "decorated-id lookup would not even be detectable as a stats change");
+        assertNotEquals(base.role(), decorated.role(),
+                "sanity: fallback loses the PROPULSION role — the silent no-thrust failure AC-020 names");
+    }
 }
