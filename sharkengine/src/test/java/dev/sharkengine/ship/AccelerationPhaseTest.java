@@ -3,6 +3,11 @@ package dev.sharkengine.ship;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -196,5 +201,28 @@ class AccelerationPhaseTest {
         // Math.max(0, accelerationTicks - 3) prevents negative input reaching here,
         // but the method should still be safe.
         assertEquals(AccelerationPhase.PHASE_1, AccelerationPhase.fromTick(-1));
+    }
+
+    /**
+     * REQ-023/T23 negative regression guard: the tester's named scope-creep risk is a coder
+     * working on REQ-015's bank/turn "helpfully" wiring partial looping support — a dormant
+     * 6th phase or loop field that ships dark. Looping is POST-Release-1, backlog-only
+     * ({@code docs/BACKLOG.md}, BACKLOG-001); when it arrives it must be its own
+     * policy/controller behind a seam (NFR-003), never a hidden phase.
+     */
+    @Test
+    @DisplayName("REQ-023/T23: no loop-related phase or surface exists in the shipped physics")
+    void noLoopRelatedPhaseIntroduced() throws IOException {
+        assertArrayEquals(
+                new AccelerationPhase[]{AccelerationPhase.PHASE_1, AccelerationPhase.PHASE_2,
+                        AccelerationPhase.PHASE_3, AccelerationPhase.PHASE_4, AccelerationPhase.PHASE_5},
+                AccelerationPhase.values(),
+                "AccelerationPhase gained/lost/reordered values — looping must arrive as its own "
+                        + "post-release policy (docs/BACKLOG.md BACKLOG-001), never a hidden phase");
+        String source = Files.readString(
+                Path.of("src/main/java/dev/sharkengine/ship/AccelerationPhase.java"));
+        assertFalse(source.toLowerCase(Locale.ROOT).contains("loop"),
+                "a loop-related token appeared in AccelerationPhase.java (baseline: zero) — "
+                        + "REQ-023 keeps looping backlog-only in Release 1");
     }
 }
