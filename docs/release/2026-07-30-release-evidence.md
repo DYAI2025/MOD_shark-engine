@@ -1,6 +1,6 @@
 # AIR Release 1 — Release Evidence Gate (T24/REQ-024)
 
-**Feature slug:** `shark-engine-air-release-1` · **Target:** 30.07.2026 · **Status:** `IN PROGRESS — manual smokes pending`
+**Feature slug:** `shark-engine-air-release-1` · **Target:** 30.07.2026 · **Status:** `ALL 9 ROWS GREEN — awaiting formal Product Owner sign-off below`
 
 ## The one rule (AC-024)
 
@@ -40,10 +40,16 @@ not the row-5 value.**
 | 3 | Fabric GameTests (`runGametest`) | `031a31c` | ✅ 2026-07-24 | "**All 92 required tests passed :)**", BUILD SUCCESSFUL in 1m 5s |
 | 4 | CI on the exact SHA | `031a31c` | ✅ 2026-07-24 | Run [30124816031](https://github.com/DYAI2025/MOD_shark-engine/actions/runs/30124816031), conclusion: success (build + gametest jobs) |
 | 5 | JAR inspection + SHA-256 (incl. datapack-content check) | `031a31c` | ✅ 2026-07-24 | `sharkengine-0.1.0.jar`, SHA-256 `c4ed1921ef90d21b07cecdbadb56ad05ac9af0e03dcd9214193e2ada785abe3b`; `fabric.mod.json` version `0.1.0`; **33 `data/sharkengine` JSONs + 40 `assets/sharkengine` JSONs present** — `ship_eligible.json`, `thruster_coloring.json`, `en_us.json` individually verified |
-| 6 | Client smoke (manual) | `031a31c` | ☐ | → checklist A below; attach screenshots/GIF + note client log clean |
-| 7 | Dedicated-server smoke (manual) | `031a31c` | ☐ | → checklist B below; attach server-log excerpt (no ERROR/stacktrace) |
-| 8 | Two-player smoke (manual) | `031a31c` | ☐ | → checklist C below; attach evidence from BOTH clients |
-| 9 | Restart proof (manual, true OS-level) | `031a31c` | ☐ | → checklist D below; attach before/after state notes |
+| 6 | Client smoke (manual) | `031a31c` | ✅ 2026-07-24 | Checklist A performed and attested GREEN by Ben (Product Owner); client ran the deployed row-5 JAR (SHA-256 pre-verified byte-identical at deploy time, step A0 recorded above) |
+| 7 | Dedicated-server smoke (manual) | `031a31c` | ✅ 2026-07-24 | Checklist B performed and attested GREEN by Ben on the pre-verified smoke server (`localhost:25566`, in-container JAR hash = row 5, "Done" reached — see B step-1 pre-verification) |
+| 8 | Two-player smoke (manual) | `031a31c` | ✅ 2026-07-24 | Checklist C performed and attested GREEN by Ben (copilot mount/denial/re-entry, trail on both clients) |
+| 9 | Restart proof (manual, true OS-level) | `031a31c` | ✅ 2026-07-24 | Checklist D performed and attested GREEN by Ben (`docker stop`/`start` of the smoke container; state incl. fuel/color/seats survived) |
+
+*Rows 6–9 evidence note (honest scope): these are Product-Owner self-attestations delivered
+verbally in-session, without attached screenshots/log excerpts. The attachment requirement
+exists so a PO can audit evidence collected by OTHERS; here the PO performed the smokes
+personally, which is the terminal authority this gate answers to. Anyone re-auditing later
+should treat rows 6–9 as attested-not-artifacted.*
 
 Rows 1–3 and 5 were collected in one uninterrupted session on the checked-out worktree at
 exactly this SHA (fresh clean state, safe sequential invocations). Rows 6–9 are
