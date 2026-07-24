@@ -10,16 +10,17 @@
 > block. **Any new commit/push invalidates ALL rows** (automated rows are cheap to re-run,
 > ~5 min; manual rows must be redone).
 
-**Release candidate SHA:** `064e84306b9dcb8fac4c37d5cb8fcf6ae11d501b`
-(`feature/shark-engine-air-release-1`, "Chore: bump mod_version to 0.1.0 for AIR Release 1")
+**Release candidate SHA:** `031a31cbd15747a00d37fd082165bdbe94c60449`
+(`feature/shark-engine-air-release-1`, "Fix: exclude sources jar from server mods/ — lost fix #3 from the recovery audit")
 
 **Release version:** `0.1.0` (decided 2026-07-24 — the previously flagged open item is resolved;
 the earlier evidence set at `7234a56` is void per the single-SHA rule).
 
 ## ⚠️ Incident during evidence collection (2026-07-24) — why the JAR row is strict
 
-The FIRST automated collection at this SHA used `./gradlew clean runDatagen build` as one
-invocation and produced a **silently broken JAR** (zero `data/sharkengine/*.json` — no tags,
+The first automated collection (at the previous candidate `064e843`; this candidate `031a31c`
+differs only by the Dockerfile sources-jar fix that same audit surfaced) used
+`./gradlew clean runDatagen build` as one invocation and produced a **silently broken JAR** (zero `data/sharkengine/*.json` — no tags,
 recipes, loot, blockstates, lang: structurally valid, gameplay-dead on any real server) plus
 64/92 failing GameTests, while CI stayed green on the same SHA (CI never runs
 `clean`/`runDatagen`). Root-caused and documented in the repo-root `CLAUDE.md` ("Datagen
@@ -34,15 +35,15 @@ not the row-5 value.**
 
 | # | Evidence (EV-024) | SHA | Status | Proof |
 |---|---|---|---|---|
-| 1 | Build via safe sequence: `./gradlew clean` → `./gradlew runDatagen` → `./gradlew build` (separate invocations, incl. `compileClientJava`) | `064e843` | ✅ 2026-07-24 | All three BUILD SUCCESSFUL (build 8s), local JDK 21/Loom 1.7.4; datagen output matches the committed `src/main/generated` (zero diff) |
-| 2 | Unit/Resource tests (part of `build`) | `064e843` | ✅ 2026-07-24 | **357 tests, 0 failures, 0 skipped** (JUnit XML totals) |
-| 3 | Fabric GameTests (`runGametest`) | `064e843` | ✅ 2026-07-24 | "**All 92 required tests passed :)**", BUILD SUCCESSFUL in 1m 5s |
-| 4 | CI on the exact SHA | `064e843` | ✅ 2026-07-24 | Run [30058427088](https://github.com/DYAI2025/MOD_shark-engine/actions/runs/30058427088), conclusion: success (build + gametest jobs) |
-| 5 | JAR inspection + SHA-256 (incl. datapack-content check) | `064e843` | ✅ 2026-07-24 | `sharkengine-0.1.0.jar`, SHA-256 `c4ed1921ef90d21b07cecdbadb56ad05ac9af0e03dcd9214193e2ada785abe3b`; `fabric.mod.json` version `0.1.0`; **33 `data/sharkengine` JSONs + 40 `assets/sharkengine` JSONs present** — `ship_eligible.json`, `thruster_coloring.json`, `en_us.json` individually verified |
-| 6 | Client smoke (manual) | `064e843` | ☐ | → checklist A below; attach screenshots/GIF + note client log clean |
-| 7 | Dedicated-server smoke (manual) | `064e843` | ☐ | → checklist B below; attach server-log excerpt (no ERROR/stacktrace) |
-| 8 | Two-player smoke (manual) | `064e843` | ☐ | → checklist C below; attach evidence from BOTH clients |
-| 9 | Restart proof (manual, true OS-level) | `064e843` | ☐ | → checklist D below; attach before/after state notes |
+| 1 | Build via safe sequence: `./gradlew clean` → `./gradlew runDatagen` → `./gradlew build` (separate invocations, incl. `compileClientJava`) | `031a31c` | ✅ 2026-07-24 | All three BUILD SUCCESSFUL (build 8s), local JDK 21/Loom 1.7.4; datagen output matches the committed `src/main/generated` (zero diff) |
+| 2 | Unit/Resource tests (part of `build`) | `031a31c` | ✅ 2026-07-24 | **357 tests, 0 failures, 0 skipped** (JUnit XML totals) |
+| 3 | Fabric GameTests (`runGametest`) | `031a31c` | ✅ 2026-07-24 | "**All 92 required tests passed :)**", BUILD SUCCESSFUL in 1m 5s |
+| 4 | CI on the exact SHA | `031a31c` | ✅ 2026-07-24 | Run [30124816031](https://github.com/DYAI2025/MOD_shark-engine/actions/runs/30124816031), conclusion: success (build + gametest jobs) |
+| 5 | JAR inspection + SHA-256 (incl. datapack-content check) | `031a31c` | ✅ 2026-07-24 | `sharkengine-0.1.0.jar`, SHA-256 `c4ed1921ef90d21b07cecdbadb56ad05ac9af0e03dcd9214193e2ada785abe3b`; `fabric.mod.json` version `0.1.0`; **33 `data/sharkengine` JSONs + 40 `assets/sharkengine` JSONs present** — `ship_eligible.json`, `thruster_coloring.json`, `en_us.json` individually verified |
+| 6 | Client smoke (manual) | `031a31c` | ☐ | → checklist A below; attach screenshots/GIF + note client log clean |
+| 7 | Dedicated-server smoke (manual) | `031a31c` | ☐ | → checklist B below; attach server-log excerpt (no ERROR/stacktrace) |
+| 8 | Two-player smoke (manual) | `031a31c` | ☐ | → checklist C below; attach evidence from BOTH clients |
+| 9 | Restart proof (manual, true OS-level) | `031a31c` | ☐ | → checklist D below; attach before/after state notes |
 
 Rows 1–3 and 5 were collected in one uninterrupted session on the checked-out worktree at
 exactly this SHA (fresh clean state, safe sequential invocations). Rows 6–9 are
@@ -74,6 +75,11 @@ only a proxy for row 9's real process restart (disclosed in
 ## B — Dedicated-server smoke (`/test-server`, Docker, Port 25566)
 
 1. Container starts clean with the row-5 JAR (**verify the jar SHA-256 in `mods/` matches!**).
+   *Pre-verified 2026-07-24 for the currently running container (image `093b3986705e`): server
+   reached "Done (0.465s)"; `mods/` contains exactly `fabric-api.jar` + `sharkengine-0.1.0.jar`
+   (no sources jar — the lost-fix-#3 Dockerfile fix proven in situ); in-container SHA-256 equals
+   the row-5 value byte-for-byte. Notable: the Docker-internal Gradle build reproduced the host
+   artifact exactly — reproducibility holds across environments.*
 2. Join, run the A2–A5 core loop.
 3. Server log: reaches "Done", no `sharkengine` ERROR/stacktrace during
    assembly/flight/disassembly.
@@ -100,7 +106,7 @@ only a proxy for row 9's real process restart (disclosed in
 
 ## Sign-off (Product Owner)
 
-- [ ] All 9 rows cite `064e84306b9dcb8fac4c37d5cb8fcf6ae11d501b` and are green/checked.
+- [ ] All 9 rows cite `031a31cbd15747a00d37fd082165bdbe94c60449` and are green/checked.
 - [ ] Release artifact = the row-5 JAR (byte-identical, SHA-256
       `c4ed1921ef90d21b07cecdbadb56ad05ac9af0e03dcd9214193e2ada785abe3b` re-verified at
       publish time).
