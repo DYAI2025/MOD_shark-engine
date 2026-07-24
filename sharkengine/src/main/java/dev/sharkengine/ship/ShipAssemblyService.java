@@ -288,22 +288,49 @@ public final class ShipAssemblyService {
         ShipBlueprint blueprint = scan.toBlueprint();
 
         // ═══════════════════════════════════════════════════════════════════
-        // SPAWN PREFLIGHT (REQ-021/T15): if an already-spawned ship intersects this
-        // structure's footprint, committing would nest one ship inside another and the
-        // block-removal below would mutate the world for a doomed spawn (RISK-004's
-        // duplication shape). Checked READ-ONLY before the first setBlock, same
-        // preflight-before-mutation discipline as REQ-014's materializeForEdit. Scoped
-        // to ShipEntity deliberately: players/mobs standing on the structure are
-        // ordinary bystanders (a waiting copilot must not block assembly).
+        // SPAWN PREFLIGHT (REQ-021/T15; reworked 2026-07-25 per independent-review
+        // findings F1 MAJOR / F2 MINOR): CELL-SET intersection against each parked
+        // ship's ROTATED blueprint cells — via #rotatedWorldPositions, the T14
+        // single-rotation authority — instead of the old hull-AABB-vs-entity-box
+        // check, which was wrong in BOTH directions: a parked ship's fixed 2.5×1.5
+        // entity box let fresh assemblies nest under its far larger virtual hull
+        // (RISK-004's duplication shape; permanent block loss when either ship later
+        // disassembles into the shared volume), while the convex hull AABB falsely
+        // rejected legitimate builds near ships parked in a concave notch of the new
+        // structure. Blueprint-less ships (defensive, should not exist in practice)
+        // fall back to entity-box vs per-cell AABBs. Still READ-ONLY before the first
+        // setBlock; still deliberately ships-only (bystanders never block assembly).
         // ═══════════════════════════════════════════════════════════════════
-        AABB footprint = null;
+        Set<BlockPos> newCells = new HashSet<>();
+        AABB searchHull = null;
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
-            AABB cell = new AABB(wheelPos.offset(block.dx(), block.dy(), block.dz()));
-            footprint = footprint == null ? cell : footprint.minmax(cell);
+            BlockPos cell = wheelPos.offset(block.dx(), block.dy(), block.dz());
+            newCells.add(cell);
+            AABB cellBox = new AABB(cell);
+            searchHull = searchHull == null ? cellBox : searchHull.minmax(cellBox);
         }
-        if (footprint != null
-                && !level.getEntities(ModEntities.SHIP, footprint.inflate(0.5), e -> true).isEmpty()) {
-            return new AssembleResult("message.sharkengine.assembly_fail_spawn_blocked", "");
+        if (searchHull != null) {
+            // Generous search radius: a parked ship's CENTER may sit up to MAX_RADIUS away
+            // from the hull cells that would actually collide with the new structure.
+            for (ShipEntity parked : level.getEntities(ModEntities.SHIP,
+                    searchHull.inflate(MAX_RADIUS + 2), e -> true)) {
+                ShipBlueprint parkedBlueprint = parked.getBlueprint();
+                if (parkedBlueprint != null) {
+                    for (BlockPos occupied : rotatedWorldPositions(
+                            parkedBlueprint, parked.blockPosition(), parked.getYRot())) {
+                        if (newCells.contains(occupied)) {
+                            return new AssembleResult("message.sharkengine.assembly_fail_spawn_blocked", "");
+                        }
+                    }
+                } else {
+                    AABB parkedBox = parked.getBoundingBox();
+                    for (BlockPos cell : newCells) {
+                        if (parkedBox.intersects(new AABB(cell))) {
+                            return new AssembleResult("message.sharkengine.assembly_fail_spawn_blocked", "");
+                        }
+                    }
+                }
+            }
         }
 
         // Remove scanned blocks

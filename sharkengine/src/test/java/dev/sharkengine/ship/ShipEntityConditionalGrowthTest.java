@@ -38,11 +38,9 @@ class ShipEntityConditionalGrowthTest {
     private static final Path SHIP_ENTITY = Path.of("src/main/java/dev/sharkengine/ship/ShipEntity.java");
 
     private static String strippedSource() throws IOException {
-        String source = Files.readString(SHIP_ENTITY);
-        return source
-                .replaceAll("(?s)/\\*.*?\\*/", " ")
-                .replaceAll("//[^\n]*", " ")
-                .replaceAll("\"(\\\\.|[^\"\\\\])*\"", "\"\"");
+        // F6 fix: real state-machine stripper — the old regexes corrupted quote pairing on
+        // text blocks / '"' char literals / "//" inside strings (see JavaSourceStripper).
+        return JavaSourceStripper.strip(Files.readString(SHIP_ENTITY));
     }
 
     private static int count(Pattern pattern, String text) {

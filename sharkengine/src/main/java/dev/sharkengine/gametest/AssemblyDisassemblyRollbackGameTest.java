@@ -149,6 +149,90 @@ public final class AssemblyDisassemblyRollbackGameTest implements FabricGameTest
         helper.succeed();
     }
 
+    /**
+     * Independent-review finding F1 (MAJOR, 2026-07-24): the original preflight compared the new
+     * structure's HULL AABB against parked ships' FIXED 2.5×1.5 entity boxes — so a parked ship
+     * whose blueprint hull extends far beyond its entity box could still be nested by a fresh
+     * assembly built under its hull (the exact RISK-004 shape T15 claimed to prevent; block loss
+     * follows when either ship disassembles into the shared volume). Contract now: the check is a
+     * CELL-SET intersection against the parked ship's rotated blueprint cells.
+     */
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void assemblyUnderParkedShipsHullIsRefused(GameTestHelper helper) {
+        // Parked ship: 13×13 single-layer hull (169 cells, dx/dz ∈ [-6..6]) centered at rel (6,1,6)
+        // — its ENTITY box (2.5×1.5) is ~5 blocks away from the new structure, but its hull cells
+        // cover the wheel area at the same Y level.
+        BlockPos parkedCenterRel = new BlockPos(6, 1, 6);
+        BlockPos parkedCenterAbs = helper.absolutePos(parkedCenterRel);
+        List<ShipBlueprint.ShipBlock> hull = new ArrayList<>();
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                hull.add(new ShipBlueprint.ShipBlock(dx, 0, dz, Blocks.OAK_PLANKS.defaultBlockState()));
+            }
+        }
+        ShipEntity parked = new ShipEntity(ModEntities.SHIP, helper.getLevel());
+        parked.setPos(parkedCenterAbs.getX() + 0.5, parkedCenterAbs.getY() + 0.5, parkedCenterAbs.getZ() + 0.5);
+        parked.setBlueprint(new ShipBlueprint(parkedCenterAbs, hull));
+        helper.getLevel().addFreshEntity(parked);
+
+        BlockPos wheelRel = new BlockPos(1, 1, 3);
+        placeValidStructure(helper, wheelRel);
+        BlockPos wheelWorldPos = helper.absolutePos(wheelRel);
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        pilot.setPos(wheelWorldPos.getX() + 0.5, wheelWorldPos.getY(), wheelWorldPos.getZ() + 0.5);
+
+        Map<BlockPos, BlockState> snapshot = snapshotWorld(helper, structureRelPositions(wheelRel));
+        ShipAssemblyService.AssembleResult result =
+                ShipAssemblyService.tryAssemble(helper.getLevel(), wheelWorldPos, pilot);
+        if (result.isSuccess()) {
+            helper.fail("assembly succeeded under a parked ship's hull cells — nesting (RISK-004) "
+                    + "is exactly what the spawn preflight must refuse, regardless of the parked "
+                    + "ship's tiny entity box");
+        }
+        assertWorldUnchanged(helper, snapshot, "under-hull refusal");
+        List<ShipEntity> ships = shipsNear(helper, wheelWorldPos);
+        if (ships.size() != 1) {
+            helper.fail("expected only the parked ship to remain, found " + ships.size());
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Independent-review finding F2 (MINOR, 2026-07-24), the opposite direction: the original
+     * hull-AABB check falsely rejected assemblies whenever ANY ship sat inside the new
+     * structure's bounding box — including positions covered by no actual structure cell (e.g.
+     * the concave notch of an L-shape). Contract now: no cell intersection → assembly proceeds.
+     */
+    @GameTest(template = EMPTY_STRUCTURE)
+    public void assemblyNearParkedShipOutsideItsCellsSucceeds(GameTestHelper helper) {
+        placeValidStructure(helper, WHEEL_POS); // wheel at (3,1,3), cells span x[2..4], z[1..4]
+        BlockPos wheelWorldPos = helper.absolutePos(WHEEL_POS);
+
+        // Parked single-cell ship at rel (5,1,4): OUTSIDE every structure cell, but its 2.5-wide
+        // entity box overlaps the old hull+0.5 AABB — the old code refused this legitimate build.
+        BlockPos parkedRel = new BlockPos(5, 1, 4);
+        BlockPos parkedAbs = helper.absolutePos(parkedRel);
+        ShipEntity parked = new ShipEntity(ModEntities.SHIP, helper.getLevel());
+        parked.setPos(parkedAbs.getX() + 0.5, parkedAbs.getY() + 0.5, parkedAbs.getZ() + 0.5);
+        parked.setBlueprint(new ShipBlueprint(parkedAbs, List.of(
+                new ShipBlueprint.ShipBlock(0, 0, 0, Blocks.OAK_PLANKS.defaultBlockState()))));
+        helper.getLevel().addFreshEntity(parked);
+
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        pilot.setPos(wheelWorldPos.getX() + 0.5, wheelWorldPos.getY(), wheelWorldPos.getZ() + 0.5);
+        ShipAssemblyService.AssembleResult result =
+                ShipAssemblyService.tryAssemble(helper.getLevel(), wheelWorldPos, pilot);
+        if (!result.isSuccess()) {
+            helper.fail("assembly was refused although the parked ship occupies NO cell of the new "
+                    + "structure (got " + result.translationKey() + ") — the hull-AABB false positive");
+        }
+        List<ShipEntity> ships = shipsNear(helper, wheelWorldPos);
+        if (ships.size() != 2) {
+            helper.fail("expected the parked ship plus the new ship, found " + ships.size());
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = EMPTY_STRUCTURE)
     public void disassemblyRestoresExactBlockCountAtSmallScale(GameTestHelper helper) {
         placeValidStructure(helper, WHEEL_POS);

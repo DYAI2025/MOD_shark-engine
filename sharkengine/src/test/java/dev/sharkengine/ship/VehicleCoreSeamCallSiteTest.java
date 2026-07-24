@@ -45,12 +45,10 @@ class VehicleCoreSeamCallSiteTest {
     private static final Path PART_PKG = Path.of("src/main/java/dev/sharkengine/ship/part");
     private static final Path SESSION_PKG = Path.of("src/main/java/dev/sharkengine/ship/session");
 
-    /** Strips block comments, line comments and string literals — best-effort, disclosed. */
+    /** F6 fix: real state-machine stripper (see {@link JavaSourceStripper}) — the old regexes
+     * corrupted quote pairing on text blocks / '"' char literals / "//" inside strings. */
     private static String stripCommentsAndStrings(String source) {
-        return source
-                .replaceAll("(?s)/\\*.*?\\*/", " ")
-                .replaceAll("//[^\n]*", " ")
-                .replaceAll("\"(\\\\.|[^\"\\\\])*\"", "\"\"");
+        return JavaSourceStripper.strip(source);
     }
 
     private static List<Path> allSourceFiles() throws IOException {
@@ -61,6 +59,17 @@ class VehicleCoreSeamCallSiteTest {
             }
         }
         return files;
+    }
+
+    /** F5 fix (MAJOR): GameTest scaffolding lives under src/main/java for Fabric-loader reasons,
+     * but it is TEST code — counting it as a "call-site" made this gate structurally incapable
+     * of going RED when production stopped calling a seam. Only these files count as callers. */
+    private static boolean isGametestFile(Path p) {
+        return p.toString().replace('\\', '/').contains("/dev/sharkengine/gametest/");
+    }
+
+    private static List<Path> productionSourceFiles() throws IOException {
+        return allSourceFiles().stream().filter(p -> !isGametestFile(p)).toList();
     }
 
     private static List<Path> seamTypeFiles(Path pkg) throws IOException {
@@ -88,12 +97,18 @@ class VehicleCoreSeamCallSiteTest {
                 "known session-seam sentinels missing — scanner path broken? " + sessionTypes);
         assertTrue(allSourceFiles().stream().anyMatch(p -> p.getFileName().toString().equals("ShipEntity.java")),
                 "source walk did not find ShipEntity.java — scanner roots broken");
+        // F5 sentinel: the gametest exclusion must actually exclude something — a broken filter
+        // silently restores the old false-immunity.
+        assertTrue(allSourceFiles().stream().anyMatch(VehicleCoreSeamCallSiteTest::isGametestFile),
+                "no gametest files found by the walk — exclusion sentinel broken");
+        assertTrue(productionSourceFiles().stream().noneMatch(VehicleCoreSeamCallSiteTest::isGametestFile),
+                "gametest files leaked into the production file set — F5 regression");
     }
 
     @Test
-    @DisplayName("AC-022(a): every seam type is referenced outside its own defining file")
+    @DisplayName("AC-022(a): every seam type is referenced outside its own defining file (production code only)")
     void everySeamTypeHasAtLeastOneReference() throws IOException {
-        List<Path> allFiles = allSourceFiles();
+        List<Path> allFiles = productionSourceFiles();
         List<Path> seamFiles = new ArrayList<>();
         seamFiles.addAll(seamTypeFiles(PART_PKG));
         seamFiles.addAll(seamTypeFiles(SESSION_PKG));
@@ -130,7 +145,7 @@ class VehicleCoreSeamCallSiteTest {
             Path pkgAbs = pkg.toAbsolutePath().normalize();
             boolean externallyUsed = false;
             outer:
-            for (Path file : allSourceFiles()) {
+            for (Path file : productionSourceFiles()) {
                 if (file.toAbsolutePath().normalize().startsWith(pkgAbs)) {
                     continue; // intra-package usage doesn't prove AIR calls the seam
                 }

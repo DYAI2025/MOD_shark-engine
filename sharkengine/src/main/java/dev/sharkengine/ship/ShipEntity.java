@@ -926,7 +926,9 @@ public final class ShipEntity extends Entity {
             this.copilot = compound.getUUID("Copilot");
         }
         if (compound.contains("FuelLevel")) {
-            this.fuelLevel = compound.getInt("FuelLevel");
+            // Review finding F4 (2026-07-25): same corrupt-save threat model as Health —
+            // clamp to [0, MAX_FUEL]; a hand-edited 999 or negative value must not load raw.
+            this.fuelLevel = Math.max(0, Math.min(FuelSystem.MAX_FUEL, compound.getInt("FuelLevel")));
         }
         // REQ-016/T17: absent on legacy saves → getFloat returns 0.0 → sanitized to 0 (no
         // refundable debt assumed, conservative). Corrupt values (NaN/negative/≥1) also reset.
@@ -935,7 +937,15 @@ public final class ShipEntity extends Entity {
             this.accelerationTicks = compound.getInt("AccelerationTicks");
         }
         if (compound.contains("CurrentSpeed")) {
-            this.currentSpeed = compound.getFloat("CurrentSpeed");
+            // Review finding F3 (2026-07-25): a NaN here was UNRECOVERABLE at runtime —
+            // Mth.lerp propagates NaN, the "<0.01 → 0" reset never fires (NaN comparisons are
+            // false), deltaMovement and the synced SYNC_SPEED go NaN and the ship is bricked.
+            // Same threat model as the FuelDebt/Health hardening; clamp to [0, 30] (the global
+            // LIGHT-class maximum, see the VehicleBalance/WeightCategory table).
+            float loadedSpeed = compound.getFloat("CurrentSpeed");
+            this.currentSpeed = Float.isFinite(loadedSpeed)
+                    ? Math.max(0.0f, Math.min(30.0f, loadedSpeed))
+                    : 0.0f;
         }
         if (compound.contains("EngineOut")) {
             this.engineOut = compound.getBoolean("EngineOut");

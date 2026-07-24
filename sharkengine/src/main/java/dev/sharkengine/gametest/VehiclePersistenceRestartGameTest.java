@@ -3,6 +3,7 @@ package dev.sharkengine.gametest;
 import dev.sharkengine.content.ModBlocks;
 import dev.sharkengine.content.ModEntities;
 import dev.sharkengine.content.block.BugBlock;
+import dev.sharkengine.ship.FuelSystem;
 import dev.sharkengine.ship.ShipAssemblyService;
 import dev.sharkengine.ship.ShipBlueprint;
 import dev.sharkengine.ship.ShipEntity;
@@ -253,6 +254,40 @@ public final class VehiclePersistenceRestartGameTest implements FabricGameTest {
             helper.fail("corrupt Health=-50 must clamp to 0 on load, got " + loadedLow.getHealth());
         }
         loadedLow.discard();
+
+        // ── Independent-review findings F3/F4 (2026-07-24): the SAME corrupt-save threat model
+        // as Health, but on the two fields the T18 pass missed. CurrentSpeed=NaN was UNRECOVERABLE
+        // at runtime (Mth.lerp propagates NaN, the <0.01 reset never fires on NaN comparisons,
+        // position goes NaN); FuelLevel loaded unclamped (999 or negative). ──
+        CompoundTag corruptSpeed = tag.copy();
+        corruptSpeed.putFloat("CurrentSpeed", Float.NaN);
+        ShipEntity loadedSpeed = new ShipEntity(ModEntities.SHIP, helper.getLevel());
+        loadedSpeed.load(corruptSpeed);
+        if (!(loadedSpeed.getCurrentSpeed() == 0.0f)) {
+            helper.fail("corrupt CurrentSpeed=NaN must sanitize to 0 on load, got "
+                    + loadedSpeed.getCurrentSpeed() + " — NaN here bricks the ship permanently");
+        }
+        loadedSpeed.discard();
+
+        CompoundTag corruptFuelHigh = tag.copy();
+        corruptFuelHigh.putInt("FuelLevel", 999);
+        ShipEntity loadedFuelHigh = new ShipEntity(ModEntities.SHIP, helper.getLevel());
+        loadedFuelHigh.load(corruptFuelHigh);
+        if (loadedFuelHigh.getFuelLevel() != FuelSystem.MAX_FUEL) {
+            helper.fail("corrupt FuelLevel=999 must clamp to MAX_FUEL on load, got "
+                    + loadedFuelHigh.getFuelLevel());
+        }
+        loadedFuelHigh.discard();
+
+        CompoundTag corruptFuelLow = tag.copy();
+        corruptFuelLow.putInt("FuelLevel", -5);
+        ShipEntity loadedFuelLow = new ShipEntity(ModEntities.SHIP, helper.getLevel());
+        loadedFuelLow.load(corruptFuelLow);
+        if (loadedFuelLow.getFuelLevel() != 0) {
+            helper.fail("corrupt FuelLevel=-5 must clamp to 0 on load, got "
+                    + loadedFuelLow.getFuelLevel());
+        }
+        loadedFuelLow.discard();
 
         // ── Reserved TrailConfig slot: raw pass-through load → save (T21 populates it) ──
         CompoundTag withTrail = tag.copy();
