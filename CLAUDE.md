@@ -208,9 +208,31 @@ GitHub Actions:
 
 Three things the workflow badges do **not** tell you:
 
-1. **A green "Deploy Test Server" run does not mean anything was deployed.** The deploy job probes `secrets.RAILWAY_TOKEN` and gates both the CLI install and `railway up` on it being present; with the secret unset it prints "RAILWAY_TOKEN is not configured, skipping deploy." and **exits SUCCESS**. Check the step log or the live server, never the badge.
+1. **A green "Deploy Test Server" run does not by itself mean anything was deployed.** The deploy job probes `secrets.RAILWAY_TOKEN` and gates both the CLI install and `railway up` on it being present; with the secret unset it prints "RAILWAY_TOKEN is not configured, skipping deploy." and **exits SUCCESS**. `RAILWAY_TOKEN` *is* currently configured (repo secret, set 2026-07-02), so pushes to `main` do genuinely deploy today — but the badge still can't tell you that, so check the step log or the live server if it matters.
 2. **The deploy path never compiles the client and never runs GameTests.** `deploy.yml` gates on `test` (which skips `compileClientJava`), and the Dockerfile builder runs `build -x test`. Only `ci.yml` runs `build` and `runGametest` — and there is no `needs`/`workflow_run` link between the two files, so a red CI does not block a deploy.
 3. **Neither workflow runs `clean` or `runDatagen`**, so both depend entirely on the committed `src/main/generated` (72 tracked files). If that tree were ever gitignored or dropped, CI's `gametest` job and the built server image would go silently gameplay-dead (no `ship_eligible` tag) rather than failing the build.
+
+### The Railway test server
+
+A live Railway-hosted Minecraft server exists for this mod (set up 2026-07-02): **`hayabusa.proxy.rlwy.net:47054`** — TCP port re-verified reachable 2026-07-26, though a proxy address can change on redeploy, so confirm via the Railway dashboard/CLI (`/railway-ship`) before trusting it. It tracks `main` only; feature-branch work never reaches it (use `/test-server` at `localhost:25566`, or `./gradlew runClient`).
+
+> **Why the port is 47054 and not 25565 — and the one step that isn't in this repo.** Railway exposes only HTTP/HTTPS by default. A Minecraft server needs Railway's **TCP Proxy**: Dashboard → Service → Networking → TCP Proxy → Enable → **Target Port `25565`**; Railway then assigns a random public port. **This is a dashboard-only action.** It cannot be expressed in `railway.toml`, the `Dockerfile`, or `EXPOSE 25565`, and nothing in this repo records it. Recreate the Railway service without it and you get a server whose logs say it started cleanly while every client gets "Connection refused". Full write-up: `~/.hermes/skills/software-development/minecraft-bot-development/references/railway-tcp-proxy.md`.
+
+**No persistent volume is configured**, so the Railway world lives in the container and is lost on every redeploy — the same limitation as the local `/test-server` container. A `/data` volume mount (≥1 GiB) is what the sibling MISSI Railway checklist recommends if persistence is ever wanted.
+
+**Checking which mod version is actually live** (verified working 2026-07-26 — the server was running `sharkengine 0.1.0` from `main`@`2695cbc`):
+
+```bash
+railway logs | grep -E 'Loading [0-9]+ mods|sharkengine [0-9]'   # → "- sharkengine 0.1.0"
+railway status                                                    # latestDeployment == activeDeployment, status SUCCESS
+```
+
+Two traps make this fail in ways that look like the server is broken when it isn't:
+
+- **Do not let `RAILWAY_TOKEN` from `~/.openclaw/.env` into the environment.** That token is for a *different* project and every CLI call returns `Unauthorized`. The working credential is the stored account login in `~/.railway/config.json`, which the env var overrides. Prefix with `env -u RAILWAY_TOKEN` if your shell sources that file. (The GitHub Actions secret of the same name is a separate, valid token — the two are unrelated.)
+- **Railway's project link is per-directory.** This checkout was linked to `sharkengine-mc-mod` on 2026-07-26; before that, `railway status` run from here silently reported an unrelated project (`FuFire_API`), because only the old `~/Dokumente/.../SharkEngine/` clone was linked. Always confirm `railway status` names **`sharkengine-mc-mod`** before believing any output — never assume the linked project from the working directory.
+
+**`railway up --detach` is the structural gap in the deploy pipeline.** The GitHub job goes green as soon as the upload is *accepted*, not when the Railway build succeeds — so a green `deploy.yml` run plus a broken Railway build is a perfectly possible, and completely invisible, combination. Railway also records **no commit SHA** (`railway up` uploads files rather than triggering from git), so mapping a running deployment back to a commit is a timestamp correlation, not an identity check. `railway status`/`railway logs` are the only real confirmation.
 
 The Dockerfile is a two-stage build (temurin `21-jdk` builder → `21-jre` runtime) that `ADD`s the Fabric server *launcher* and Fabric API from the network, so the image is **not self-contained** — first boot needs outbound network, and a successful image build says nothing about whether the server can start. Fabric loader/API versions are duplicated between `gradle.properties` and hardcoded URLs in the Dockerfile with **nothing validating the pair** (and `fabric.mod.json` only declares `"fabric-api": "*"`, so a mismatch won't be caught by the mod's own dependency check). `server/server.properties`, baked into the image, sets `online-mode=false` — the deployed server accepts any username with no Mojang auth.
 

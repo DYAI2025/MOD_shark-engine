@@ -6,8 +6,24 @@ docs
 specs
 epics
 *.md
+
+# server/ holds local runtime state (.fabric, libraries, versions, world, mods,
+# logs — ~135 MB, all untracked) that was being uploaded as build context on
+# every `docker build`. The Dockerfile needs exactly ONE file from here:
+# `COPY server/server.properties .`.
+#
+# ORDER IS LOAD-BEARING: .dockerignore is last-match-wins, so this exclusion
+# MUST stay ABOVE the negation below. Moving it after `!server/server.properties`
+# makes the exclusion win and breaks the build at that COPY step.
+# `server/*` (not `server`) is deliberate — it excludes the directory's contents
+# while leaving the directory itself matchable, so the negation can re-include.
+server/*
 !server/server.properties
 sharkengine/.gradle
 sharkengine/build
+# Fabric dev-client runtime dir created by `./gradlew runClient` (~227 MB of
+# untracked assets/natives/logs). Pure local build output like `build/` above;
+# the headless `./gradlew build -x test` in the builder stage never reads it.
+sharkengine/run
 sharkengine/.idea
 sharkengine/*.iml
