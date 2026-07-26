@@ -194,7 +194,28 @@ Tests use `@DisplayName` tied to gameplay behavior (361 of 362 methods carry one
 
 ## Recovery audit (lost-fix check)
 
+**Branch topology first — the abandoned line was the real `origin/main`.** Both lines fork at `3c0cc2b` (2026-03-17, PR #10). `archive/local-fixline-2026-07` is not a local side-branch that drifted: it **was** the published `origin/main` (this clone was created from it 2026-07-02; pushes went to it through 2026-07-03), carrying 45 commits of real development. The line that is `main` today was rebuilt from the same March base starting 2026-07-11, and **`origin/main` was force-updated onto it on 2026-07-17** (`git reflog show origin/main` → `pull: forced-update`); local `main` was reset onto it 2026-07-24. Consequences worth knowing before you go looking for something:
+
+- All 45 archive commits are **non-upstream-equivalent** (`git cherry origin/main archive/local-fixline-2026-07` marks every one `+`) — the current line is a rebuild, not a carry-over, so "was this ported?" is never answerable by ancestry alone.
+- An entire **Hovercraft feature set (10 files) exists only on the archive line** and nowhere in `main`. If someone asks where hovercraft work went, that is the answer.
+- The archive line's `main`-era history is the last state that was ever *published* as `origin/main` before the force-update — treat it as a real predecessor, not scratch work.
+
 When a development line is recovered/reimplemented from an abandoned one (as happened 2026-07: `archive/local-fixline-2026-07` → the current line), diff the abandoned line's fix history (`git log --oneline --grep='Fix:' <old-line>`) against the new line and classify EVERY fix class as present/lost — never assume the recovery carried them. Recovery reliably carries feature work but drops small hardening fixes (they are inconspicuous and often untested on the new line). Three fixes were provably lost in that recovery: the NaN input clamp and the Health load clamp (rediscovered by accident during T16/T18), and the Dockerfile sources-jar exclusion (old `6ec531f`; the recovered Dockerfile's `sharkengine-*.jar` glob shipped the sources jar into `mods/` while its own comment claimed otherwise — rediscovered 2026-07-24 by exactly this audit while preparing the smoke server). A third suspect (helm input send rate: old line every-tick/20 Hz vs. current ~10 Hz) was checked 2026-07-24 and REFUTED — a worked example of how to audit: the old fix's commit message shows it addressed a payload-yaw COPY (`hcPlayerYaw` copied onto entity yaw every tick → hold-then-jump staircase at 10 Hz); the current line carries no continuous yaw in the payload and instead integrates the HELD turn input server-side every tick, so the staircase mechanism is structurally absent. Compare the old fix's MECHANISM against the new architecture, never just the symptom name. (Remaining nuance, not a defect: ~100 ms input-change latency at 10 Hz ≈ up to ~6° over-turn on key release; every-tick sending stays the cheap knob if flight-feel smoke testing flags turn responsiveness.)
+
+**The `--grep='Fix:'` recipe above is too narrow — grep the whole range.** Established 2026-07-26: the abandoned line's repair of the 2026-03 client-compile break is `484d5bf`, subject *"**Chore:** make PreviewState public, update server jar to v0.1.0"*. A `Fix:`-only grep provably never surfaces it. Fixes hide under `Chore:`/`Feat:` subjects, and a one-word visibility change is exactly the inconspicuous kind of repair this audit exists to catch.
+
+### Not every cross-line defect is a lost fix — check the topology first
+
+The 2026-03 client-compile break looks like a fourth lost-fix case and **is not one**. Worth recording because the mistake is easy to make and was made (and refuted) on 2026-07-26:
+
+- `d9f5fdb` (2026-03-17) introduced it — the first cross-package reference to the then-package-private `PreviewState`, from `TutorialPopupScreen`. Before it, every referrer lived inside `client.builder`.
+- **The break predates the fork.** `d9f5fdb` is an ancestor of the two lines' merge-base `3c0cc2b` (PR #10, same day), so **both lines inherited it**. `origin/main` never held the fix and therefore could not lose it — the 2026-07-11 recovery commit `0bf3d32` touched zero files under `sharkengine/src`.
+- The archive line repaired it in 12 days (`484d5bf`). The line that became `main` did not — **because it sat dormant: zero commits 2026-03-18 → 2026-07-10.** The 117-day exposure is dormancy plus the `test`-vs-`build` CI gap, not four months of blind development.
+- `cf15fef` (2026-07-12) fixed it a second time, **byte-identically** to `484d5bf` (same pre/post blobs, same `git patch-id`) — and additionally flipped CI from `test` to `build`, closing the detection gap for good. It was found by a code review ~8 h into the new line's life, not by this audit, and it predates `archive/local-fixline-2026-07`'s creation (2026-07-24) by 12 days.
+
+> `cf15fef`'s own commit message calls `d9f5fdb` *"part of the recovered BUG-Frontsystem history"*. That is wrong — `d9f5fdb` landed on `main` natively via PR #10 and was never recovered. Do not propagate that sentence.
+
+**The rule:** before filing something as a lost fix, check whether the defect predates the merge-base. If both lines inherited it, the abandoned line *fixed something you never had* — a different failure mode from a recovery dropping a fix, with a different remedy (mine the abandoned line for repairs you lack, rather than re-auditing what the recovery carried).
 
 ## Debugging "nothing happens" reports
 
