@@ -6,7 +6,6 @@ import dev.sharkengine.content.block.ThrusterBlock;
 import dev.sharkengine.ship.AccelerationPhase;
 import dev.sharkengine.ship.ShipBlueprint;
 import dev.sharkengine.ship.ShipEntity;
-import dev.sharkengine.ship.ShipTransform;
 import dev.sharkengine.ship.TrailColor;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -58,78 +57,51 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
         poseStack.pushPose();
 
         // ═══════════════════════════════════════════════════════════════════
-        // BUG FIX 1+4 (AIR-011, 2026-07-12): Rotate entire ship structure with
-        // interpolated yaw, MINUS the yaw the BUG block resolved to at
-        // assembly time (blueprint.assemblyYaw(), AIR-015). Blueprint offsets
-        // are captured in raw world-space, and the entity spawns with
-        // yRot == assemblyYaw — rotating by raw entity yaw alone (the
-        // pre-AIR-011 behavior) double-counts that initial orientation for
-        // any BUG facing other than SOUTH (assemblyYaw=0), causing a visible
-        // snap-rotation the instant the ship launches. Uses
-        // ShipTransform.effectiveYaw (AIR-010) rather than a bare subtraction
-        // so this is the one rotation authority, not a second formula.
-        // Using the dispatcher-supplied entityYaw (already interpolated —
-        // see EntityRenderDispatcher, matches vanilla's own BoatRenderer
-        // pattern of using its received yaw parameter directly) instead of
-        // recomputing Mth.lerp(partialTick, entity.yRotO, entity.getYRot())
-        // by hand. The two are normally equal, but the manual recompute was
-        // redundant with what the engine already computed for us and is one
-        // fewer thing to keep in sync if that computation ever changes.
+        // WHY assemblyYaw IS SUBTRACTED AT ALL (AIR-011/AIR-015): blueprint
+        // offsets are captured in raw world space and the entity spawns with
+        // yRot == assemblyYaw, so rotating by raw entity yaw alone double-counts
+        // the initial orientation for any BUG facing other than SOUTH, producing
+        // a visible snap-rotation the instant the ship launches. entityYaw comes
+        // from the dispatcher already interpolated (same as vanilla BoatRenderer);
+        // do not recompute it by hand.
         // ═══════════════════════════════════════════════════════════════════
-        float smoothYaw = ShipTransform.effectiveYaw(entityYaw, blueprint.assemblyYaw());
-        poseStack.mulPose(Axis.YN.rotationDegrees(smoothYaw));
-
-        // ═══════════════════════════════════════════════════════════════════
-        // FLR-003 (flight-feel bank/roll, docs/plans/flight-bank-roll.md):
-        // second rotation, composed AFTER yaw so it turns around the ship's
-        // own local forward axis in the already-yaw-rotated frame, not
-        // world-space. entity.getClientRoll() is a smoothed, client-only
-        // value (never synced itself — derived every client tick from the
-        // synced SYNC_TURN, see ShipEntity.tick()'s client branch) so this
-        // stays purely cosmetic and identical for every observer.
+        // ORIENTATION-INDEPENDENT ROLL/PITCH (corrected 2026-07-26 after a live
+        // report: Space banked the ship LEFT and D tipped the NOSE DOWN — roll
+        // and pitch were acting on each other's axes).
         //
-        // CORRECTED 2026-07-13 after live runClient feedback, in two steps:
-        //   1) original guess (Axis.ZP) produced visible PITCH (nose/tail
-        //      tilting up/down) instead of ROLL/bank (left/right side
-        //      dipping) — the wrong horizontal axis entirely. (If this ever
-        //      needs re-deriving: block placement is
-        //      poseStack.translate(dx-0.5, dy, dz-0.5), and empirically
-        //      rotating around X — not Z — produces the left/right-dipping
-        //      motion; treat that as ground truth over any a priori "dz is
-        //      forward, so roll must be around Z" reasoning.)
-        //   2) Axis.XP (the axis fix) banked the correct AXIS but the wrong
-        //      SIGN — a right turn dipped the LEFT side. Axis.XN is now
-        //      empirically confirmed correct on both axis and sign.
+        // ROOT CAUSE, and why two earlier "empirically confirmed" fixes both
+        // stuck: ShipAssemblyService stores blueprint offsets as RAW WORLD
+        // deltas (dx = pos.getX() - wheelPos.getX()), never normalised to the
+        // BUG's facing. So the model's local FORWARD axis is whatever world
+        // axis the BUG pointed along AT ASSEMBLY TIME: +Z for a SOUTH bug, +X
+        // for EAST, -X for WEST, -Z for NORTH. There is therefore NO single
+        // hardcoded axis pair that is right for every ship — the older fixes
+        // (roll ZP->XP->XN, pitch ZP->ZN) were each measured on a differently
+        // oriented test ship and were correct only for that one. Working the
+        // geometry back: roll=XN is right iff forward is +X (EAST build),
+        // pitch=ZN iff forward is -X (WEST build) — no build satisfies both,
+        // which is the tell that the mapping was never orientation-independent.
         //
-        // ShipTransform.rollFromTurnInput's contract only guarantees
-        // "positive return value = bank in the direction that turns the
-        // ship left"; it does NOT decide which PoseStack axis/sign that
-        // corresponds to visually — that mapping lives entirely here. Do
-        // not "fix" a future regression by flipping the sign in
-        // rollFromTurnInput instead — that function's sign convention is
-        // deliberately anchored to the already-proven turn-direction
-        // physics (see its javadoc); this axis/sign choice is the only
-        // thing that should change.
-        // ═══════════════════════════════════════════════════════════════════
-        poseStack.mulPose(Axis.XN.rotationDegrees(entity.getClientRoll()));
-
-        // ═══════════════════════════════════════════════════════════════════
-        // FLP-003 (flight-feel pitch, docs/plans/flight-pitch.md): third rotation,
-        // composed after yaw+roll for the same local-forward-axis reasoning as
-        // roll above. entity.getClientPitch() is a smoothed, client-only value
-        // derived every client tick from the synced SYNC_VERTICAL (see
-        // ShipEntity.tick()'s client branch) — purely cosmetic, identical for
-        // every observer.
+        // FIX: split the yaw so roll/pitch happen in the CANONICAL frame
+        // (nose = +Z, up = +Y, left wing = +X). The inner YN(-assemblyYaw)
+        // rotates the raw blueprint out of its assembly-time world frame into
+        // that canonical frame; roll then goes about the longitudinal axis (Z)
+        // and pitch about the lateral axis (X) for EVERY bug facing.
         //
-        // CORRECTED 2026-07-13 after live runClient feedback: the axis (Z) was
-        // confirmed right on the first guess — it really is the same axis
-        // FLR-003's first (wrong) roll attempt accidentally used, exactly as
-        // predicted (see flight-pitch.md's Preconditions) — but the SIGN was
-        // backwards, same class of mistake as roll's XP->XN correction: Space
-        // (climb, positive entity.getClientPitch()) was tipping the nose DOWN
-        // instead of up. Axis.ZN corrects it.
+        // Safe refactor: with roll = pitch = 0 the two YN terms compose to
+        // YN(entityYaw - assemblyYaw) = YN(effectiveYaw), i.e. byte-identical
+        // to the previous single-rotation yaw handling.
+        //
+        // Do NOT "fix" a future regression by flipping signs in
+        // ShipTransform.rollFromTurnInput / pitchFromVerticalInput — those are
+        // anchored to the proven turn/climb physics. If something looks wrong,
+        // check the BUG facing of the ship you are testing FIRST: that is the
+        // variable two previous debugging sessions missed.
         // ═══════════════════════════════════════════════════════════════════
-        poseStack.mulPose(Axis.ZN.rotationDegrees(entity.getClientPitch()));
+        poseStack.mulPose(Axis.YN.rotationDegrees(entityYaw));
+        poseStack.mulPose(Axis.ZN.rotationDegrees(entity.getClientRoll()));    // bank, about the longitudinal axis
+        poseStack.mulPose(Axis.XN.rotationDegrees(entity.getClientPitch()));   // pitch, about the lateral axis
+        poseStack.mulPose(Axis.YN.rotationDegrees(-blueprint.assemblyYaw()));
 
         for (ShipBlueprint.ShipBlock block : blueprint.blocks()) {
             BlockState blockState = block.state();
@@ -143,15 +115,24 @@ public final class ShipEntityRenderer extends EntityRenderer<ShipEntity> {
 
         poseStack.popPose();
 
-        // Particles
-        if (entity.level().isClientSide) {
+        // Particles — render() runs once per FRAME, so this must be gated to one burst per
+        // TICK or emission (and the sound roll below) scales with framerate. The gate is
+        // stateful and consumes the tick's slot, hence the call order: ask last, emit once.
+        // The old `entity.level().isClientSide` guard here was dead code — an EntityRenderer
+        // only ever runs client-side.
+        if (entity.shouldEmitParticlesThisTick()) {
             spawnThrusterParticles(entity);
         }
     }
 
     /**
-     * Spawns thruster particles at the positions of thruster blocks,
-     * rotated to match the ship's current orientation.
+     * Spawns thruster particles for this tick, rotated to match the ship's current orientation.
+     *
+     * <p>Call ONLY behind {@link ShipEntity#shouldEmitParticlesThisTick()} — see the call site.</p>
+     *
+     * <p>Note the particles are emitted around the entity origin with a random horizontal
+     * offset, NOT at the individual thruster block positions; that mismatch with this method's
+     * historical name is a separate, still-open issue recorded in CLAUDE.md.</p>
      */
     private void spawnThrusterParticles(ShipEntity entity) {
         if (!entity.hasThrusters()) return;

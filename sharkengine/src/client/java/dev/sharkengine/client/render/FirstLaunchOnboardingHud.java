@@ -25,7 +25,12 @@ import java.util.concurrent.Executors;
  */
 public final class FirstLaunchOnboardingHud {
     private static final String CONFIG_FILE = "sharkengine_client.properties";
-    private static final String FIRST_LAUNCH_KEY = "onboarding.dismissed.v4";
+    // v5 (2026-07-26): the card taught "Shift descends", which is vanilla sneak and
+    // EJECTS the pilot mid-flight — a player following it was thrown out of their aircraft.
+    // Descend moved to Left Ctrl and the text was corrected. The suffix MUST be bumped
+    // whenever this card's content changes: the dismissal flag is persisted per key, so
+    // anyone who already dismissed v4 would otherwise never see the corrected text.
+    private static final String FIRST_LAUNCH_KEY = "onboarding.dismissed.v5";
 
     private static final int CARD_WIDTH = 250;
     private static final int CARD_PADDING = 10;

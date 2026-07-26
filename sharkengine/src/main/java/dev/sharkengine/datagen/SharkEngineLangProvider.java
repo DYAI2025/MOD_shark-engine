@@ -72,7 +72,7 @@ final class SharkEngineLangProvider {
             b.add("screen.sharkengine.tutorial.ready.title", "Vehicle Ready");
             b.add("screen.sharkengine.tutorial.ready.body", "All requirements met. Press Launch to take off!");
             b.add("screen.sharkengine.tutorial.flight_tips.title", "Flight Controls");
-            b.add("screen.sharkengine.tutorial.flight_tips.body", "WASD to steer, Space to rise, Shift to descend. Monitor fuel and weight warnings.");
+            b.add("screen.sharkengine.tutorial.flight_tips.body", "WASD to steer, Space to rise, Left Ctrl to descend (Shift dismounts!). Monitor fuel and weight warnings.");
             b.add("block.sharkengine.bug", "Bow (Front Marker)");
             b.add("item.sharkengine.bug", "Bow (Front Marker)");
             b.add("item.sharkengine.thruster", "Thruster");
@@ -85,7 +85,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.fuel_added", "Fuel refilled: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Quick Flight Guide");
             b.add("hud.sharkengine.onboarding.movement", "Movement: W = forward, A/D = turn. Build momentum before climbing.");
-            b.add("hud.sharkengine.onboarding.vertical", "Vertical: Space rises, Shift descends. Heavy ships climb slower.");
+            b.add("hud.sharkengine.onboarding.vertical", "Vertical: Space rises, Left Ctrl descends. Shift gets you OUT. Heavy ships climb slower.");
             b.add("hud.sharkengine.onboarding.fuel", "Fuel: Green = safe, Yellow = low, Red = critical. Refuel before long flights.");
             b.add("hud.sharkengine.onboarding.dismiss", "Press X to dismiss this card.");
             b.add("message.sharkengine.not_pilot", "You are not the pilot of this ship.");
@@ -229,7 +229,7 @@ final class SharkEngineLangProvider {
             b.add("screen.sharkengine.tutorial.ready.title", "Fahrzeug bereit");
             b.add("screen.sharkengine.tutorial.ready.body", "Alle Anforderungen erfüllt. Drücke Starten zum Abheben!");
             b.add("screen.sharkengine.tutorial.flight_tips.title", "Flugsteuerung");
-            b.add("screen.sharkengine.tutorial.flight_tips.body", "WASD zum Lenken, Leertaste zum Steigen, Shift zum Sinken. Achte auf Treibstoff- und Gewichtswarnungen.");
+            b.add("screen.sharkengine.tutorial.flight_tips.body", "WASD zum Lenken, Leertaste zum Steigen, Strg links zum Sinken (Shift steigt AUS!). Achte auf Treibstoff- und Gewichtswarnungen.");
             b.add("block.sharkengine.bug", "Bug (Frontmarker)");
             b.add("item.sharkengine.bug", "Bug (Frontmarker)");
             b.add("item.sharkengine.thruster", "Triebwerk");
@@ -242,7 +242,7 @@ final class SharkEngineLangProvider {
             b.add("message.sharkengine.fuel_added", "Treibstoff aufgefüllt: %s");
             b.add("hud.sharkengine.onboarding.title", "Shark Engine V4 · Flug-Kurzanleitung");
             b.add("hud.sharkengine.onboarding.movement", "Bewegung: W = vorwärts, A/D = drehen. Erst Schub aufbauen, dann steigen.");
-            b.add("hud.sharkengine.onboarding.vertical", "Vertikal: Leertaste steigt, Shift sinkt. Schwere Schiffe steigen langsamer.");
+            b.add("hud.sharkengine.onboarding.vertical", "Vertikal: Leertaste steigt, Strg links sinkt. Shift steigt AUS. Schwere Schiffe steigen langsamer.");
             b.add("hud.sharkengine.onboarding.fuel", "Treibstoff: Grün = sicher, Gelb = niedrig, Rot = kritisch. Vor langen Flügen auftanken.");
             b.add("hud.sharkengine.onboarding.dismiss", "Drücke X, um diese Karte auszublenden.");
             b.add("message.sharkengine.not_pilot", "Du bist nicht der Pilot dieses Schiffs.");

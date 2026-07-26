@@ -21,17 +21,28 @@ import org.lwjgl.glfw.GLFW;
  * this without touching vanilla's dismount-on-sneak behavior at all — the
  * player just no longer needs to press sneak to descend.</p>
  *
- * <p>Defaults to Left Alt: unbound by vanilla, and not already used anywhere
- * else in this mod. Fully rebindable in Controls options like any other
- * {@link KeyMapping} (registered via {@link KeyBindingHelper}, not a raw
- * hardcoded key check).</p>
+ * <p>Defaults to <b>Left Control</b> (changed 2026-07-26 on user request; was Left Alt).
+ * Rationale: players arrive from vanilla creative flight, where Space/Shift is the
+ * up/down pair — and reaching for Shift here EJECTS them. Left Control sits where the
+ * hand already is and is the least surprising descend key.</p>
+ *
+ * <p><b>Known, accepted overlap:</b> vanilla binds Left Control to {@code key.sprint}.
+ * The Controls screen will therefore show a red conflict marker. It is cosmetic: sprint
+ * has no effect while riding a vehicle, which is the only situation this binding is read
+ * in ({@code HelmInputClient} only sends helm input when the player's vehicle is a
+ * {@code ShipEntity}). Rebindable like any other {@link KeyMapping} if a player dislikes it.</p>
+ *
+ * <p>Dismount stays on vanilla sneak (Shift). Tab was considered and rejected — vanilla
+ * binds it to {@code key.playerlist}, and moving dismount off sneak would additionally
+ * require suppressing vanilla's dismount-on-sneak and reworking the controller dismount
+ * path, which routes through {@code player.input.shiftKeyDown}.</p>
  */
 public final class ShipKeyBindings {
 
     public static final KeyMapping DESCEND = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key.sharkengine.descend",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_LEFT_ALT,
+            GLFW.GLFW_KEY_LEFT_CONTROL,
             "key.categories.sharkengine"
     ));
 

@@ -46,7 +46,8 @@
       "dev.sharkengine.gametest.VehiclePersistenceRestartGameTest",
       "dev.sharkengine.gametest.ThrusterRecolorRejectionGameTest",
       "dev.sharkengine.gametest.TrailColorPersistenceGameTest",
-      "dev.sharkengine.gametest.TrailParticleStressGameTest"
+      "dev.sharkengine.gametest.TrailParticleStressGameTest",
+      "dev.sharkengine.gametest.PhaseSyncGameTest"
         ],
         "fabric-datagen": [
             "dev.sharkengine.datagen.SharkEngineDataGenerator"

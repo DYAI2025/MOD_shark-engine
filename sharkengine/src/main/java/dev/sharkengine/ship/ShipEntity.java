@@ -92,6 +92,21 @@ public final class ShipEntity extends Entity {
      */
     private static final EntityDataAccessor<Float> SYNC_VERTICAL =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
+    /**
+     * Synced acceleration phase, as {@link AccelerationPhase#ordinal()}.
+     *
+     * <p>Without this the renderer's thruster VFX were permanently stuck on {@code PHASE_1}:
+     * {@link #phase} is written only in {@link #updatePhysics()}, which never runs client-side,
+     * so {@code ShipEntityRenderer#spawnThrusterParticles} always read the initial value —
+     * campfire smoke at intensity 0.2, never escalating to flame however fast the ship flew.
+     * Locked by {@code PhaseSyncGameTest}.</p>
+     *
+     * <p>Ordinal rather than a string: this is {@code SynchedEntityData}, re-sent from the
+     * server on every change, not a hand-rolled payload codec — there is no persisted or
+     * cross-version form to break. {@link #getSyncedPhase()} still decodes defensively.</p>
+     */
+    private static final EntityDataAccessor<Integer> SYNC_PHASE =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
 
     // ═══════════════════════════════════════════════════════════════════
     // FIELDS
@@ -182,6 +197,16 @@ public final class ShipEntity extends Entity {
 
     /** Current acceleration phase (1-5) */
     private AccelerationPhase phase = AccelerationPhase.PHASE_1;
+
+    /**
+     * Last {@code tickCount} for which particle emission was granted; {@code -1} = never.
+     * Client-side bookkeeping only, deliberately NOT persisted or synced.
+     *
+     * <p>Lives on the entity rather than on the renderer because {@code EntityRenderer} is a
+     * single shared instance for every {@code ShipEntity} — a renderer-side counter would let
+     * one ship suppress another ship's particles.</p>
+     */
+    private int lastParticleTick = -1;
 
     /** Ticks since acceleration started (20 ticks = 1 second) */
     private int accelerationTicks = 0;
@@ -680,7 +705,51 @@ public final class ShipEntity extends Entity {
     // ═══════════════════════════════════════════════════════════════════
 
     public VehicleClass getVehicleClass() { return vehicleClass; }
-    public AccelerationPhase getPhase() { return phase; }
+    /**
+     * Current acceleration phase, side-aware like {@link #getCurrentSpeed()} and friends.
+     *
+     * <p>The client MUST read the synced copy: {@link #phase} is only ever written by
+     * {@link #updatePhysics()}, which returns early client-side, so the raw field would report
+     * {@code PHASE_1} forever there. {@code ShipEntityRenderer} calls this every frame to pick
+     * the particle type and intensity.</p>
+     */
+    public AccelerationPhase getPhase() {
+        return level().isClientSide ? getSyncedPhase() : phase;
+    }
+
+    /**
+     * Always the synced phase, regardless of side — the inspection hook
+     * {@code PhaseSyncGameTest} asserts against (same role as {@link #getSyncedFuel()}).
+     *
+     * <p>Decodes defensively: an out-of-range ordinal falls back to {@code PHASE_1} rather
+     * than throwing {@code ArrayIndexOutOfBoundsException} on the render thread.</p>
+     */
+    /**
+     * Claims this tick's single particle-emission slot: {@code true} at most once per tick,
+     * however often it is called.
+     *
+     * <p>{@code ShipEntityRenderer.spawnThrusterParticles} runs from {@code render()} — once per
+     * FRAME. Without this gate the whole per-tick particle budget was emitted every frame (~60x
+     * a second at 60 fps) and the {@code random.nextInt(20)} sound roll fired ~3x/sec instead of
+     * ~1x/sec, so emission scaled with framerate and looked different on every machine. Locked
+     * by {@code PhaseSyncGameTest#particleEmissionIsGatedToOnePerTick}.</p>
+     *
+     * <p><b>Stateful by design</b> — calling it consumes the slot. Call it exactly once, at the
+     * point where you would otherwise emit; do not use it as a predicate.</p>
+     */
+    public boolean shouldEmitParticlesThisTick() {
+        if (this.tickCount == lastParticleTick) {
+            return false;
+        }
+        lastParticleTick = this.tickCount;
+        return true;
+    }
+
+    public AccelerationPhase getSyncedPhase() {
+        int ordinal = this.entityData.get(SYNC_PHASE);
+        AccelerationPhase[] values = AccelerationPhase.values();
+        return (ordinal >= 0 && ordinal < values.length) ? values[ordinal] : AccelerationPhase.PHASE_1;
+    }
     public int getAccelerationTicks() { return accelerationTicks; }
 
     public float getCurrentSpeed() {
@@ -875,6 +944,7 @@ public final class ShipEntity extends Entity {
         builder.define(SYNC_HEALTH, MAX_HEALTH);
         builder.define(SYNC_TURN, 0.0f);
         builder.define(SYNC_VERTICAL, 0.0f);
+        builder.define(SYNC_PHASE, AccelerationPhase.PHASE_1.ordinal());
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1504,6 +1574,7 @@ public final class ShipEntity extends Entity {
         this.entityData.set(SYNC_HEALTH, health);
         this.entityData.set(SYNC_TURN, inputTurn);
         this.entityData.set(SYNC_VERTICAL, inputVertical);
+        this.entityData.set(SYNC_PHASE, phase.ordinal());
     }
 
     // ═══════════════════════════════════════════════════════════════════
